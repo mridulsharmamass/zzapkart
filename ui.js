@@ -19,18 +19,25 @@ function productThumb(p) {
   return img ? `<img src="${img}" alt="" loading="lazy" />` : esc(p.emoji || "📦");
 }
 
-// opts.campaignId diya ho to card "Sponsored" ad ki tarah dikhega
+function productUrl(p, slotId) {
+  return `product.html?id=${p.id}` + (slotId ? `&slot=${encodeURIComponent(slotId)}` : "");
+}
+
+// opts.slot (ad slot id) diya ho to card "Sponsored" ad ki tarah dikhega
 function productCard(p, opts = {}) {
+  if (!p) return "";
+  if (typeof opts !== "object") opts = {}; // .map(productCard) index bhejta hai
   trackView(p.id);
   const off = discount(p);
   const available = inStock(p);
-  const camp = opts.campaignId ? ` data-campaign="${esc(opts.campaignId)}"` : "";
+  const slotAttr = opts.slot ? ` data-slot="${esc(opts.slot)}"` : "";
+  const href = productUrl(p, opts.slot);
   return `
-    <div class="card"${camp}>
-      ${opts.campaignId ? `<span class="ad-tag">Sponsored</span>` : p.featured ? `<span class="ad-tag featured">★ Featured</span>` : ""}
-      <div class="card-img" style="background:${esc(p.color)}">${productThumb(p)}</div>
+    <div class="card${opts.slot ? " sponsored" : ""}"${slotAttr}>
+      ${opts.slot ? `<span class="ad-tag">Sponsored</span>` : p.featured ? `<span class="ad-tag featured">★ Featured</span>` : ""}
+      <a class="card-img" href="${href}" style="background:${esc(p.color)}">${productThumb(p)}</a>
       <div class="card-body">
-        <h3>${esc(p.name)}</h3>
+        <h3><a href="${href}" class="card-title">${esc(p.name)}</a></h3>
         ${p.sellerName ? `<span class="sold-by">Sold by ${esc(p.sellerName)}</span>` : ""}
         ${p.rating ? `<span class="rating">${p.rating} ★</span>` : `<span class="rating new">New</span>`}
         <div class="price-row">
@@ -38,7 +45,7 @@ function productCard(p, opts = {}) {
           ${off ? `<span class="mrp">${formatPrice(p.mrp)}</span><span class="off">${off}% off</span>` : ""}
         </div>
         ${available
-          ? `<button class="btn add-btn" data-id="${p.id}"${camp}>Add to Cart</button>`
+          ? `<button class="btn add-btn" data-id="${p.id}">Add to Cart</button>`
           : `<button class="btn add-btn" disabled>Out of Stock</button>`}
       </div>
     </div>`;
@@ -47,11 +54,11 @@ function productCard(p, opts = {}) {
 // Kisi bhi container ke andar "Add to Cart" buttons ko kaam karwao
 function enableAddToCart(container) {
   container.addEventListener("click", (e) => {
-    const card = e.target.closest(".card[data-campaign]");
-    if (card) recordClick(card.dataset.campaign); // ad par click
-
     const btn = e.target.closest(".add-btn");
     if (!btn || btn.disabled) return;
+    // Sponsored card se seedha cart mein daala = ad click
+    const adCard = btn.closest(".card[data-slot]");
+    if (adCard && typeof recordAdClick === "function") recordAdClick(adCard.dataset.slot);
     const id = Number(btn.dataset.id);
     const p = PRODUCTS.find((x) => x.id === id);
     if (!p) return;

@@ -33,13 +33,21 @@ if (!cat) {
     discount: (a, b) => discount(b) - discount(a),
   };
 
+  // Sponsored products is category ke liye (page load par ek auction)
+  const catSlots = runAuction({ placement: "category", category: cat.name }, 2);
+  let catSlotsTracked = false;
+
   function render() {
     const q = searchInput.value.trim().toLowerCase();
+    const showAds = !q && catSlots.length > 0;
+    const adIds = new Set(showAds ? catSlots.map((s) => s.pid) : []);
     const list = productsOf(cat.name)
       .filter((p) => !q || p.name.toLowerCase().includes(q))
       .sort(SORTERS[sortSelect.value]);
 
-    grid.innerHTML = list.map(productCard).join("");
+    grid.innerHTML = (showAds ? sponsoredCards(catSlots) : "") +
+      list.filter((p) => !adIds.has(p.id)).map((p) => productCard(p)).join("");
+    if (showAds && !catSlotsTracked) { trackSlotsShown(catSlots); catSlotsTracked = true; }
     emptyEl.classList.toggle("hidden", list.length > 0);
     document.getElementById("cat-empty-msg").textContent = q
       ? `"${searchInput.value.trim()}" ${cat.name} mein nahi mila.`

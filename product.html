@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product – Zzapkart</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body>
+  <header class="navbar">
+    <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <div class="search-box">
+      <form action="index.html">
+        <input type="search" name="q" placeholder="Search for products, brands and more" autocomplete="off" />
+      </form>
+    </div>
+    <a href="orders.html" class="nav-link">📦 <span>My Orders</span></a>
+    <a href="seller.html" class="nav-link sell-link">🏪 <span>Sell</span></a>
+    <a href="cart.html" class="cart-link">
+      🛒 Cart <span id="cart-count" class="badge">0</span>
+    </a>
+  </header>
+  <nav class="cat-nav" id="cat-nav"></nav>
+
+  <main class="container">
+    <p class="breadcrumb-dark" id="crumbs"></p>
+    <div id="pdp"></div>
+
+    <section class="cat-section sponsored-section hidden" id="related-ads">
+      <div class="cat-section-head" style="border-left-color:#ff2d95">
+        <div><h2>Sponsored products related to this item</h2></div>
+      </div>
+      <div class="grid" id="related-ads-grid"></div>
+    </section>
+
+    <section class="cat-section hidden" id="similar">
+      <div class="cat-section-head">
+        <div><h2>More in <span id="similar-cat"></span></h2></div>
+      </div>
+      <div class="grid" id="similar-grid"></div>
+    </section>
+  </main>
+
+  <footer class="footer">© 2026 Zzapkart Prototype</footer>
+
+  <script src="products.js"></script>
+  <script src="store.js"></script>
+  <script src="ads.js"></script>
+  <script src="cart.js"></script>
+  <script src="ui.js"></script>
+  <script src="product.js"></script>
+</body>
+</html>

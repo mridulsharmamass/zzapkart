@@ -8,7 +8,9 @@ const DB = {
   sellers: "zk_sellers",
   products: "zk_seller_products",
   orders: "zk_orders",
-  campaigns: "zk_ad_campaigns", // "ad_campaigns table"
+  campaigns: "zk_ad_campaigns_v2", // "ad_campaigns table" (ads.js)
+  adClicks: "zk_ad_clicks",
+  adSlots: "zk_ad_slots",
   stats: "zk_product_stats",
   session: "zk_seller_session",
   sellerNotifs: "zk_seller_notifications",
@@ -139,9 +141,8 @@ function saveSellerProduct(product) {
 
 function deleteSellerProduct(sellerId, productId) {
   dbSet(DB.products, allSellerProducts().filter((p) => !(p.id === productId && p.sellerId === sellerId)));
-  // Is product ke chalte ads band karo
-  dbSet(DB.campaigns, getCampaigns().map((c) =>
-    c.productId === productId && c.status === "active" ? { ...c, status: "stopped" } : c));
+  // Is product ko ad campaigns se hatao
+  if (typeof adsRemoveProduct === "function") adsRemoveProduct(productId);
 }
 
 // Storefront par dikhne wale seller products (sirf KYC-approved sellers ke)
@@ -198,53 +199,6 @@ function _bumpStat(productId, field) {
 }
 function productStats(productId) {
   return dbGet(DB.stats, {})[productId] || { views: 0, carts: 0 };
-}
-
-// ---------------------------------------------------------------------
-// Ad campaigns
-// ---------------------------------------------------------------------
-const COST_PER_CLICK = 5; // ₹ per click
-
-function getCampaigns() { return dbGet(DB.campaigns, []); }
-function saveCampaigns(list) { return dbSet(DB.campaigns, list); }
-
-function refreshCampaignStatuses() {
-  const now = Date.now();
-  let changed = false;
-  const list = getCampaigns().map((c) => {
-    if (c.status === "active" && (now > c.endAt || c.spent >= c.budget)) {
-      changed = true;
-      return { ...c, status: "completed" };
-    }
-    return c;
-  });
-  if (changed) saveCampaigns(list);
-  return list;
-}
-
-// Storefront par chalne wale ads
-function liveCampaigns() {
-  const now = Date.now();
-  return refreshCampaignStatuses()
-    .filter((c) => c.status === "active" && now >= c.startAt && now <= c.endAt && c.spent < c.budget)
-    .map((c) => ({ campaign: c, product: PRODUCTS.find((p) => p.id === c.productId) }))
-    .filter((x) => x.product && inStock(x.product));
-}
-
-const _impressionsThisPage = new Set();
-function recordImpression(campaignId) {
-  if (_impressionsThisPage.has(campaignId)) return;
-  _impressionsThisPage.add(campaignId);
-  saveCampaigns(getCampaigns().map((c) => (c.id === campaignId ? { ...c, impressions: c.impressions + 1 } : c)));
-}
-
-function recordClick(campaignId) {
-  saveCampaigns(getCampaigns().map((c) => {
-    if (c.id !== campaignId || c.status !== "active") return c;
-    const charge = Math.min(COST_PER_CLICK, c.budget - c.spent);
-    const spent = c.spent + charge;
-    return { ...c, clicks: c.clicks + 1, spent, status: spent >= c.budget ? "completed" : c.status };
-  }));
 }
 
 // ---------------------------------------------------------------------
@@ -308,6 +262,7 @@ function createOrder({ buyer, items, delivery, deliveryCharge, payment }) {
       notifySeller(sh.sellerId, `🛒 You have a new order! #${orderId} — ${units} item(s), ${formatPrice(sh.amount)}`);
     }
   });
+  if (typeof adsAttributeOrder === "function") adsAttributeOrder(items);
   notifyBuyer(orderId, `✅ Order #${orderId} placed successfully.`);
   return order;
 }

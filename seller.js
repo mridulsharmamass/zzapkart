@@ -123,13 +123,13 @@ const SECTIONS = [
   { id: "earnings", icon: "💰", label: "Earnings", locked: true },
   { id: "analytics", icon: "📊", label: "Sales Analytics", locked: true },
   { id: "subscription", icon: "⭐", label: "Subscription", locked: true },
-  { id: "ads", icon: "📣", label: "Advertising", locked: true },
+  { id: "ads", icon: "📣", label: "Ads Console", locked: true },
   { id: "kyc", icon: "🪪", label: "KYC Verification", locked: false },
   { id: "notifications", icon: "🔔", label: "Notifications", locked: false },
 ];
 
 function currentSection() {
-  const id = location.hash.slice(1);
+  const id = location.hash.slice(1).split("/")[0];
   if (SECTIONS.some((s) => s.id === id)) return id;
   return isApproved() ? "overview" : "kyc";
 }
@@ -163,6 +163,7 @@ function renderBanner() {
   document.getElementById("banner").innerHTML = b.join("");
 }
 
+let lastRoute = null;
 function render() {
   refreshMe();
   renderNav();
@@ -180,7 +181,7 @@ function render() {
     return;
   }
   VIEWS[id]();
-  window.scrollTo(0, 0);
+  if (location.hash !== lastRoute) { window.scrollTo(0, 0); lastRoute = location.hash; }
 }
 window.addEventListener("hashchange", render);
 
@@ -775,130 +776,9 @@ VIEWS.subscription = () => {
 };
 
 // ---------------------------------------------------------------------
-// Advertising
+// Advertising → seller-ads.js (Ads Console)
 // ---------------------------------------------------------------------
-VIEWS.ads = () => {
-  refreshCampaignStatuses();
-  const camps = getCampaigns().filter((c) => c.sellerId === me.id);
-  const prods = productsOfSeller(me.id);
-  const totals = camps.reduce((a, c) => ({ imp: a.imp + c.impressions, clk: a.clk + c.clicks, spent: a.spent + c.spent }), { imp: 0, clk: 0, spent: 0 });
-  const ctr = (c, i) => (i ? ((c / i) * 100).toFixed(1) + "%" : "—");
-
-  content.innerHTML = `
-    <div class="dash-head">
-      <h1 class="dash-title">Advertising</h1>
-      <button class="btn" id="new-camp" ${prods.length ? "" : "disabled"}>+ New Campaign</button>
-    </div>
-    <div class="stat-grid">
-      ${tile("Impressions", totals.imp, "Ad kitni baar dikha")}
-      ${tile("Clicks", totals.clk, "Ad par kitne click")}
-      ${tile("CTR", ctr(totals.clk, totals.imp), "Clicks ÷ Impressions")}
-      ${tile("Total Spent", formatPrice(totals.spent), `Ad credits: ${formatPrice(me.adCredits || 0)}`)}
-    </div>
-    <div class="alert info">📣 Aapke ads homepage ke "Sponsored Products" section mein dikhte hain. Har click par <strong>${formatPrice(COST_PER_CLICK)}</strong> budget se katta hai. Budget khatam ya time poora hone par campaign apne aap band ho jata hai.</div>
-    ${!prods.length ? `<p class="muted">Ad chalane ke liye pehle <a href="#products" class="link">product add karo</a>.</p>` : ""}
-    ${camps.length ? `<div class="table-wrap"><table class="table">
-      <thead><tr><th>Product</th><th>Duration</th><th>Budget</th><th>Budget Left</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Status</th><th></th></tr></thead>
-      <tbody>${camps.map((c) => `
-        <tr>
-          <td><strong>${esc(c.productName)}</strong></td>
-          <td>${fmtDate(c.startAt)} – ${fmtDate(c.endAt)}</td>
-          <td>${formatPrice(c.budget)}</td>
-          <td>${formatPrice(c.budget - c.spent)}
-            <div class="budget-track"><div style="width:${((c.budget - c.spent) / c.budget) * 100}%"></div></div></td>
-          <td>${c.impressions}</td><td>${c.clicks}</td><td>${ctr(c.clicks, c.impressions)}</td>
-          <td>${pill(c.status[0].toUpperCase() + c.status.slice(1))}</td>
-          <td class="row-actions">
-            ${c.status === "active" ? `<button class="btn-sm btn-outline" data-camp="${c.id}" data-act="paused">Pause</button>` : ""}
-            ${c.status === "paused" ? `<button class="btn-sm btn-outline" data-camp="${c.id}" data-act="active">Resume</button>` : ""}
-            ${c.status === "active" || c.status === "paused" ? `<button class="btn-sm btn-danger" data-camp="${c.id}" data-act="stopped">Stop</button>` : ""}
-          </td>
-        </tr>`).join("")}
-      </tbody></table></div>` : `<div class="panel empty"><div class="empty-emoji">📣</div><p>Abhi koi campaign nahi.</p></div>`}`;
-
-  content.querySelectorAll("[data-camp]").forEach((b) => b.addEventListener("click", () => {
-    const status = b.dataset.act;
-    if (status === "stopped" && !confirm("Campaign band karna hai? Bacha budget wapas nahi aayega (demo).")) return;
-    saveCampaigns(getCampaigns().map((c) => (c.id === b.dataset.camp && c.sellerId === me.id ? { ...c, status } : c)));
-    render();
-  }));
-
-  const nb = document.getElementById("new-camp");
-  if (nb) nb.addEventListener("click", campaignForm);
-};
-
-function campaignForm() {
-  const prods = productsOfSeller(me.id).filter((p) => p.stock > 0);
-  if (!prods.length) { showToast("Stock wala koi product nahi hai"); return; }
-  const credits = me.adCredits || 0;
-  openModal(`
-    <form id="camp-form" class="checkout-form" novalidate>
-      <div class="modal-head"><h2>New Ad Campaign</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
-      <label>Product
-        <select name="product">${prods.map((p) => `<option value="${p.id}">${esc(p.name)} — ${formatPrice(p.price)}</option>`).join("")}</select>
-      </label>
-      <div class="form-grid">
-        <label>Budget (₹)
-          <input name="budget" type="number" min="100" step="50" value="500" />
-          <small class="err"></small>
-        </label>
-        <label>Duration (days)
-          <input name="days" type="number" min="1" max="60" step="1" value="7" />
-          <small class="err"></small>
-        </label>
-      </div>
-      <p class="muted" id="camp-calc"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline" data-close>Cancel</button>
-        <button type="submit" class="btn">Start Campaign</button>
-      </div>
-    </form>`);
-  const f = document.getElementById("camp-form");
-  const calc = () => {
-    const budget = Number(f.elements.budget.value) || 0;
-    const fromCredits = Math.min(credits, budget);
-    document.getElementById("camp-calc").innerHTML =
-      `Lagbhag <strong>${Math.floor(budget / COST_PER_CLICK)}</strong> clicks · Ad credits se: ${formatPrice(fromCredits)} · Payment (demo): ${formatPrice(budget - fromCredits)}`;
-  };
-  f.addEventListener("input", calc);
-  calc();
-  f.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const budget = Number(f.elements.budget.value);
-    const days = Number(f.elements.days.value);
-    const errB = f.elements.budget.closest("label").querySelector(".err");
-    const errD = f.elements.days.closest("label").querySelector(".err");
-    errB.textContent = !Number.isFinite(budget) || budget < 100 ? "Kam se kam ₹100" : "";
-    errD.textContent = !Number.isInteger(days) || days < 1 || days > 60 ? "1 se 60 din" : "";
-    if (errB.textContent || errD.textContent) return;
-
-    const product = prods.find((p) => p.id === Number(f.elements.product.value));
-    const fromCredits = Math.min(credits, budget);
-    const now = Date.now();
-    const list = getCampaigns();
-    list.unshift({
-      id: uid("AD"),
-      sellerId: me.id,
-      productId: product.id,
-      productName: product.name,
-      budget: Math.round(budget),
-      spent: 0,
-      impressions: 0,
-      clicks: 0,
-      startAt: now,
-      endAt: now + days * DAY,
-      status: "active",
-      creditsUsed: fromCredits,
-      createdAt: now,
-    });
-    saveCampaigns(list);
-    updateSeller(me.id, { adCredits: credits - fromCredits });
-    notifySeller(me.id, `📣 Campaign shuru: "${product.name}" — budget ${formatPrice(budget)}, ${days} din.`);
-    closeModal();
-    showToast("Campaign live hai ✓");
-    render();
-  });
-}
+VIEWS.ads = () => renderAdsView();
 
 // ---------------------------------------------------------------------
 // KYC

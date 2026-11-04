@@ -18,21 +18,23 @@ document.getElementById("cat-tiles").innerHTML = CATEGORIES.map(
 
 // ---------- Sponsored (seller ads) ----------
 const sponsoredEl = document.getElementById("sponsored");
-const ads = liveCampaigns().slice(0, 4);
-if (ads.length) {
+// Search ke saath khula ho (?q=) to home ads chhupe rehte — unka auction/impression mat karo
+const openedWithSearch = !!new URLSearchParams(location.search).get("q");
+const homeSlots = openedWithSearch ? [] : runAuction({ placement: "home" }, 4);
+if (homeSlots.length) {
   sponsoredEl.innerHTML = `
     <section class="cat-section sponsored-section">
       <div class="cat-section-head" style="border-left-color:#ff2d95">
         <div>
-          <h2>📣 Sponsored Products</h2>
+          <h2>Sponsored Products</h2>
           <p class="muted">Hamare sellers ke promoted products</p>
         </div>
       </div>
-      <div class="grid">${ads.map(({ campaign, product }) => productCard(product, { campaignId: campaign.id })).join("")}</div>
+      <div class="grid">${sponsoredCards(homeSlots)}</div>
     </section>`;
-  ads.forEach(({ campaign }) => recordImpression(campaign.id));
-  enableAddToCart(sponsoredEl);
+  trackSlotsShown(homeSlots);
 }
+enableAddToCart(sponsoredEl);
 
 // ---------- Har category ka alag section ----------
 const sectionsEl = document.getElementById("category-sections");
@@ -67,15 +69,45 @@ function runSearch() {
   searchView.classList.toggle("hidden", !searching);
   if (!searching) return;
 
-  const list = PRODUCTS.filter(
-    (p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
-  );
-  searchGrid.innerHTML = list.map(productCard).join("");
-  document.getElementById("empty").classList.toggle("hidden", list.length > 0);
-  document.getElementById("result-info").textContent = `"${raw}" ke liye ${list.length} result(s)`;
+  // Har shabd naam / category / description mein hona chahiye ("summer shirt" → dono words)
+  const qWords = words(raw).map(stem);
+  const list = PRODUCTS.filter((p) => {
+    const hay = new Set(words(`${p.name} ${p.category} ${p.description || ""}`).map(stem));
+    const text = normalizeQuery(`${p.name} ${p.category}`);
+    return text.includes(normalizeQuery(raw)) || qWords.every((w) => hay.has(w) || [...hay].some((h) => h.startsWith(w) && w.length >= 3));
+  });
+
+  // Ads: brand banner + top-of-search + rest-of-search
+  const brand = runBrandAuction(raw);
+  const top = runAuction({ placement: "top", query: raw }, 2);
+  const topIds = new Set(top.map((s) => s.pid));
+  const organic = list.filter((p) => !topIds.has(p.id));
+  const rest = runAuction({ placement: "rest", query: raw }, 4).filter((s) => !topIds.has(s.pid)).slice(0, 2);
+
+  const half = Math.min(organic.length, 4);
+  searchBrand.innerHTML = brandBanner(brand);
+  searchGrid.innerHTML =
+    sponsoredCards(top) +
+    organic.slice(0, half).map((p) => productCard(p)).join("") +
+    sponsoredCards(rest) +
+    organic.slice(half).map((p) => productCard(p)).join("");
+
+  if (brand) recordAdImpression(brand.slots[0]);
+  trackSlotsShown(top);
+  trackSlotsShown(rest);
+
+  const total = list.length;
+  document.getElementById("empty").classList.toggle("hidden", total > 0 || top.length + rest.length > 0);
+  document.getElementById("result-info").textContent = `"${raw}" ke liye ${total} result(s)`;
 }
 
-searchInput.addEventListener("input", runSearch);
+// Har keystroke par nahi — typing rukne par search (ad impressions sahi ginne ke liye)
+const searchBrand = document.getElementById("search-brand");
+let searchTimer;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSearch, 350);
+});
 
 // Doosre page se search karke aaye ho to (?q=...) wala text bhar do
 const initialQ = new URLSearchParams(location.search).get("q");
