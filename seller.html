@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sell on Zzapkart – Seller Login</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body class="auth-body">
+  <header class="navbar">
+    <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <span class="seller-tag">Seller Hub</span>
+    <a href="index.html" class="nav-link push-right">← Back to Store</a>
+  </header>
+
+  <main class="auth-wrap">
+    <section class="auth-pitch">
+      <h1>Sell on Zzapkart</h1>
+      <p>Lakhon customers tak pahuncho. Products list karo, orders manage karo, aur apni kamai track karo — sab ek dashboard se.</p>
+      <ul>
+        <li>📦 Product listing in minutes</li>
+        <li>🛒 Orders seedha aapke dashboard par</li>
+        <li>📊 Sales analytics &amp; earnings</li>
+        <li>📣 Apne products ke ads chalao</li>
+      </ul>
+      <ol class="onboard-steps">
+        <li><strong>Register</strong> — basic details</li>
+        <li><strong>KYC</strong> — ID &amp; address proof</li>
+        <li><strong>Admin approval</strong> — phir full dashboard access</li>
+      </ol>
+    </section>
+
+    <section class="panel auth-card">
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab active" data-tab="login" role="tab">Login</button>
+        <button class="auth-tab" data-tab="register" role="tab">Register</button>
+      </div>
+
+      <!-- Login -->
+      <form id="login-form" class="checkout-form" novalidate>
+        <label>Email Address
+          <input name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+          <small class="err"></small>
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" placeholder="Password" />
+          <small class="err"></small>
+        </label>
+        <button class="btn checkout-btn" type="submit">Login</button>
+        <p class="muted center">Naye seller ho? <a href="#" data-switch="register" class="link">Register karo</a></p>
+      </form>
+
+      <!-- Register -->
+      <form id="register-form" class="checkout-form hidden" novalidate>
+        <label>Full Name
+          <input name="name" autocomplete="name" placeholder="Rahul Sharma" />
+          <small class="err"></small>
+        </label>
+        <label>Shop / Business Name
+          <input name="shopName" placeholder="Sharma Fashion House" />
+          <small class="err"></small>
+        </label>
+        <label>Email Address
+          <input name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+          <small class="err"></small>
+        </label>
+        <label>Mobile Number
+          <input name="phone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" />
+          <small class="err"></small>
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="new-password" placeholder="Kam se kam 8 characters, 1 number" />
+          <small class="err"></small>
+        </label>
+        <label>Confirm Password
+          <input name="confirm" type="password" autocomplete="new-password" placeholder="Password dobara" />
+          <small class="err"></small>
+        </label>
+        <button class="btn checkout-btn" type="submit">Create Seller Account</button>
+        <p class="muted center">Pehle se account hai? <a href="#" data-switch="login" class="link">Login karo</a></p>
+      </form>
+
+      <p class="demo-note">⚠️ Prototype: account details sirf isi browser mein save hote hain.</p>
+    </section>
+  </main>
+
+  <footer class="footer">© 2026 Zzapkart Prototype · <a href="admin.html" class="link">Admin (demo)</a></footer>
+
+  <script src="products.js"></script>
+  <script src="store.js"></script>
+  <script src="cart.js"></script>
+  <script src="seller-auth.js"></script>
+</body>
+</html>

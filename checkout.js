@@ -26,7 +26,8 @@ function totals(items) {
   const count = items.reduce((s, x) => s + x.qty, 0);
   const mrp = items.reduce((s, x) => s + x.product.mrp * x.qty, 0);
   const price = items.reduce((s, x) => s + x.product.price * x.qty, 0);
-  const delivery = price >= DELIVERY_FREE_ABOVE ? 0 : DELIVERY_CHARGE;
+  const express = form.elements.delivery.value === "express";
+  const delivery = express ? DELIVERY_OPTIONS.express.charge : price >= DELIVERY_FREE_ABOVE ? 0 : DELIVERY_CHARGE;
   return { count, mrp, price, delivery, total: price + delivery };
 }
 
@@ -36,9 +37,9 @@ function renderSummary() {
     .map(
       ({ product: p, qty }) => `
       <div class="mini-row">
-        <div class="mini-img" style="background:${p.color}">${p.emoji}</div>
+        <div class="mini-img" style="background:${esc(p.color)}">${productThumb(p)}</div>
         <div class="mini-info">
-          <div>${p.name}</div>
+          <div>${esc(p.name)}</div>
           <div class="muted">Qty: ${qty}</div>
         </div>
         <div class="mini-price">${formatPrice(p.price * qty)}</div>
@@ -84,7 +85,8 @@ function updatePaymentUI() {
   );
 }
 form.addEventListener("change", (e) => {
-  if (e.target.name === "payment") updatePaymentUI();
+  if (e.target.name === "payment" || e.target.name === "delivery") updatePaymentUI();
+  if (e.target.name === "delivery") renderSummary();
 });
 
 // ---------- Input formatting ----------
@@ -176,17 +178,33 @@ form.addEventListener("submit", (e) => {
   };
   localStorage.setItem(ADDRESS_KEY, JSON.stringify(address)); // agli baar ke liye yaad rakho
 
-  const t = totals(cartItems());
+  const items = cartItems();
+  // Stock dobara check karo (ho sakta hai beech mein khatam ho gaya ho)
+  const short = items.find(({ product, qty }) => product.stock !== undefined && qty > product.stock);
+  if (short) {
+    showToast(`${short.product.name}: sirf ${short.product.stock} stock mein hai. Cart update karein.`);
+    return;
+  }
+
+  const t = totals(items);
   const method = form.elements.payment.value;
-  const orderId = "ZK" + Date.now().toString().slice(-8);
+  const deliveryType = form.elements.delivery.value;
+  const order = createOrder({
+    buyer: address,
+    items,
+    delivery: deliveryType,
+    deliveryCharge: t.delivery,
+    payment: method,
+  });
+  const orderId = order.id;
 
   const delivery = new Date();
-  delivery.setDate(delivery.getDate() + 4);
+  delivery.setDate(delivery.getDate() + DELIVERY_OPTIONS[deliveryType].days);
   const deliveryStr = delivery.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 
   document.getElementById("order-id").textContent = orderId;
   document.getElementById("order-meta").textContent =
-    `${t.count} item(s) · ${formatPrice(t.total)} · ${PAYMENT_LABEL[method]} · Expected delivery: ${deliveryStr}`;
+    `${t.count} item(s) · ${formatPrice(t.total)} · ${PAYMENT_LABEL[method]} · ${DELIVERY_OPTIONS[deliveryType].label} · Expected: ${deliveryStr}`;
   document.getElementById("order-address").innerHTML =
     `<strong>Delivering to:</strong><br>${escapeHtml(address.name)}, ${escapeHtml(address.phone)}<br>` +
     `${escapeHtml(address.address)}, ${escapeHtml(address.city)}, ${escapeHtml(address.state)} – ${escapeHtml(address.pincode)}`;

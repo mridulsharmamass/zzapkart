@@ -25,10 +25,10 @@ function renderCart() {
     .map(
       ({ product: p, qty }) => `
       <div class="cart-row">
-        <div class="cart-img" style="background:${p.color}">${p.emoji}</div>
+        <div class="cart-img" style="background:${esc(p.color)}">${productThumb(p)}</div>
         <div class="cart-info">
-          <h4>${p.name}</h4>
-          <p class="muted">${p.category}</p>
+          <h4>${esc(p.name)}</h4>
+          <p class="muted">${esc(p.category)}${p.sellerName ? " · Sold by " + esc(p.sellerName) : ""}</p>
           <div class="price-row">
             <span class="price">${formatPrice(p.price * qty)}</span>
             <span class="mrp">${formatPrice(p.mrp * qty)}</span>
@@ -68,7 +68,14 @@ listEl.addEventListener("click", (e) => {
   if (!btn) return;
   const id = Number(btn.dataset.id);
   const qty = getCart()[id] || 0;
-  if (btn.dataset.act === "inc") setQty(id, qty + 1);
+  if (btn.dataset.act === "inc") {
+    const p = PRODUCTS.find((x) => x.id === id);
+    if (p && p.stock !== undefined && qty >= p.stock) {
+      showToast(`Sirf ${p.stock} piece stock mein hain`);
+      return;
+    }
+    setQty(id, qty + 1);
+  }
   if (btn.dataset.act === "dec") setQty(id, qty - 1);
   if (btn.dataset.act === "remove") {
     removeFromCart(id);

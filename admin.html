@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel – Zzapkart</title>
+  <meta name="robots" content="noindex" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body class="dash-body">
+  <header class="navbar">
+    <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <span class="seller-tag admin">Admin (Demo)</span>
+    <a href="seller.html" class="nav-link push-right">Seller Hub →</a>
+  </header>
+
+  <main class="container">
+    <div class="alert warn">⚠️ Ye demo admin panel hai — isme login nahi hai aur ye sirf isi browser ka data dikhata hai. Asli app mein admin ka alag secure login hoga.</div>
+
+    <h1 class="dash-title">KYC Requests</h1>
+    <div id="kyc-list"></div>
+
+    <h1 class="dash-title">All Sellers</h1>
+    <section class="panel"><div class="table-wrap" id="sellers"></div></section>
+
+    <h1 class="dash-title">Zzapkart Orders <small class="muted">(platform ke apne products)</small></h1>
+    <div id="platform-orders"></div>
+
+    <section class="panel danger-zone">
+      <h2>Reset Demo Data</h2>
+      <p class="muted">Is browser se saare sellers, seller products, orders, ads aur stats hata do. Cart aur saved address bhi saaf ho jayenge.</p>
+      <button class="btn btn-danger" id="reset">Reset everything</button>
+    </section>
+  </main>
+
+  <footer class="footer">© 2026 Zzapkart Prototype</footer>
+
+  <script src="products.js"></script>
+  <script src="store.js"></script>
+  <script src="cart.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

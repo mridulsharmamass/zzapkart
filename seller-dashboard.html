@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seller Dashboard – Zzapkart</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body class="dash-body">
+  <header class="navbar">
+    <a href="seller-dashboard.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <span class="seller-tag">Seller Hub</span>
+    <div class="push-right dash-user">
+      <a href="#notifications" class="nav-link bell" title="Notifications">🔔<span id="notif-count" class="badge hidden">0</span></a>
+      <span class="dash-shop" id="shop-name"></span>
+      <button class="btn btn-outline btn-sm" id="logout">Logout</button>
+    </div>
+  </header>
+
+  <div class="dash">
+    <aside class="dash-side">
+      <nav id="dash-nav"></nav>
+      <a href="index.html" class="dash-store-link" target="_blank" rel="noopener">↗ View Store</a>
+    </aside>
+    <main class="dash-main">
+      <div id="banner"></div>
+      <div id="content"></div>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="modal" role="dialog" aria-modal="true">
+    <div class="modal-box" id="modal-box"></div>
+  </div>
+  <div class="chart-tip hidden" id="chart-tip"></div>
+
+  <script src="products.js"></script>
+  <script src="store.js"></script>
+  <script src="cart.js"></script>
+  <script src="seller.js"></script>
+</body>
+</html>

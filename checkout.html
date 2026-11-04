@@ -16,6 +16,8 @@
         <input type="search" name="q" placeholder="Search for products, brands and more" autocomplete="off" />
       </form>
     </div>
+    <a href="orders.html" class="nav-link">📦 <span>My Orders</span></a>
+    <a href="seller.html" class="nav-link sell-link">🏪 <span>Sell</span></a>
     <a href="cart.html" class="cart-link">
       🛒 Cart <span id="cart-count" class="badge">0</span>
     </a>
@@ -70,7 +72,21 @@
         </section>
 
         <section class="panel">
-          <h2><span class="step-no">2</span> Payment Method</h2>
+          <h2><span class="step-no">2</span> Delivery Method</h2>
+          <div class="pay-options">
+            <label class="pay-opt">
+              <input type="radio" name="delivery" value="standard" checked />
+              <span>🚚 Standard Delivery <small class="muted">— 4 din mein · ₹499 se upar FREE, warna ₹40</small></span>
+            </label>
+            <label class="pay-opt">
+              <input type="radio" name="delivery" value="express" />
+              <span>⚡ Express Delivery <small class="muted">— agle din · ₹99</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2><span class="step-no">3</span> Payment Method</h2>
           <div class="pay-options">
             <label class="pay-opt">
               <input type="radio" name="payment" value="cod" checked />
@@ -135,13 +151,17 @@
       <p>Order ID: <strong id="order-id"></strong></p>
       <p class="muted" id="order-meta"></p>
       <div class="success-box" id="order-address"></div>
-      <a href="index.html" class="btn">Continue Shopping</a>
+      <div class="success-actions">
+        <a href="orders.html" class="btn">Track My Order</a>
+        <a href="index.html" class="btn btn-outline">Continue Shopping</a>
+      </div>
     </section>
   </main>
 
   <footer class="footer">© 2026 Zzapkart Prototype</footer>
 
   <script src="products.js"></script>
+  <script src="store.js"></script>
   <script src="cart.js"></script>
   <script src="ui.js"></script>
   <script src="checkout.js"></script>

@@ -16,6 +16,24 @@ document.getElementById("cat-tiles").innerHTML = CATEGORIES.map(
     </a>`
 ).join("");
 
+// ---------- Sponsored (seller ads) ----------
+const sponsoredEl = document.getElementById("sponsored");
+const ads = liveCampaigns().slice(0, 4);
+if (ads.length) {
+  sponsoredEl.innerHTML = `
+    <section class="cat-section sponsored-section">
+      <div class="cat-section-head" style="border-left-color:#ff2d95">
+        <div>
+          <h2>📣 Sponsored Products</h2>
+          <p class="muted">Hamare sellers ke promoted products</p>
+        </div>
+      </div>
+      <div class="grid">${ads.map(({ campaign, product }) => productCard(product, { campaignId: campaign.id })).join("")}</div>
+    </section>`;
+  ads.forEach(({ campaign }) => recordImpression(campaign.id));
+  enableAddToCart(sponsoredEl);
+}
+
 // ---------- Har category ka alag section ----------
 const sectionsEl = document.getElementById("category-sections");
 sectionsEl.innerHTML = CATEGORIES.map((c) => {
