@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout – Zzapkart</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body>
+  <header class="navbar">
+    <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <div class="search-box">
+      <form action="index.html">
+        <input type="search" name="q" placeholder="Search for products, brands and more" autocomplete="off" />
+      </form>
+    </div>
+    <a href="cart.html" class="cart-link">
+      🛒 Cart <span id="cart-count" class="badge">0</span>
+    </a>
+  </header>
+  <nav class="cat-nav" id="cat-nav"></nav>
+
+  <main class="container">
+    <!-- Steps indicator -->
+    <ol class="steps" id="steps">
+      <li class="done">Cart</li>
+      <li class="active">Address &amp; Payment</li>
+      <li>Order Placed</li>
+    </ol>
+
+    <!-- Checkout form -->
+    <div class="cart-page" id="checkout-view">
+      <form class="checkout-form" id="checkout-form" novalidate>
+        <section class="panel">
+          <h2><span class="step-no">1</span> Delivery Address</h2>
+          <div class="form-grid">
+            <label>Full Name
+              <input name="name" required placeholder="Rahul Sharma" />
+              <small class="err"></small>
+            </label>
+            <label>Mobile Number
+              <input name="phone" required inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" />
+              <small class="err"></small>
+            </label>
+            <label class="full">Address (House no, Street, Area)
+              <textarea name="address" required rows="2" placeholder="Flat 12, MG Road, Near City Mall"></textarea>
+              <small class="err"></small>
+            </label>
+            <label>City
+              <input name="city" required placeholder="Jaipur" />
+              <small class="err"></small>
+            </label>
+            <label>Pincode
+              <input name="pincode" required inputmode="numeric" maxlength="6" placeholder="6-digit pincode" />
+              <small class="err"></small>
+            </label>
+            <label>State
+              <select name="state" required>
+                <option value="">Select State</option>
+              </select>
+              <small class="err"></small>
+            </label>
+            <label>Email (optional)
+              <input name="email" type="email" placeholder="you@example.com" />
+              <small class="err"></small>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2><span class="step-no">2</span> Payment Method</h2>
+          <div class="pay-options">
+            <label class="pay-opt">
+              <input type="radio" name="payment" value="cod" checked />
+              <span>💵 Cash on Delivery</span>
+            </label>
+            <label class="pay-opt">
+              <input type="radio" name="payment" value="upi" />
+              <span>📲 UPI</span>
+            </label>
+            <label class="pay-opt">
+              <input type="radio" name="payment" value="card" />
+              <span>💳 Credit / Debit Card</span>
+            </label>
+          </div>
+
+          <div class="pay-extra hidden" id="upi-box">
+            <label>UPI ID
+              <input name="upi" placeholder="yourname@upi" />
+              <small class="err"></small>
+            </label>
+          </div>
+
+          <div class="pay-extra hidden" id="card-box">
+            <div class="form-grid">
+              <label class="full">Card Number
+                <input name="cardNumber" inputmode="numeric" maxlength="19" placeholder="1234 5678 9012 3456" autocomplete="off" />
+                <small class="err"></small>
+              </label>
+              <label>Expiry (MM/YY)
+                <input name="cardExpiry" maxlength="5" placeholder="08/28" autocomplete="off" />
+                <small class="err"></small>
+              </label>
+              <label>CVV
+                <input name="cardCvv" type="password" inputmode="numeric" maxlength="3" placeholder="•••" autocomplete="off" />
+                <small class="err"></small>
+              </label>
+            </div>
+          </div>
+
+          <p class="demo-note">⚠️ Ye demo hai — koi asli payment nahi hoga.</p>
+        </section>
+      </form>
+
+      <aside class="summary">
+        <h3>Order Summary</h3>
+        <div id="mini-items" class="mini-items"></div>
+        <hr />
+        <div class="sum-row"><span>Price (<span id="sum-items">0</span> items)</span><span id="sum-mrp">₹0</span></div>
+        <div class="sum-row"><span>Discount</span><span id="sum-discount" class="green">−₹0</span></div>
+        <div class="sum-row"><span>Delivery</span><span id="sum-delivery" class="green">FREE</span></div>
+        <hr />
+        <div class="sum-row total"><span>Total Amount</span><span id="sum-total">₹0</span></div>
+        <button class="btn checkout-btn" type="submit" form="checkout-form" id="place-btn">Place Order</button>
+        <a href="cart.html" class="back-link">← Back to Cart</a>
+      </aside>
+    </div>
+
+    <!-- Success screen -->
+    <section class="panel success hidden" id="success-view">
+      <div class="success-icon">✓</div>
+      <h2>Order Placed Successfully!</h2>
+      <p>Order ID: <strong id="order-id"></strong></p>
+      <p class="muted" id="order-meta"></p>
+      <div class="success-box" id="order-address"></div>
+      <a href="index.html" class="btn">Continue Shopping</a>
+    </section>
+  </main>
+
+  <footer class="footer">© 2026 Zzapkart Prototype</footer>
+
+  <script src="products.js"></script>
+  <script src="cart.js"></script>
+  <script src="ui.js"></script>
+  <script src="checkout.js"></script>
+</body>
+</html>

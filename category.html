@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Category – Zzapkart</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body>
+  <header class="navbar">
+    <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <div class="search-box">
+      <input id="cat-search" type="search" placeholder="Is category mein search karo" autocomplete="off" />
+    </div>
+    <a href="cart.html" class="cart-link">
+      🛒 Cart <span id="cart-count" class="badge">0</span>
+    </a>
+  </header>
+  <nav class="cat-nav" id="cat-nav"></nav>
+
+  <section class="hero cat-hero" id="cat-hero">
+    <div>
+      <p class="breadcrumb"><a href="index.html">Home</a> › <span id="crumb"></span></p>
+      <h1 id="cat-title"></h1>
+      <p id="cat-tagline"></p>
+    </div>
+    <div class="hero-emoji" id="cat-emoji"></div>
+  </section>
+
+  <main class="container">
+    <div class="toolbar">
+      <span id="cat-count" class="result-info"></span>
+      <label class="sort">Sort by
+        <select id="sort">
+          <option value="popular">Popularity</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+          <option value="rating">Customer Rating</option>
+          <option value="discount">Discount</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="grid" id="cat-grid"></div>
+    <div id="cat-empty" class="empty hidden">
+      <div class="empty-emoji">🔍</div>
+      <p id="cat-empty-msg">Koi product nahi mila.</p>
+      <a href="index.html" class="btn">Go to Home</a>
+    </div>
+
+    <h2 class="section-title other-title">Other Categories</h2>
+    <div class="cat-tiles small" id="other-cats"></div>
+  </main>
+
+  <footer class="footer">© 2026 Zzapkart Prototype</footer>
+
+  <script src="products.js"></script>
+  <script src="cart.js"></script>
+  <script src="ui.js"></script>
+  <script src="category.js"></script>
+</body>
+</html>
