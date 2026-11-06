@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ede9fe"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3c424e"/><stop offset="1" stop-color="#0f1522"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <path d="M62 214 L100 206 M338 214 L300 206" stroke="#0c111c" stroke-width="10" stroke-linecap="round"/>
+    <path d="M84 210 Q84 200 96 200 L178 200 Q190 200 188 214 L180 270 Q174 300 140 300 Q100 300 92 270 Z" fill="url(#g)" stroke="#0c111c" stroke-width="8"/>
+    <path d="M316 210 Q316 200 304 200 L222 200 Q210 200 212 214 L220 270 Q226 300 260 300 Q300 300 308 270 Z" fill="url(#g)" stroke="#0c111c" stroke-width="8"/>
+    <path d="M188 214 Q200 200 212 214" fill="none" stroke="#0c111c" stroke-width="8"/>
+    <path d="M110 222 L150 222 M236 222 L276 222" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+</svg>

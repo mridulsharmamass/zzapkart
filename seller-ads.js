@@ -1,7 +1,7 @@
 // =====================================================================
 // Seller Ads Console — Campaign Manager, Create campaign, Campaign detail
 // Routes:  #ads   #ads/new   #ads/c/<campaignId>/<tab>
-// (seller.js ke helpers use karta hai: me, content, tile, pill, openModal...)
+// (uses seller.js helpers: me, content, tile, pill, openModal...)
 // =====================================================================
 
 const ADS_UI = { range: "7", metric: "spend", filter: "all", search: "" };
@@ -14,14 +14,14 @@ const ratio = (n) => (n === null || n === undefined ? "—" : n.toFixed(2) + "x"
 const num = (n) => Number(n || 0).toLocaleString("en-IN");
 
 const METRICS = {
-  spend: { label: "Spend", fmt: money2, help: "Ad par kharcha" },
-  sales: { label: "Sales", fmt: money2, help: "Ad click ke 7 din andar bikri" },
-  acos: { label: "ACOS", fmt: pct, help: "Spend ÷ Sales (kam = behtar)" },
-  roas: { label: "ROAS", fmt: ratio, help: "Sales ÷ Spend (zyada = behtar)" },
-  imp: { label: "Impressions", fmt: num, help: "Ad kitni baar dikha" },
-  clk: { label: "Clicks", fmt: num, help: "Ad par clicks" },
+  spend: { label: "Spend", fmt: money2, help: "Amount spent on ads" },
+  sales: { label: "Sales", fmt: money2, help: "Sales within 7 days of an ad click" },
+  acos: { label: "ACOS", fmt: pct, help: "Spend ÷ Sales (lower is better)" },
+  roas: { label: "ROAS", fmt: ratio, help: "Sales ÷ Spend (higher is better)" },
+  imp: { label: "Impressions", fmt: num, help: "How often the ad was shown" },
+  clk: { label: "Clicks", fmt: num, help: "Clicks on your ads" },
   ctr: { label: "CTR", fmt: pct, help: "Clicks ÷ Impressions" },
-  orders: { label: "Orders", fmt: num, help: "Ad se aaye orders" },
+  orders: { label: "Orders", fmt: num, help: "Orders from ads" },
 };
 
 const rangeStart = () => (ADS_UI.range === "life" ? 0 : startOfDay(Date.now() - (Number(ADS_UI.range) - 1) * DAY));
@@ -81,7 +81,7 @@ function seriesFor(campaigns) {
   });
 }
 
-// Y-axis max: data na ho to metric ke hisaab se chhota default
+// Y-axis max: a small default per metric when there's no data
 function chartMax(points) {
   const m = Math.max(...points.map((p) => p.value || 0), 0);
   if (m > 0) return niceMax(m);
@@ -208,7 +208,7 @@ function renderCampaignManager() {
     <div class="dash-head ads-head">
       <div>
         <h1 class="dash-title">Campaign Manager</h1>
-        <p class="muted">Apne products ko search, category aur product pages par promote karo. Sirf click par paisa lagta hai.</p>
+        <p class="muted">Promote your products in search, category and product pages. You only pay when someone clicks.</p>
       </div>
       <div class="ads-head-actions">
         ${rangeSelect()}
@@ -218,8 +218,8 @@ function renderCampaignManager() {
 
     <div class="billing-strip">
       <span>💳 Ad credits: <strong>${money2(me.adCredits || 0)}</strong></span>
-      <span>🧾 Is mahine ka ad bill: <strong>${money2(billed)}</strong> <small class="muted">(credits ke baad, demo)</small></span>
-      <span>⏱ Attribution: click ke ${ATTRIBUTION_DAYS} din andar order</span>
+      <span>🧾 Ad bill this month: <strong>${money2(billed)}</strong> <small class="muted">(after credits, demo)</small></span>
+      <span>⏱ Attribution: orders within ${ATTRIBUTION_DAYS} days of a click</span>
     </div>
 
     ${all.length ? mb.html : ""}
@@ -247,21 +247,21 @@ function renderCampaignManager() {
                 <td class="num">${money2(c.dailyBudget)}<div class="budget-track"><div style="width:${Math.min(100, (spentToday(c) / c.dailyBudget) * 100)}%"></div></div></td>
                 ${metricCells(t)}<td class="num">${ratio(t.roas)}</td>
               </tr>`;
-            }).join("") || `<tr><td colspan="17" class="muted">Is filter mein koi campaign nahi.</td></tr>`}
+            }).join("") || `<tr><td colspan="17" class="muted">No campaigns match this filter.</td></tr>`}
           </tbody>
           ${rows.length ? `<tfoot><tr><td></td><td><strong>Total (${rows.length})</strong></td><td colspan="4"></td><td></td>${metricCells(totals)}<td class="num">${ratio(totals.roas)}</td></tr></tfoot>` : ""}
         </table>
       </div>
-      <p class="muted table-note">Budget bar = aaj ka kharcha. Metrics: ${rangeLabel()}.</p>
+      <p class="muted table-note">Budget bar = today's spend. Metrics: ${rangeLabel()}.</p>
     </section>` : `
     <section class="panel ads-empty">
       <div class="empty-emoji">📣</div>
-      <h2>Apna pehla ad campaign banao</h2>
-      <p class="muted">Customer jab search karega, aapka product sabse upar "Sponsored" label ke saath dikhega. Aap sirf click par pay karte ho.</p>
+      <h2>Create your first ad campaign</h2>
+      <p class="muted">When customers search, your product appears at the top with a "Sponsored" label. You only pay for clicks.</p>
       <div class="how-grid">
-        <div><strong>1. Product chuno</strong><p class="muted">Kaunse products promote karne hain</p></div>
-        <div><strong>2. Budget &amp; bid set karo</strong><p class="muted">Roz ka budget aur ek click ki max keemat</p></div>
-        <div><strong>3. Results dekho</strong><p class="muted">Impressions, clicks, sales, ACOS</p></div>
+        <div><strong>1. Choose products</strong><p class="muted">Which products to promote</p></div>
+        <div><strong>2. Set budget &amp; bid</strong><p class="muted">Daily budget and the most you'll pay per click</p></div>
+        <div><strong>3. Track results</strong><p class="muted">Impressions, clicks, sales, ACOS</p></div>
       </div>
       <a href="#ads/new" class="btn">+ Create campaign</a>
     </section>`}`;
@@ -326,8 +326,8 @@ function renderCreateCampaign() {
   if (!inStockProds.length) {
     content.innerHTML = `
       <p class="breadcrumb-dark"><a href="#ads">Campaign Manager</a> › Create campaign</p>
-      <section class="panel ads-empty"><div class="empty-emoji">📦</div><h2>Pehle product add karo</h2>
-      <p class="muted">Ad chalane ke liye kam se kam ek live (QC pass, in-stock) listing chahiye.</p><a href="#listings" class="btn">My Listings</a> <a href="#add-listing" class="btn">+ Add listing</a></section>`;
+      <section class="panel ads-empty"><div class="empty-emoji">📦</div><h2>Add a product first</h2>
+      <p class="muted">You need at least one live listing (QC passed and in stock) to run ads.</p><a href="#listings" class="btn">My Listings</a> <a href="#add-listing" class="btn">+ Add listing</a></section>`;
     return;
   }
 
@@ -339,15 +339,15 @@ function renderCreateCampaign() {
         <button class="type-card" data-type="SP">
           <div class="type-visual sp-visual"><span></span><span class="ad"></span><span></span><span></span></div>
           <h3>Sponsored Products</h3>
-          <p>Individual products ko search results, category aur product pages par promote karo.</p>
-          <ul><li>✓ Automatic ya keyword targeting</li><li>✓ Kam budget se shuru</li><li>✓ Naye sellers ke liye best</li></ul>
+          <p>Promote individual products in search results, category and product pages.</p>
+          <ul><li>✓ Automatic or keyword targeting</li><li>✓ Start with a small budget</li><li>✓ Best for new sellers</li></ul>
           <span class="btn">Continue</span>
         </button>
         <button class="type-card" data-type="SB">
           <div class="type-visual sb-visual"><span class="banner"></span><span></span><span></span><span></span></div>
           <h3>Sponsored Brands</h3>
-          <p>Apni shop ka naam, headline aur 3 products search results ke sabse upar banner mein.</p>
-          <ul><li>✓ Brand awareness</li><li>✓ Keyword targeting</li><li>✓ Ek saath 3 products</li></ul>
+          <p>Your shop name, a headline and 3 products in a banner at the top of search results.</p>
+          <ul><li>✓ Brand awareness</li><li>✓ Keyword targeting</li><li>✓ 3 products together</li></ul>
           <span class="btn">Continue</span>
         </button>
       </div>`;
@@ -383,7 +383,7 @@ function renderCreateCampaign() {
             </label>
             <label>Daily budget (₹)
               <input name="dailyBudget" type="number" min="${AD_MIN_DAILY_BUDGET}" step="10" value="${d.dailyBudget}" />
-              <small class="hint">Roz ka max kharcha. Budget khatam hone par us din ad ruk jayega.</small>
+              <small class="hint">The most you'll spend per day. Ads pause for the day when the budget runs out.</small>
               <small class="err" data-err="dailyBudget"></small>
             </label>
           </div>
@@ -393,8 +393,8 @@ function renderCreateCampaign() {
         <section class="panel">
           <h2>Brand creative</h2>
           <label>Headline
-            <input name="headline" value="${esc(d.headline)}" maxlength="50" placeholder="Summer collection — 40% tak off" />
-            <small class="hint">Max 50 characters. Banner mein aapki shop "${esc(me.shopName)}" ke saath dikhega.</small>
+            <input name="headline" value="${esc(d.headline)}" maxlength="50" placeholder="Summer collection — up to 40% off" />
+            <small class="hint">Max 50 characters. Shown in the banner with your shop "${esc(me.shopName)}".</small>
             <small class="err" data-err="headline"></small>
           </label>
         </section>` : ""}
@@ -406,7 +406,7 @@ function renderCreateCampaign() {
               <label class="pick ${isListingLive(p) ? "" : "disabled"}">
                 <input type="checkbox" data-pick="${p.id}" ${d.productIds.includes(p.id) ? "checked" : ""} ${isListingLive(p) ? "" : "disabled"} />
                 <span class="thumb">${thumbOf(p)}</span>
-                <span class="pick-info"><strong>${esc(p.name)}</strong><span class="muted">${formatPrice(p.price)} · Stock ${p.stock}${isListingLive(p) ? "" : " (live nahi)"}</span></span>
+                <span class="pick-info"><strong>${esc(p.name)}</strong><span class="muted">${formatPrice(p.price)} · Stock ${p.stock}${isListingLive(p) ? "" : " (not live)"}</span></span>
               </label>`).join("")}
           </div>
           <small class="err" data-err="products"></small>
@@ -414,21 +414,21 @@ function renderCreateCampaign() {
 
         <section class="panel">
           <h2>Targeting</h2>
-          ${isSB ? `<p class="muted">Sponsored Brands keyword targeting use karta hai.</p>` : `
+          ${isSB ? `<p class="muted">Sponsored Brands uses keyword targeting.</p>` : `
           <div class="pay-options">
             <label class="pay-opt ${d.targeting === "auto" ? "selected" : ""}">
               <input type="radio" name="targeting" value="auto" ${d.targeting === "auto" ? "checked" : ""} />
-              <span><strong>Automatic targeting</strong><br><small class="muted">Zzapkart aapke product ke naam/category se related searches aur pages par ad dikhayega.</small></span>
+              <span><strong>Automatic targeting</strong><br><small class="muted">Zzapkart shows your ad on searches and pages related to your product's name / category.</small></span>
             </label>
             <label class="pay-opt ${d.targeting === "manual" ? "selected" : ""}">
               <input type="radio" name="targeting" value="manual" ${d.targeting === "manual" ? "checked" : ""} />
-              <span><strong>Manual targeting</strong><br><small class="muted">Aap khud keywords chuno aur har keyword ki bid set karo.</small></span>
+              <span><strong>Manual targeting</strong><br><small class="muted">Choose your own keywords and set a bid for each one.</small></span>
             </label>
           </div>`}
 
           <label class="bid-row">Default bid (₹ per click)
             <input name="defaultBid" type="number" min="${AD_MIN_BID}" max="${AD_MAX_BID}" step="0.5" value="${d.defaultBid}" />
-            <small class="hint">${d.targeting === "auto" ? "Search, category, product pages aur home par" : "Category, product pages aur home par"} yahi bid lagegi.
+            <small class="hint">${d.targeting === "auto" ? "This bid is used for search, category, product pages and home" : "This bid is used for category, product pages and home"}.
               Suggested: ₹${suggestedBid(sellerProductById(d.productIds[0])?.category || "").low}–₹${suggestedBid(sellerProductById(d.productIds[0])?.category || "").high}</small>
             <small class="err" data-err="defaultBid"></small>
           </label>
@@ -441,10 +441,10 @@ function renderCreateCampaign() {
                 ${Object.entries(MATCH_TYPES).map(([k, l]) => `<label><input type="checkbox" data-mt="${k}" ${d.matchTypes[k] ? "checked" : ""} /> ${l}</label>`).join("")}
               </div>
               <div class="kw-sugg">
-                ${sugg.map((s) => `<div class="kw-sugg-row"><span>${esc(s)}</span><span class="muted">₹${suggestedBid(s).mid}</span><button type="button" class="btn-sm btn-outline" data-add-sugg="${esc(s)}">Add</button></div>`).join("") || `<p class="muted">Saare suggestions add ho gaye.</p>`}
+                ${sugg.map((s) => `<div class="kw-sugg-row"><span>${esc(s)}</span><span class="muted">₹${suggestedBid(s).mid}</span><button type="button" class="btn-sm btn-outline" data-add-sugg="${esc(s)}">Add</button></div>`).join("") || `<p class="muted">All suggestions added.</p>`}
               </div>
-              <h3>Apne keywords</h3>
-              <textarea id="kw-custom" rows="3" placeholder="Ek line mein ek keyword&#10;red tshirt&#10;cotton t shirt"></textarea>
+              <h3>Your keywords</h3>
+              <textarea id="kw-custom" rows="3" placeholder="One keyword per line&#10;red tshirt&#10;cotton t shirt"></textarea>
               <button type="button" class="btn-sm btn-outline" id="kw-add-custom">Add keywords</button>
             </div>
             <div class="kw-col">
@@ -453,7 +453,7 @@ function renderCreateCampaign() {
                 ${d.keywords.map((k, i) => `<tr><td>${esc(k.text)}</td><td>${MATCH_TYPES[k.match]}</td>
                   <td><input type="number" class="bid-input" data-kw-bid="${i}" min="${AD_MIN_BID}" max="${AD_MAX_BID}" step="0.5" value="${k.bid}" /></td>
                   <td><button type="button" class="icon-btn" data-kw-del="${i}" aria-label="Remove">✕</button></td></tr>`).join("")}
-              </tbody></table>` : `<p class="muted">Abhi koi keyword nahi. Left se add karo.</p>`}
+              </tbody></table>` : `<p class="muted">No keywords yet. Add some from the left.</p>`}
               <small class="err" data-err="keywords"></small>
             </div>
           </div>` : ""}
@@ -461,7 +461,7 @@ function renderCreateCampaign() {
 
         <section class="panel">
           <h2>Negative keywords <span class="muted">(optional)</span></h2>
-          <p class="muted">In searches par aapka ad nahi dikhega (jaise "free", "second hand").</p>
+          <p class="muted">Your ad won't show for these searches (e.g. "free", "second hand").</p>
           <div class="neg-add">
             <input id="neg-text" placeholder="keyword" maxlength="60" />
             <select id="neg-match"><option value="phrase">Negative phrase</option><option value="exact">Negative exact</option></select>
@@ -479,7 +479,7 @@ function renderCreateCampaign() {
         <div class="sum-row"><span>Daily budget</span><span id="sum-budget">${money2(d.dailyBudget)}</span></div>
         <div class="sum-row"><span>Est. clicks/day</span><span id="sum-est">~${est}</span></div>
         <div class="sum-row"><span>Ad credits</span><span>${money2(me.adCredits || 0)}</span></div>
-        <p class="muted small">Aap sirf click par pay karte ho — second-price auction: agle advertiser se ₹1 zyada, aapki bid tak.</p>
+        <p class="muted small">You only pay per click — second-price auction: ₹1 more than the next advertiser, up to your bid.</p>
         <button class="btn checkout-btn" id="launch">Launch campaign</button>
         <button class="btn btn-outline checkout-btn" id="cancel-wiz" type="button">Cancel</button>
       </aside>
@@ -492,7 +492,7 @@ function wireWizard() {
   const d = adDraft;
   const f = document.getElementById("wiz");
 
-  // Text/number inputs: draft update without re-render (focus aur agla click na toote)
+  // Text/number inputs: update the draft without re-rendering (keeps focus and the next click)
   const updateSummary = () => {
     const bid = d.targeting === "auto" ? d.defaultBid : (d.keywords[0]?.bid || d.defaultBid);
     document.getElementById("sum-budget").textContent = money2(d.dailyBudget || 0);
@@ -512,7 +512,7 @@ function wireWizard() {
     if (t.dataset.pick) {
       const id = Number(t.dataset.pick);
       if (t.checked) {
-        if (d.type === "SB" && d.productIds.length >= 3) { t.checked = false; showToast("Sponsored Brands mein max 3 products"); return; }
+        if (d.type === "SB" && d.productIds.length >= 3) { t.checked = false; showToast("Sponsored Brands allows up to 3 products"); return; }
         d.productIds.push(id);
       } else d.productIds = d.productIds.filter((x) => x !== id);
       render();
@@ -522,7 +522,7 @@ function wireWizard() {
 
   const addKeywords = (texts) => {
     const types = Object.keys(d.matchTypes).filter((k) => d.matchTypes[k]);
-    if (!types.length) { showToast("Kam se kam ek match type chuno"); return; }
+    if (!types.length) { showToast("Choose at least one match type"); return; }
     let added = 0;
     texts.map(normalizeQuery).filter((t) => t.length >= 2).forEach((text) => types.forEach((match) => {
       if (!d.keywords.some((k) => k.text === text && k.match === match)) {
@@ -552,24 +552,24 @@ function wireWizard() {
 function launchCampaign() {
   const d = adDraft;
   const errs = {};
-  if (d.name.trim().length < 3) errs.name = "Campaign ka naam daalein";
+  if (d.name.trim().length < 3) errs.name = "Enter a campaign name";
   const startAt = parseDateInput(d.start, false);
   const endAt = parseDateInput(d.end, true);
-  if (!startAt || startAt < startOfDay(Date.now())) errs.start = "Aaj ya aage ki date";
-  if (endAt && endAt < startAt) errs.end = "End date start ke baad honi chahiye";
-  if (!(d.dailyBudget >= AD_MIN_DAILY_BUDGET)) errs.dailyBudget = `Kam se kam ₹${AD_MIN_DAILY_BUDGET}`;
-  if (!(d.defaultBid >= AD_MIN_BID && d.defaultBid <= AD_MAX_BID)) errs.defaultBid = `₹${AD_MIN_BID} se ₹${AD_MAX_BID} ke beech`;
-  else if (d.defaultBid > d.dailyBudget) errs.defaultBid = "Bid daily budget se zyada nahi ho sakti";
-  if (!d.productIds.length) errs.products = "Kam se kam ek product chuno";
-  if (d.type === "SB" && d.headline.trim().length < 5) errs.headline = "Headline likhein (5+ characters)";
+  if (!startAt || startAt < startOfDay(Date.now())) errs.start = "Today or a later date";
+  if (endAt && endAt < startAt) errs.end = "The end date must be after the start date";
+  if (!(d.dailyBudget >= AD_MIN_DAILY_BUDGET)) errs.dailyBudget = `At least ₹${AD_MIN_DAILY_BUDGET}`;
+  if (!(d.defaultBid >= AD_MIN_BID && d.defaultBid <= AD_MAX_BID)) errs.defaultBid = `Between ₹${AD_MIN_BID} and ₹${AD_MAX_BID}`;
+  else if (d.defaultBid > d.dailyBudget) errs.defaultBid = "The bid can't be more than the daily budget";
+  if (!d.productIds.length) errs.products = "Choose at least one product";
+  if (d.type === "SB" && d.headline.trim().length < 5) errs.headline = "Write a headline (5+ characters)";
   if (d.targeting === "manual") {
-    if (!d.keywords.length) errs.keywords = "Kam se kam ek keyword add karo";
-    else if (d.keywords.some((k) => !(k.bid >= AD_MIN_BID && k.bid <= AD_MAX_BID))) errs.keywords = `Har bid ₹${AD_MIN_BID}–₹${AD_MAX_BID}`;
+    if (!d.keywords.length) errs.keywords = "Add at least one keyword";
+    else if (d.keywords.some((k) => !(k.bid >= AD_MIN_BID && k.bid <= AD_MAX_BID))) errs.keywords = `Each bid must be ₹${AD_MIN_BID}–₹${AD_MAX_BID}`;
   }
   content.querySelectorAll("[data-err]").forEach((el) => (el.textContent = errs[el.dataset.err] || ""));
   if (Object.keys(errs).length) {
     content.querySelector(`[data-err="${Object.keys(errs)[0]}"]`)?.closest("section")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    showToast("Kuch details theek karo");
+    showToast("Please fix the highlighted details");
     return;
   }
 
@@ -595,7 +595,7 @@ function launchCampaign() {
   const list = getCampaigns();
   list.unshift(c);
   if (!saveCampaigns(list)) return;
-  notifySeller(me.id, `📣 Campaign "${c.name}" launch ho gaya — daily budget ${money2(c.dailyBudget)}.`);
+  notifySeller(me.id, `📣 Campaign "${c.name}" is live — daily budget ${money2(c.dailyBudget)}.`);
   adDraft = null;
   showToast("Campaign launched ✓");
   location.hash = `ads/c/${c.id}`;
@@ -616,7 +616,7 @@ const DETAIL_TABS = [
 function renderCampaignDetail(id, tab) {
   const c = getCampaign(id);
   if (!c || c.sellerId !== me.id) {
-    content.innerHTML = `<div class="panel empty"><p>Campaign nahi mila.</p><a href="#ads" class="btn">Back</a></div>`;
+    content.innerHTML = `<div class="panel empty"><p>Campaign not found.</p><a href="#ads" class="btn">Back</a></div>`;
     return;
   }
   const mb = metricsBlock([c]);
@@ -630,7 +630,7 @@ function renderCampaignDetail(id, tab) {
         <div>
           <h1 class="dash-title">${esc(c.name)}</h1>
           <div class="camp-meta">${typeBadge(c.type)} ${adStatusPill(c)}
-            <span class="muted">Daily budget ${money2(c.dailyBudget)} · Aaj ka kharcha ${money2(spentToday(c))} · ${fmtDate(c.startAt)} – ${c.endAt ? fmtDate(c.endAt) : "No end date"}</span></div>
+            <span class="muted">Daily budget ${money2(c.dailyBudget)} · Spent today ${money2(spentToday(c))} · ${fmtDate(c.startAt)} – ${c.endAt ? fmtDate(c.endAt) : "No end date"}</span></div>
         </div>
       </div>
       <div class="ads-head-actions">${rangeSelect()}</div>
@@ -652,7 +652,7 @@ function renderCampaignDetail(id, tab) {
   ({ products: tabProducts, targeting: tabTargeting, negatives: tabNegatives, terms: tabTerms, placements: tabPlacements, settings: tabSettings }[tab] || tabProducts)(c, body);
 }
 
-const lifetimeNote = `<p class="muted table-note">Is table ke numbers lifetime hain.</p>`;
+const lifetimeNote = `<p class="muted table-note">Numbers in this table are lifetime totals.</p>`;
 
 function tabProducts(c, body) {
   const all = productsOfSeller(me.id);
@@ -681,14 +681,14 @@ function tabProducts(c, body) {
     render();
   }));
   body.querySelectorAll("[data-prod-del]").forEach((b) => b.addEventListener("click", () => {
-    if (c.productIds.length <= 1) { showToast("Campaign mein kam se kam ek product chahiye"); return; }
+    if (c.productIds.length <= 1) { showToast("A campaign needs at least one product"); return; }
     updateCampaign(c.id, (x) => (x.productIds = x.productIds.filter((p) => p !== Number(b.dataset.prodDel))));
     render();
   }));
   document.getElementById("add-prods").addEventListener("click", () => {
     const avail = all.filter((p) => !c.productIds.includes(p.id) && isListingLive(p));
-    if (!avail.length) { showToast("Add karne ke liye aur in-stock products nahi"); return; }
-    if (c.type === "SB" && c.productIds.length >= 3) { showToast("Sponsored Brands mein max 3 products"); return; }
+    if (!avail.length) { showToast("No more in-stock products to add"); return; }
+    if (c.type === "SB" && c.productIds.length >= 3) { showToast("Sponsored Brands allows up to 3 products"); return; }
     openModal(`
       <div class="modal-head"><h2>Add products</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
       <div class="pick-list">${avail.map((p) => `<label class="pick"><input type="checkbox" value="${p.id}" /><span class="thumb">${thumbOf(p)}</span>
@@ -708,8 +708,8 @@ function tabTargeting(c, body) {
   if (c.targeting === "auto" && c.type === "SP") {
     body.innerHTML = `
       <h2>Automatic targeting</h2>
-      <p class="muted">Zzapkart aapke products ke naam, category aur description se related searches aur pages par ad dikhata hai.
-        Kaunse searches par ad dikha, wo <a href="#ads/c/${c.id}/terms" class="link">Search terms</a> mein dekho — achhe terms ko manual campaign mein keyword bana sakte ho.</p>
+      <p class="muted">Zzapkart shows your ad on searches and pages related to your products' names, categories and descriptions.
+        See which searches showed your ad under <a href="#ads/c/${c.id}/terms" class="link">Search terms</a> — turn the good ones into keywords in a manual campaign.</p>
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Targeting</th><th>Bid (₹)</th>${METRIC_HEADS}</tr></thead>
         <tbody><tr><td><strong>Auto — search terms</strong></td>
@@ -724,7 +724,7 @@ function tabTargeting(c, body) {
   body.innerHTML = `
     <div class="panel-head"><h2>Keywords</h2></div>
     <div class="neg-add kw-add-row">
-      <input id="kw-new" placeholder="naya keyword" maxlength="60" />
+      <input id="kw-new" placeholder="new keyword" maxlength="60" />
       <select id="kw-new-match">${Object.entries(MATCH_TYPES).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
       <input id="kw-new-bid" type="number" min="${AD_MIN_BID}" max="${AD_MAX_BID}" step="0.5" placeholder="Bid ₹" class="bid-input" />
       <button class="btn-sm btn-outline" id="kw-new-add">+ Add keyword</button>
@@ -739,9 +739,9 @@ function tabTargeting(c, body) {
           <td><input type="number" class="bid-input" data-kw-bid="${k.id}" min="${AD_MIN_BID}" max="${AD_MAX_BID}" step="0.5" value="${k.bid}" /></td>
           ${metricCells(k.stats)}
           <td><button class="icon-btn" data-kw-archive="${k.id}" title="Remove">✕</button></td></tr>`;
-      }).join("") || `<tr><td colspan="14" class="muted">Koi keyword nahi.</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="14" class="muted">No keywords.</td></tr>`}</tbody>
     </table></div>
-    <p class="muted table-note">Default bid (category, product pages, home): ₹${c.defaultBid} — <a href="#ads/c/${c.id}/settings" class="link">Settings</a> mein badlo. Numbers lifetime hain.</p>`;
+    <p class="muted table-note">Default bid (category, product pages, home): ₹${c.defaultBid} — change it in <a href="#ads/c/${c.id}/settings" class="link">Settings</a>. Numbers are lifetime totals.</p>`;
 
   body.querySelectorAll("[data-kw-bid]").forEach((inp) => inp.addEventListener("change", () => saveBid(c.id, inp.dataset.kwBid, inp)));
   body.querySelectorAll("[data-kw-toggle]").forEach((cb) => cb.addEventListener("change", () => {
@@ -756,9 +756,9 @@ function tabTargeting(c, body) {
     const text = normalizeQuery(document.getElementById("kw-new").value);
     const match = document.getElementById("kw-new-match").value;
     const bid = Number(document.getElementById("kw-new-bid").value) || suggestedBid(text).mid;
-    if (text.length < 2) { showToast("Keyword likho"); return; }
+    if (text.length < 2) { showToast("Enter a keyword"); return; }
     if (!(bid >= AD_MIN_BID && bid <= AD_MAX_BID)) { showToast(`Bid ₹${AD_MIN_BID}–₹${AD_MAX_BID}`); return; }
-    if ((c.keywords || []).some((k) => k.text === text && k.match === match && k.state !== "archived")) { showToast("Ye keyword pehle se hai"); return; }
+    if ((c.keywords || []).some((k) => k.text === text && k.match === match && k.state !== "archived")) { showToast("This keyword already exists"); return; }
     updateCampaign(c.id, (x) => { x.keywords = x.keywords || []; x.keywords.push({ id: uid("KW"), text, match, bid, state: "enabled", stats: emptyStats() }); });
     showToast("Keyword added ✓");
     render();
@@ -769,7 +769,7 @@ function saveBid(cid, kwId, input) {
   const bid = Math.round(Number(input.value) * 100) / 100;
   if (!(bid >= AD_MIN_BID && bid <= AD_MAX_BID)) {
     input.classList.add("invalid");
-    showToast(`Bid ₹${AD_MIN_BID} se ₹${AD_MAX_BID} ke beech honi chahiye`);
+    showToast(`The bid must be between ₹${AD_MIN_BID} and ₹${AD_MAX_BID}`);
     return;
   }
   input.classList.remove("invalid");
@@ -783,7 +783,7 @@ function saveBid(cid, kwId, input) {
 function tabNegatives(c, body) {
   body.innerHTML = `
     <h2>Negative keywords</h2>
-    <p class="muted">In searches par is campaign ka ad nahi dikhega. Faltu clicks rokne ke liye use karo.</p>
+    <p class="muted">This campaign's ad won't show for these searches. Use them to stop wasted clicks.</p>
     <div class="neg-add">
       <input id="neg-text" placeholder="keyword" maxlength="60" />
       <select id="neg-match"><option value="phrase">Negative phrase</option><option value="exact">Negative exact</option></select>
@@ -791,7 +791,7 @@ function tabNegatives(c, body) {
     </div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Keyword</th><th>Match type</th><th></th></tr></thead>
       <tbody>${(c.negatives || []).map((n) => `<tr><td>${esc(n.text)}</td><td>Negative ${n.match}</td><td><button class="icon-btn" data-neg-del="${n.id}">✕</button></td></tr>`).join("")
-        || `<tr><td colspan="3" class="muted">Koi negative keyword nahi.</td></tr>`}</tbody></table></div>`;
+        || `<tr><td colspan="3" class="muted">No negative keywords.</td></tr>`}</tbody></table></div>`;
   document.getElementById("neg-add").addEventListener("click", () => {
     const text = normalizeQuery(document.getElementById("neg-text").value);
     if (text.length < 2) return;
@@ -809,14 +809,14 @@ function tabTerms(c, body) {
   const canKw = c.targeting === "manual" || c.type === "SB";
   body.innerHTML = `
     <h2>Search terms</h2>
-    <p class="muted">Customers ne ye search kiya aur aapka ad dikha. Bikne wale terms ko keyword banao; bekaar terms ko negative.</p>
+    <p class="muted">Customers searched for these and saw your ad. Turn converting terms into keywords and add poor ones as negatives.</p>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>Customer search term</th>${METRIC_HEADS}<th>Actions</th></tr></thead>
       <tbody>${terms.map(({ t, s }) => `<tr><td><strong>${esc(t)}</strong></td>${metricCells(s)}
         <td class="row-actions">
           ${canKw ? `<button class="btn-sm btn-outline" data-term-kw="${esc(t)}">+ Keyword</button>` : ""}
           <button class="btn-sm btn-outline" data-term-neg="${esc(t)}">+ Negative</button>
-        </td></tr>`).join("") || `<tr><td colspan="10" class="muted">Abhi koi search term nahi. Jab customers search karenge aur ad dikhega, yahan aayega.</td></tr>`}</tbody>
+        </td></tr>`).join("") || `<tr><td colspan="10" class="muted">No search terms yet. They'll appear here once customers search and see your ad.</td></tr>`}</tbody>
     </table></div>${lifetimeNote}`;
   body.querySelectorAll("[data-term-kw]").forEach((b) => b.addEventListener("click", () => {
     const text = b.dataset.termKw;
@@ -824,13 +824,13 @@ function tabTerms(c, body) {
       if (!x.keywords.some((k) => k.text === text && k.match === "exact" && k.state !== "archived"))
         x.keywords.push({ id: uid("KW"), text, match: "exact", bid: suggestedBid(text).mid, state: "enabled", stats: emptyStats() });
     });
-    showToast(`"${text}" exact keyword add hua ✓`);
+    showToast(`"${text}" added as an exact keyword ✓`);
     render();
   }));
   body.querySelectorAll("[data-term-neg]").forEach((b) => b.addEventListener("click", () => {
     const text = b.dataset.termNeg;
     updateCampaign(c.id, (x) => { x.negatives = x.negatives || []; if (!x.negatives.some((n) => n.text === text)) x.negatives.push({ id: uid("NK"), text, match: "exact" }); });
-    showToast(`"${text}" negative add hua ✓`);
+    showToast(`"${text}" added as a negative ✓`);
     render();
   }));
 }
@@ -839,7 +839,7 @@ function tabPlacements(c, body) {
   const keys = c.type === "SB" ? ["top"] : Object.keys(PLACEMENTS);
   body.innerHTML = `
     <h2>Placements</h2>
-    <p class="muted">Aapka ad website par kahan dikha aur kahan se bikri hui.</p>
+    <p class="muted">Where your ad appeared on the website and where sales came from.</p>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>Placement</th>${METRIC_HEADS}<th class="num">ROAS</th></tr></thead>
       <tbody>${keys.map((k) => { const s = derived((c.placementStats || {})[k] || emptyStats());
@@ -854,7 +854,7 @@ function tabSettings(c, body) {
       <div class="form-grid">
         <label class="full">Campaign name <input name="name" value="${esc(c.name)}" maxlength="80" /></label>
         <label>Start date <input name="start" type="date" value="${dateInput(c.startAt)}" ${Date.now() >= c.startAt ? "disabled" : ""} />
-          ${Date.now() >= c.startAt ? `<small class="hint">Campaign shuru ho chuka hai</small>` : ""}</label>
+          ${Date.now() >= c.startAt ? `<small class="hint">The campaign has already started</small>` : ""}</label>
         <label>End date <input name="end" type="date" value="${dateInput(c.endAt)}" /></label>
         <label>Daily budget (₹) <input name="dailyBudget" type="number" min="${AD_MIN_DAILY_BUDGET}" step="10" value="${c.dailyBudget}" /></label>
         <label>Default bid (₹) <input name="defaultBid" type="number" min="${AD_MIN_BID}" max="${AD_MAX_BID}" step="0.5" value="${c.defaultBid}" /></label>
@@ -865,7 +865,7 @@ function tabSettings(c, body) {
     </form>
     <div class="danger-zone settings-danger">
       <h2>Archive campaign</h2>
-      <p class="muted">Archive karne par campaign hamesha ke liye band ho jayega (report dekhi ja sakti hai).</p>
+      <p class="muted">Archiving stops the campaign permanently (you can still see its report).</p>
       <button class="btn btn-danger" id="archive" ${c.state === "archived" ? "disabled" : ""}>${c.state === "archived" ? "Archived" : "Archive"}</button>
     </div>`;
 
@@ -877,12 +877,12 @@ function tabSettings(c, body) {
     const startAt = f.elements.start.disabled ? c.startAt : parseDateInput(v("start"), false);
     const endAt = parseDateInput(v("end"), true);
     let err = "";
-    if (v("name").length < 3) err = "Naam daalein";
-    else if (!(budget >= AD_MIN_DAILY_BUDGET)) err = `Daily budget kam se kam ₹${AD_MIN_DAILY_BUDGET}`;
+    if (v("name").length < 3) err = "Enter a name";
+    else if (!(budget >= AD_MIN_DAILY_BUDGET)) err = `Daily budget must be at least ₹${AD_MIN_DAILY_BUDGET}`;
     else if (!(bid >= AD_MIN_BID && bid <= AD_MAX_BID)) err = `Bid ₹${AD_MIN_BID}–₹${AD_MAX_BID}`;
-    else if (!startAt) err = "Start date chuno";
-    else if (endAt && endAt < startAt) err = "End date start ke baad honi chahiye";
-    else if (c.type === "SB" && v("headline").length < 5) err = "Headline likhein";
+    else if (!startAt) err = "Choose a start date";
+    else if (endAt && endAt < startAt) err = "The end date must be after the start date";
+    else if (c.type === "SB" && v("headline").length < 5) err = "Write a headline";
     document.getElementById("settings-err").textContent = err;
     if (err) return;
     updateCampaign(c.id, (x) => {
@@ -894,7 +894,7 @@ function tabSettings(c, body) {
     render();
   });
   document.getElementById("archive").addEventListener("click", () => {
-    if (!confirm("Campaign archive karna hai? Ye dobara enable nahi hoga.")) return;
+    if (!confirm("Archive this campaign? It can't be enabled again.")) return;
     updateCampaign(c.id, (x) => (x.state = "archived"));
     showToast("Campaign archived");
     location.hash = "ads";

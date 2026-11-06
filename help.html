@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help Centre – Zzapkart</title>
+  <meta name="description" content="Help with orders, shipping, returns, refunds and payments on Zzapkart." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="images/logo-icon.png" />
+  <meta name="theme-color" content="#1e0b3d" />
+</head>
+<body>
+  <header class="navbar">
+    <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
+    <div class="search-box">
+      <form action="index.html" role="search">
+        <input type="search" name="q" placeholder="Search for products, brands and more" autocomplete="off" aria-label="Search" />
+        <button type="submit" class="search-btn" aria-label="Search"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+      </form>
+    </div>
+    <a href="account.html#orders" class="nav-link">📦 <span>My Orders</span></a>
+    <a href="account.html" class="nav-link" id="nav-account">👤 <span>Login</span></a>
+    <a href="seller.html" class="nav-link sell-link">🏪 <span>Sell</span></a>
+    <a href="cart.html" class="cart-link">
+      🛒 Cart <span id="cart-count" class="badge">0</span>
+    </a>
+  </header>
+  <nav class="cat-nav" id="cat-nav"></nav>
+
+  <main class="container">
+    <section class="help-hero">
+      <h1>How can we help?</h1>
+      <p>Answers about orders, delivery, returns and payments. Can't find what you need? Chat with us — we reply within 24 hours.</p>
+      <p style="margin-top:14px"><a href="#contact" class="btn" data-open-chat="1">💬 Chat with us</a></p>
+    </section>
+
+    <div class="help-layout">
+      <nav class="help-nav" aria-label="Help topics">
+        <a href="#about">About Zzapkart</a>
+        <a href="#orders">Orders &amp; tracking</a>
+        <a href="#shipping">Shipping &amp; delivery</a>
+        <a href="#returns">Returns &amp; refunds</a>
+        <a href="#payments">Payments</a>
+        <a href="#sellers">Selling on Zzapkart</a>
+        <a href="#privacy">Privacy policy</a>
+        <a href="#terms">Terms of use</a>
+        <a href="#contact">Contact us</a>
+      </nav>
+
+      <div class="help-body">
+        <section class="help-card" id="about">
+          <h2>About Zzapkart</h2>
+          <p>Zzapkart is an online marketplace where verified Indian sellers and brands sell fashion, electronics, home, beauty, grocery, toys and more. Every seller completes a KYC check before they can sell, and every listing goes through a quality check before it goes live.</p>
+          <p>Many of our sellers also run their own <strong>Brand Store</strong> on Zzapkart — you can browse their full range, and checkout, delivery and support stay with Zzapkart.</p>
+        </section>
+
+        <section class="help-card" id="orders">
+          <h2>Orders &amp; tracking</h2>
+          <ul>
+            <li>Log in and open <a class="link" href="account.html#orders">My Orders</a> to see every order and its status: Placed → Shipped → Delivered.</li>
+            <li>When your order ships, you will see the courier name and tracking ID on the order.</li>
+            <li>An order with items from different sellers ships in separate packages — each one is tracked on its own.</li>
+            <li>To cancel an order before it ships, message us from the chat and include your order ID.</li>
+          </ul>
+        </section>
+
+        <section class="help-card" id="shipping">
+          <h2>Shipping &amp; delivery</h2>
+          <ul>
+            <li><strong>Free delivery</strong> on orders of ₹499 or more. Below that, delivery is ₹40.</li>
+            <li><strong>Standard delivery:</strong> usually 3–5 days after dispatch.</li>
+            <li><strong>Express delivery:</strong> ₹99, about 1 day after dispatch where available.</li>
+            <li>Sellers dispatch most orders within 1–3 days. The expected delivery date is shown on the product page and at checkout.</li>
+          </ul>
+        </section>
+
+        <section class="help-card" id="returns">
+          <h2>Returns &amp; refunds</h2>
+          <ul>
+            <li>Most products have a <strong>7-day return window</strong> from delivery. Some sellers offer 10 or 30 days — this is shown on the product page and in the seller's store.</li>
+            <li>Items must be unused, with original tags and packaging. Innerwear, personal care and customised items cannot be returned for hygiene reasons.</li>
+            <li>Received a damaged or wrong item? Tell us within 48 hours of delivery and we will arrange a replacement or a full refund.</li>
+            <li>Refunds are issued within 5–7 business days after pickup — to the original payment method for prepaid orders, or to your bank account / UPI for cash on delivery.</li>
+          </ul>
+        </section>
+
+        <section class="help-card" id="payments">
+          <h2>Payments</h2>
+          <ul>
+            <li>We accept UPI, debit and credit cards, and cash on delivery.</li>
+            <li>All payments are processed on Zzapkart's secure checkout. Sellers never see your card or UPI details.</li>
+            <li>Prices include all taxes. Delivery charges, if any, are shown before you pay.</li>
+          </ul>
+          <p class="muted">This is a demo website: checkout does not take real payments.</p>
+        </section>
+
+        <section class="help-card" id="sellers">
+          <h2>Selling on Zzapkart</h2>
+          <p>Anyone with a valid ID and address proof can sell on Zzapkart. Create a seller account, complete KYC, list your products and start receiving orders. Paid plans add more listings, faster payouts, ad credits and your own Brand Store.</p>
+          <p><a class="link" href="seller.html">Start selling →</a></p>
+        </section>
+
+        <section class="help-card" id="privacy">
+          <h2>Privacy policy</h2>
+          <p>We collect the information you give us — your name, email, phone number and delivery addresses — to process orders, deliver them and provide support. We share your name, address and phone number only with the seller and courier handling your order.</p>
+          <ul>
+            <li>We never sell your personal information.</li>
+            <li>Your password is stored only as a secure hash.</li>
+            <li>You can update your profile and addresses at any time from My Account.</li>
+          </ul>
+          <p class="muted">In this demo, your data is stored only in your own browser.</p>
+        </section>
+
+        <section class="help-card" id="terms">
+          <h2>Terms of use</h2>
+          <ul>
+            <li>Products are sold by independent sellers. Zzapkart provides the platform, payments, delivery tracking and customer support.</li>
+            <li>Prices and stock can change. If a product is priced incorrectly or goes out of stock, the order may be cancelled and any payment refunded in full.</li>
+            <li>Reviews, images and content you share must be your own and must not be offensive or misleading.</li>
+            <li>Sellers must follow our listing guidelines and applicable Indian laws, including consumer protection and Legal Metrology rules.</li>
+          </ul>
+        </section>
+
+        <section class="help-card" id="contact">
+          <h2>Contact us</h2>
+          <p>The fastest way to reach us is the <strong>💬 Help</strong> chat at the bottom-right of the page. Ask anything — or choose <em>Talk to support</em> to send a message to our team. We reply within 24 hours, and the reply appears in the same chat.</p>
+          <p><a href="#contact" class="btn" data-open-chat="1">💬 Open the chat</a></p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer" id="site-footer"></footer>
+
+  <script src="products.js"></script>
+  <script src="catalog.js"></script>
+  <script src="demo-data.js"></script>
+  <script src="store.js"></script>
+  <script src="ads.js"></script>
+  <script src="cart.js"></script>
+  <script src="ui.js"></script>
+  <script src="chatbot.js"></script>
+</body>
+</html>

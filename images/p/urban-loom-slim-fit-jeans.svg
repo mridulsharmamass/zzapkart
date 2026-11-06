@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fce7f3"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4762bd"/><stop offset="1" stop-color="#1a389a"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <path d="M140 104 L260 104 L274 412 L214 412 L200 196 L186 412 L126 412 Z" fill="url(#g)"/>
+    <rect x="138" y="96" width="124" height="24" rx="4" fill="#162e7e"/>
+    <rect x="194" y="100" width="12" height="16" rx="2" fill="#f59e0b"/>
+    <path d="M150 124 Q160 160 192 150 M250 124 Q240 160 208 150" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="5 4"/>
+    <path d="M200 120 L200 196" stroke="#162e7e" stroke-width="3"/>
+    <path d="M134 400 L184 400 M216 400 L268 400" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="5 4"/>
+</svg>

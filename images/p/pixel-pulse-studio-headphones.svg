@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e0e7ff"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eaebef"/><stop offset="1" stop-color="#cacbcf"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <path d="M108 262 C104 112 296 112 292 262" fill="none" stroke="#a5a6a9" stroke-width="22" stroke-linecap="round"/>
+    <path d="M118 236 C120 140 280 140 282 236" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round" opacity=".7"/>
+    <rect x="76" y="232" width="70" height="126" rx="30" fill="url(#g)"/><rect x="254" y="232" width="70" height="126" rx="30" fill="url(#g)"/>
+    <rect x="132" y="246" width="24" height="98" rx="12" fill="#a5a6a9"/><rect x="244" y="246" width="24" height="98" rx="12" fill="#a5a6a9"/>
+    <circle cx="111" cy="295" r="12" fill="#7c3aed"/><circle cx="289" cy="295" r="12" fill="#7c3aed"/>
+</svg>

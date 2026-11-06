@@ -3,7 +3,7 @@ const params = new URLSearchParams(location.search);
 const product = PRODUCTS.find((p) => String(p.id) === params.get("id"));
 const pdp = document.getElementById("pdp");
 
-// Ad se aaye ho to click record karo (duplicate clicks free)
+// Coming from an ad → record the click (duplicate clicks are free)
 if (params.get("slot")) {
   recordAdClick(params.get("slot"));
   history.replaceState(null, "", "product.html?id=" + params.get("id"));
@@ -30,7 +30,7 @@ function partyText(p) {
 }
 
 if (!product) {
-  pdp.innerHTML = `<div class="empty"><div class="empty-emoji">🔍</div><p>Ye product nahi mila.</p><a href="index.html" class="btn">Go to Home</a></div>`;
+  pdp.innerHTML = `<div class="empty"><div class="empty-emoji">🔍</div><p>We couldn't find this product.</p><a href="index.html" class="btn">Go to Home</a></div>`;
 } else {
   document.title = `${product.name} – Zzapkart`;
   trackView(product.id);
@@ -68,7 +68,7 @@ if (!product) {
             ${product.variants.map((v) => `<button class="size-btn" data-vid="${esc(v.id)}" ${v.stock > 0 ? "" : "disabled"} title="${v.stock > 0 ? esc(v.size) : "Out of stock"}">${esc(v.size)}</button>`).join("")}
           </div>` : ""}
         <p class="stock-msg" id="stock-msg"></p>
-        <p class="muted">🚚 Dispatch in ${product.sla || 2} day(s) · Delivery by <strong>${deliver}</strong> · ₹499 se upar FREE</p>
+        <p class="muted">🚚 Dispatch in ${product.sla || 2} day(s) · Delivery by <strong>${deliver}</strong> · FREE above ₹499</p>
         <div class="pdp-actions">
           <button class="btn add-btn" id="pdp-add">Add to Cart</button>
           <button class="btn buy-btn" id="pdp-buy">Buy Now</button>
@@ -86,8 +86,8 @@ if (!product) {
     const total = product.stock === undefined ? Infinity : product.stock;
     const base = selectedVariant ? selectedVariant.stock : total;
     if (total === 0) { msg.className = "stock-msg text-danger"; msg.textContent = "Out of stock"; }
-    else if (sized && !selectedVariant) { msg.className = "stock-msg muted"; msg.textContent = "Size chunein"; }
-    else if (base <= 5) { msg.className = "stock-msg text-warn"; msg.textContent = `Sirf ${base} bache hain — jaldi karo!`; }
+    else if (sized && !selectedVariant) { msg.className = "stock-msg muted"; msg.textContent = "Select a size"; }
+    else if (base <= 5) { msg.className = "stock-msg text-warn"; msg.textContent = `Only ${base} left — hurry!`; }
     else { msg.className = "stock-msg green"; msg.textContent = "In stock"; }
     const disabled = total === 0 || (selectedVariant && selectedVariant.stock === 0);
     document.getElementById("pdp-add").disabled = disabled;
@@ -106,7 +106,7 @@ if (!product) {
 
   function addSelected() {
     if (sized && !selectedVariant) {
-      showToast("Pehle size chunein");
+      showToast("Please select a size first");
       picker.classList.add("shake");
       setTimeout(() => picker.classList.remove("shake"), 500);
       return false;
@@ -115,7 +115,7 @@ if (!product) {
     const item = resolveCartItem(key, 0);
     const inCart = getCart()[key] || 0;
     if (!item || inCart >= item.maxStock) {
-      showToast(`Sirf ${item ? item.maxStock : 0} piece stock mein hain`);
+      showToast(`Only ${item ? item.maxStock : 0} in stock`);
       return false;
     }
     addToCart(key);
@@ -123,7 +123,7 @@ if (!product) {
     return true;
   }
   document.getElementById("pdp-add").addEventListener("click", () => {
-    if (addSelected()) showToast(`${product.name}${selectedVariant && selectedVariant.size ? " (" + selectedVariant.size + ")" : ""} cart mein add ho gaya ✓`);
+    if (addSelected()) showToast(`${product.name}${selectedVariant && selectedVariant.size ? " (" + selectedVariant.size + ")" : ""} added to your cart ✓`);
   });
   document.getElementById("pdp-buy").addEventListener("click", () => {
     const key = selectedVariant ? cartKey(product.id, selectedVariant.id) : String(product.id);
@@ -170,7 +170,7 @@ if (!product) {
     </details>` : ""}`;
   if (!product.description && !specs.length) specsEl.classList.add("hidden");
 
-  // Sponsored products related to this item (same category ke ads)
+  // Sponsored products related to this item (ads from the same category)
   const relSlots = runAuction({ placement: "product", productId: product.id, category: product.category }, 4);
   if (relSlots.length) {
     document.getElementById("related-ads").classList.remove("hidden");

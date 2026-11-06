@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e0e7ff"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b6370"/><stop offset="1" stop-color="#303947"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <rect x="128" y="96" width="144" height="310" rx="26" fill="url(#g)"/>
+    <rect x="140" y="108" width="120" height="286" rx="20" fill="#000" opacity=".08"/>
+    <circle cx="170" cy="342" r="6" fill="#22d3ee"/><circle cx="190" cy="342" r="6" fill="#22d3ee"/><circle cx="210" cy="342" r="6" fill="#22d3ee"/><circle cx="230" cy="342" r="6" fill="#9ca3af"/>
+    <path d="M206 170 L184 228 L204 228 L192 280 L222 214 L202 214 Z" fill="#22d3ee"/>
+    <rect x="176" y="88" width="48" height="12" rx="4" fill="#1f2937"/>
+</svg>

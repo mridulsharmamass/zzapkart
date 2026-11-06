@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zzapkart – Online Shopping</title>
+  <title>Zzapkart – Online Shopping for Fashion, Electronics, Home & More</title>
+  <meta name="description" content="Shop fashion, electronics, home, beauty and more from verified sellers. Free delivery above ₹499, easy returns and cash on delivery." />
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/png" href="images/logo-icon.png" />
   <meta name="theme-color" content="#1e0b3d" />
@@ -27,14 +28,19 @@
   <nav class="cat-nav" id="cat-nav"></nav>
 
   <h1 class="visually-hidden">Zzapkart — online shopping</h1>
-  <!-- Auto-changing banner carousel (home.js banata hai) -->
+  <!-- Auto-changing banner carousel (built by home.js) -->
   <section class="home-hero" id="hero" aria-roledescription="carousel" aria-label="Zzapkart offers"></section>
+  <div class="promises" id="promises"></div>
 
   <main class="container">
-    <!-- Normal view: saari categories + har category ka section -->
+    <!-- Default view: categories, deals, reels, stores and one section per category -->
     <div id="browse-view">
-      <div class="section-head"><h2 class="section-title">Shop by Category</h2><a href="browse.html" class="link">All categories →</a></div>
-      <div class="cat-tiles" id="cat-tiles"></div>
+      <section class="home-sec">
+        <div class="section-head"><div><h2 class="section-title">Shop by Category</h2><p class="section-sub">Everything you need, in one place</p></div><a href="browse.html" class="link">All categories →</a></div>
+        <div class="cat-tiles" id="cat-tiles"></div>
+      </section>
+      <div id="deals"></div>
+      <div id="reels"></div>
       <div id="brand-stores"></div>
       <div id="sponsored"></div>
       <div id="category-sections"></div>
@@ -48,19 +54,22 @@
       <div class="grid" id="search-grid"></div>
       <div id="empty" class="empty hidden">
         <div class="empty-emoji">🔍</div>
-        <p>Koi product nahi mila. Kuch aur search karo.</p>
+        <p>No products found. Try a different search.</p>
       </div>
     </div>
   </main>
 
-  <footer class="footer">© 2026 Zzapkart Prototype</footer>
+  <footer class="footer" id="site-footer"></footer>
 
   <script src="products.js"></script>
   <script src="catalog.js"></script>
+  <script src="demo-data.js"></script>
   <script src="store.js"></script>
   <script src="ads.js"></script>
   <script src="cart.js"></script>
   <script src="ui.js"></script>
+  <script src="media.js"></script>
+  <script src="reels.js"></script>
   <script src="home.js"></script>
   <script src="chatbot.js"></script>
 </body>

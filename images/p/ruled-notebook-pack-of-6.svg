@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e0f2fe"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#39b5ed"/><stop offset="1" stop-color="#0c91cd"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <rect x="124" y="92" width="188" height="320" rx="16" fill="#0a77a8"/>
+    <rect x="112" y="84" width="188" height="320" rx="16" fill="url(#g)"/>
+    <rect x="100" y="108" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="141" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="174" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="207" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="240" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="273" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="306" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="339" width="26" height="10" rx="5" fill="#9ca3af"/><rect x="100" y="372" width="26" height="10" rx="5" fill="#9ca3af"/>
+    <rect x="160" y="170" width="110" height="64" rx="8" fill="#fff"/>
+    <rect x="174" y="186" width="80" height="7" rx="3" fill="#0a77a8" opacity=".6"/><rect x="174" y="204" width="56" height="7" rx="3" fill="#0a77a8" opacity=".4"/>
+    <rect x="260" y="84" width="16" height="320" fill="#fef08a" opacity=".9"/>
+</svg>

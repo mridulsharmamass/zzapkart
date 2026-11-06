@@ -2,8 +2,8 @@
 // Super Admin console (demo)
 // Login → dashboard, KYC, listing QC, category approvals, sellers, listings,
 // orders, customers, brand stores, settings.
-// Data isi browser ka (localStorage). Asli launch me admin auth server par
-// (2-factor, audit log) hoga — ye prototype hai.
+// Data lives in this browser (localStorage). A real launch would do admin auth on a server
+// (2-factor, audit log) — this is a prototype.
 // =====================================================================
 const DOC_LABEL = { aadhaar: "Aadhaar Card", pan: "PAN Card", license: "Business License / GST" };
 const KYC_LABEL = { not_submitted: "Not submitted", pending: "Pending", approved: "Approved", rejected: "Rejected" };
@@ -25,7 +25,7 @@ const adContent = document.getElementById("content");
 const adModal = document.getElementById("modal");
 const adModalBox = document.getElementById("modal-box");
 const AD = { sellerQ: "", sellerF: "all", listQ: "", listF: "all", orderQ: "", orderF: "all", custQ: "", tickQ: "", tickF: "reply" };
-// Support ticket ko reply chahiye? (open + aakhri message customer ka)
+// Does the support ticket need a reply? (open + last message from the customer)
 const adNeedsReply = (t) => t.status === "open" && t.messages.length && t.messages[t.messages.length - 1].from === "customer";
 
 const adTile = (label, value, sub = "") =>
@@ -45,18 +45,18 @@ function adCloseModal() {
   adModal.classList.add("hidden");
   adModalBox.innerHTML = "";
 }
-// Reason poochne wala modal (suspend / block / takedown)
+// Modal that asks for a reason (suspend / block / takedown)
 function adAsk(title, label, okText, onOk) {
   adOpenModal(`
     <form id="ad-ask" class="checkout-form">
       <div class="modal-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close="1" aria-label="Close">✕</button></div>
-      <label>${esc(label)}<textarea name="reason" rows="3" maxlength="300" placeholder="Reason (seller / customer ko dikhega)"></textarea><small class="err"></small></label>
+      <label>${esc(label)}<textarea name="reason" rows="3" maxlength="300" placeholder="Reason (shown to the seller / customer)"></textarea><small class="err"></small></label>
       <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="1">Cancel</button><button type="submit" class="btn btn-danger">${esc(okText)}</button></div>
     </form>`);
   document.getElementById("ad-ask").addEventListener("submit", (e) => {
     e.preventDefault();
     const reason = e.target.elements.reason.value.trim();
-    if (reason.length < 5) { e.target.querySelector(".err").textContent = "Kam se kam 5 characters ka reason likhein"; return; }
+    if (reason.length < 5) { e.target.querySelector(".err").textContent = "Write a reason of at least 5 characters"; return; }
     adCloseModal();
     onOk(reason);
     render();
@@ -64,7 +64,7 @@ function adAsk(title, label, okText, onOk) {
 }
 
 // ---------------------------------------------------------------------
-// Auth: pehli baar setup, phir login
+// Auth: first-time setup, then login
 // ---------------------------------------------------------------------
 function getAdmin() { return dbGet(DB.admin, null); }
 function currentAdmin() {
@@ -88,14 +88,14 @@ function adAuthView() {
       <form class="panel checkout-form" id="ad-auth-form" novalidate>
         <div class="admin-auth-head"><span class="admin-shield" aria-hidden="true">🛡️</span>
           <div><h1>${admin ? "Super Admin login" : "Super Admin setup"}</h1>
-          <p class="muted">${admin ? "Zzapkart platform ka control panel" : "Pehli baar: apna super admin account banayein. Ye sirf isi browser me save hota hai (demo)."}</p></div></div>
+          <p class="muted">${admin ? "Control panel for the Zzapkart platform" : "First time here: create your super admin account. It is saved only in this browser (demo)."}</p></div></div>
         ${admin ? "" : `<label>Full name<input name="name" autocomplete="name" maxlength="60" /><small class="err"></small></label>`}
         <label>Email<input name="email" type="email" autocomplete="username" /><small class="err"></small></label>
-        <label>Password<input name="password" type="password" autocomplete="${admin ? "current-password" : "new-password"}" />${admin ? "" : `<small class="hint">10+ characters — letter, number aur symbol (jaise @ # !)</small>`}<small class="err"></small></label>
+        <label>Password<input name="password" type="password" autocomplete="${admin ? "current-password" : "new-password"}" />${admin ? "" : `<small class="hint">10+ characters — a letter, a number and a symbol (e.g. @ # !)</small>`}<small class="err"></small></label>
         ${admin ? "" : `<label>Confirm password<input name="confirm" type="password" autocomplete="new-password" /><small class="err"></small></label>`}
         <p class="err" id="ad-auth-err" role="alert"></p>
         <button class="btn checkout-btn" type="submit">${admin ? "Login" : "Create super admin"}</button>
-        <p class="small muted">⚠️ Demo: data sirf isi browser me hai. Asli launch me admin login server par, 2-factor ke saath hoga.</p>
+        <p class="small muted">⚠️ Demo: data lives only in this browser. A real launch would use server-side admin login with 2-factor authentication.</p>
       </form>
     </div>`;
   const f = document.getElementById("ad-auth-form");
@@ -109,27 +109,27 @@ function adAuthView() {
     msg.textContent = "";
     if (!admin) {
       const ok = [
-        err("name", f.elements.name.value.trim().length < 2 ? "Naam daalein" : ""),
-        err("email", EMAIL_RE.test(email) ? "" : "Sahi email daalein"),
-        err("password", adStrongPassword(pw) ? "" : "10+ characters, letter, number aur symbol"),
-        err("confirm", f.elements.confirm.value === pw ? "" : "Dono password same nahi hain"),
+        err("name", f.elements.name.value.trim().length < 2 ? "Enter your name" : ""),
+        err("email", EMAIL_RE.test(email) ? "" : "Enter a valid email"),
+        err("password", adStrongPassword(pw) ? "" : "10+ characters with a letter, a number and a symbol"),
+        err("confirm", f.elements.confirm.value === pw ? "" : "Passwords don't match"),
       ].every(Boolean);
       if (!ok) return;
       const salt = crypto.getRandomValues(new Uint32Array(4)).join("-");
       dbSet(DB.admin, { name: f.elements.name.value.trim(), email, salt, passwordHash: await hashPassword(pw, salt), createdAt: Date.now() });
       dbSet(DB.adminSession, { email, exp: Date.now() + AD_SESSION_MS });
-      showToast("Super admin account ban gaya ✓");
+      showToast("Super admin account created ✓");
       return render();
     }
-    // Galat password par thoda ruko (brute force dheema)
+    // Wait a moment after a wrong password (slows brute force)
     const fails = Number(sessionStorage.getItem("zk_admin_fails") || 0);
     const until = Number(sessionStorage.getItem("zk_admin_lock") || 0);
-    if (until > Date.now()) { msg.textContent = `Bahut galat koshish — ${Math.ceil((until - Date.now()) / 1000)} second baad try karein`; return; }
+    if (until > Date.now()) { msg.textContent = `Too many failed attempts — try again in ${Math.ceil((until - Date.now()) / 1000)} seconds`; return; }
     const ok = email === admin.email && (await hashPassword(pw, admin.salt)) === admin.passwordHash;
     if (!ok) {
       sessionStorage.setItem("zk_admin_fails", String(fails + 1));
       if (fails + 1 >= 5) { sessionStorage.setItem("zk_admin_lock", String(Date.now() + 60000)); sessionStorage.setItem("zk_admin_fails", "0"); }
-      msg.textContent = "Email ya password galat hai";
+      msg.textContent = "Incorrect email or password";
       return;
     }
     sessionStorage.removeItem("zk_admin_fails");
@@ -142,7 +142,7 @@ function adAuthView() {
 document.getElementById("admin-logout").addEventListener("click", () => {
   localStorage.removeItem(DB.adminSession);
   adCloseModal();
-  showToast("Logout ho gaye");
+  showToast("You've been logged out");
   render();
 });
 
@@ -170,7 +170,7 @@ function adNav() {
     `<a href="#${s.id}" class="${s.id === cur ? "active" : ""}"><span>${s.icon}</span>${s.label}${counts[s.id] ? `<span class="badge">${counts[s.id]}</span>` : ""}</a>`).join("");
 }
 
-// admin-qc.js bhi har action ke baad render() bulata hai
+// admin-qc.js also calls render() after every action
 let adLastRoute = null;
 function render() {
   const admin = currentAdmin();
@@ -185,7 +185,7 @@ function render() {
   AD_VIEWS[sec]();
   if (location.hash !== adLastRoute) { window.scrollTo(0, 0); adLastRoute = location.hash; }
 }
-// Search box re-render ke baad focus wapas
+// Give focus back to the search box after a re-render
 function adKeepFocus(id) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -211,19 +211,19 @@ AD_VIEWS.dashboard = () => {
   const todayOrders = orders.filter((o) => new Date(o.createdAt).toDateString() === today).length;
   const c = adCounts();
   const tasks = [
-    [c.kyc, "KYC requests review karni hain", "#kyc", "🪪"],
-    [c.qc, "Listings QC ke liye pending", "#qc", "🧪"],
+    [c.kyc, "KYC requests to review", "#kyc", "🪪"],
+    [c.qc, "Listings waiting for QC", "#qc", "🧪"],
     [c.approvals, "Category approval requests", "#approvals", "🔒"],
-    [c.orders, "Zzapkart ke apne orders ship karne hain", "#orders", "🚚"],
-    [c.support, "Support requests (chat) ka reply dena hai", "#support", "💬"],
-    [sellers.filter((s) => s.suspended).length, "Sellers suspended hain", "#sellers", "⛔"],
-    [sellers.filter((s) => s.store && s.store.adminBlocked).length, "Brand stores band (takedown)", "#stores", "🏬"],
+    [c.orders, "Zzapkart orders to ship", "#orders", "🚚"],
+    [c.support, "Support requests waiting for a reply", "#support", "💬"],
+    [sellers.filter((s) => s.suspended).length, "Suspended sellers", "#sellers", "⛔"],
+    [sellers.filter((s) => s.store && s.store.adminBlocked).length, "Brand stores taken down", "#stores", "🏬"],
   ].filter(([n]) => n > 0);
   const top = sellers.map((s) => ({ s, sales: adSales(s.id), n: shipmentsOfSeller(s.id).length })).filter((x) => x.sales > 0).sort((a, b) => b.sales - a.sales).slice(0, 5);
   adContent.innerHTML = `
     <h1 class="dash-title">Platform overview</h1>
     <div class="stat-grid">
-      ${adTile("GMV (total sales)", formatPrice(Math.round(gmv)), `${orders.length} orders · aaj ${todayOrders}`)}
+      ${adTile("GMV (total sales)", formatPrice(Math.round(gmv)), `${orders.length} orders · ${todayOrders} today`)}
       ${adTile("Avg order value", formatPrice(orders.length ? Math.round(gmv / orders.length) : 0))}
       ${adTile("Seller fees", formatPrice(Math.round(fees)), "Commission + shipping + GST")}
       ${adTile("Customers", customers.length, `${customers.filter((x) => x.blocked).length} blocked`)}
@@ -234,18 +234,18 @@ AD_VIEWS.dashboard = () => {
     <div class="dash-cols">
       <section class="panel">
         <div class="panel-head"><h2>Pending tasks</h2><span class="muted small">${tasks.length}</span></div>
-        ${tasks.length ? `<ul class="todo-list">${tasks.map(([n, l, href, icon]) => `<li><a href="${href}"><span class="todo-icon">${icon}</span><span class="todo-label">${esc(l)}</span><span class="todo-count">${n}</span></a></li>`).join("")}</ul>` : `<p class="muted">Sab clear 🎉</p>`}
+        ${tasks.length ? `<ul class="todo-list">${tasks.map(([n, l, href, icon]) => `<li><a href="${href}"><span class="todo-icon">${icon}</span><span class="todo-label">${esc(l)}</span><span class="todo-count">${n}</span></a></li>`).join("")}</ul>` : `<p class="muted">All clear 🎉</p>`}
       </section>
       <section class="panel">
         <div class="panel-head"><h2>Top sellers</h2><a href="#sellers" class="link">All →</a></div>
-        ${top.length ? `<table class="table"><thead><tr><th>Shop</th><th>Orders</th><th>Sales</th></tr></thead><tbody>${top.map(({ s, sales, n }) => `<tr><td><strong>${esc(s.shopName)}</strong></td><td>${n}</td><td>${formatPrice(sales)}</td></tr>`).join("")}</tbody></table>` : `<p class="muted">Abhi kisi seller ki sale nahi.</p>`}
+        ${top.length ? `<table class="table"><thead><tr><th>Shop</th><th>Orders</th><th>Sales</th></tr></thead><tbody>${top.map(({ s, sales, n }) => `<tr><td><strong>${esc(s.shopName)}</strong></td><td>${n}</td><td>${formatPrice(sales)}</td></tr>`).join("")}</tbody></table>` : `<p class="muted">No seller sales yet.</p>`}
       </section>
     </div>
     <section class="panel">
       <div class="panel-head"><h2>Recent orders</h2><a href="#orders" class="link">All →</a></div>
       ${orders.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Order</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead><tbody>
         ${orders.slice(0, 6).map((o) => `<tr><td>#${esc(o.id)}<div class="muted">${fmtDateTime(o.createdAt)}</div></td><td>${esc(o.buyer.name)}<div class="muted">${esc(o.buyer.city)}</div></td><td>${formatPrice(o.total)}</td><td>${adPill(adOrderStatus(o), "s-" + adOrderStatus(o).toLowerCase())}</td></tr>`).join("")}
-      </tbody></table></div>` : `<p class="muted">Abhi koi order nahi.</p>`}
+      </tbody></table></div>` : `<p class="muted">No orders yet.</p>`}
     </section>`;
 };
 
@@ -269,10 +269,10 @@ AD_VIEWS.kyc = () => {
       </div>
       <div class="row-actions">
         <button class="btn" data-approve="${s.id}">✓ Approve</button>
-        <input class="reject-reason" id="reason-${s.id}" placeholder="Reject reason (jaise: document saaf nahi hai)" />
+        <input class="reject-reason" id="reason-${s.id}" placeholder="Reason for rejecting (e.g. document is not clear)" />
         <button class="btn btn-danger" data-reject="${s.id}">✕ Reject</button>
       </div>
-    </section>`).join("") : `<div class="panel"><p class="muted">Koi pending KYC request nahi.</p></div>`);
+    </section>`).join("") : `<div class="panel"><p class="muted">No pending KYC requests.</p></div>`);
 };
 AD_VIEWS.qc = () => { adContent.innerHTML = `<h1 class="dash-title">Listing QC Queue</h1><div id="qc-list"></div>`; renderQC(); };
 AD_VIEWS.approvals = () => { adContent.innerHTML = `<h1 class="dash-title">Category Approval Requests</h1><div id="appr-list"></div>`; renderApprovalsAdmin(); };
@@ -302,7 +302,7 @@ AD_VIEWS.sellers = () => {
   const chips = [["all", "All"], ["active", "Active"], ["pending", "KYC pending"], ["premium", "Premium"], ["suspended", "Suspended"]].map(([k, l]) => [k, l, all.filter(AD_SELLER_F[k]).length]);
   adContent.innerHTML = `
     <h1 class="dash-title">Sellers</h1>
-    ${adToolbar(chips, AD.sellerF, "sellerF", "ad-sq", AD.sellerQ, "Shop, naam ya email se search")}
+    ${adToolbar(chips, AD.sellerF, "sellerF", "ad-sq", AD.sellerQ, "Search by shop, name or email")}
     <section class="panel"><div class="table-wrap"><table class="table">
       <thead><tr><th>Shop</th><th>Owner</th><th>KYC</th><th>Plan</th><th>Listings</th><th>Sales</th><th>Store</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map((s) => {
@@ -320,7 +320,7 @@ AD_VIEWS.sellers = () => {
             ? `<button type="button" class="btn-sm btn-outline" data-sunsus="${s.id}">Unsuspend</button>`
             : `<button type="button" class="btn-sm btn-danger" data-ssus="${s.id}">Suspend</button>`}</td>
         </tr>`;
-      }).join("") || `<tr><td colspan="9" class="muted">Koi seller nahi mila.</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="9" class="muted">No sellers found.</td></tr>`}</tbody>
     </table></div></section>`;
 };
 function adSellerModal(id) {
@@ -344,7 +344,7 @@ function adSellerModal(id) {
       ${s.suspended ? `<dt>Suspended</dt><dd class="text-danger">${esc(s.suspended.reason)} · ${fmtDate(s.suspended.at)}</dd>` : ""}
     </dl>
     ${safeImg(k.idImage) || safeImg(k.addrImage) ? `<div class="ad-docs">${[k.idImage, k.addrImage].filter(safeImg).map((src) => `<a href="${safeImg(src)}" target="_blank"><img class="doc-img" src="${safeImg(src)}" alt="KYC document" /></a>`).join("")}</div>` : ""}
-    <h3 class="ad-h3">Plan badlo (admin grant, 30 din, ₹0)</h3>
+    <h3 class="ad-h3">Change plan (admin grant, 30 days, ₹0)</h3>
     <div class="row-actions">
       <select id="ad-plan" aria-label="Plan">${["free", ...PLAN_ORDER].map((p) => `<option value="${p}" ${activePlan(s).id === p ? "selected" : ""}>${PLANS[p].name}</option>`).join("")}</select>
       <button type="button" class="btn btn-sm" data-grant="${s.id}">Apply plan</button>
@@ -364,7 +364,7 @@ AD_VIEWS.listings = () => {
     .filter((L) => !q || `${L.name} ${L.brand || ""} ${L.id} ${(sellers.get(L.sellerId) || {}).shopName || ""}`.toLowerCase().includes(q));
   adContent.innerHTML = `
     <h1 class="dash-title">All Listings</h1>
-    ${adToolbar(fs, AD.listF, "listF", "ad-lq", AD.listQ, "Product, brand, seller ya ID")}
+    ${adToolbar(fs, AD.listF, "listF", "ad-lq", AD.listQ, "Product, brand, seller or ID")}
     <section class="panel"><div class="table-wrap"><table class="table">
       <thead><tr><th>Product</th><th>Seller</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map((L) => {
@@ -381,7 +381,7 @@ AD_VIEWS.listings = () => {
             ? `<button type="button" class="btn-sm btn-outline" data-lunblock="${L.id}">Unblock</button>`
             : L.status !== "draft" ? `<button type="button" class="btn-sm btn-danger" data-lblock="${L.id}">Block</button>` : ""}</td>
         </tr>`;
-      }).join("") || `<tr><td colspan="7" class="muted">Koi listing nahi mili.</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="7" class="muted">No listings found.</td></tr>`}</tbody>
     </table></div></section>`;
 };
 
@@ -396,7 +396,7 @@ AD_VIEWS.orders = () => {
     .filter((o) => !q || `${o.id} ${o.buyer.name} ${o.buyer.phone} ${o.buyer.email || ""}`.toLowerCase().includes(q));
   adContent.innerHTML = `
     <h1 class="dash-title">Orders</h1>
-    ${adToolbar(fs, AD.orderF, "orderF", "ad-oq", AD.orderQ, "Order ID, customer naam ya phone")}
+    ${adToolbar(fs, AD.orderF, "orderF", "ad-oq", AD.orderQ, "Order ID, customer name or phone")}
     <section class="panel"><div class="table-wrap"><table class="table">
       <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Amount</th><th>Shipments</th><th></th></tr></thead>
       <tbody>${list.map((o) => {
@@ -412,7 +412,7 @@ AD_VIEWS.orders = () => {
             ? `<button type="button" class="btn-sm" data-ship="${esc(o.id)}">Ship</button>`
             : plat && plat.status === "Shipped" ? `<button type="button" class="btn-sm" data-deliver="${esc(o.id)}">Deliver</button>` : ""}</td>
         </tr>`;
-      }).join("") || `<tr><td colspan="6" class="muted">Koi order nahi mila.</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="6" class="muted">No orders found.</td></tr>`}</tbody>
     </table></div></section>`;
 };
 function adOrderModal(id) {
@@ -425,7 +425,7 @@ function adOrderModal(id) {
     ${o.shipments.map((sh) => `<div class="shipment">
       <div class="shipment-head"><span>Sold by <strong>${esc(adSellerName(sh.sellerId))}</strong></span>${adPill(sh.status, "s-" + sh.status.toLowerCase())}</div>
       ${sh.items.map((it) => `<div class="mini-row"><div class="mini-info"><div>${esc(it.name)}</div><div class="muted">${it.size ? "Size " + esc(it.size) + " · " : ""}Qty ${it.qty}${it.sku ? " · SKU " + esc(it.sku) : ""}</div></div><div class="mini-price">${formatPrice(it.price * it.qty)}</div></div>`).join("")}
-      ${typeof sh.fees === "number" ? `<p class="muted small">Fees ${formatPrice(Math.round(sh.fees))} · Seller ko ${formatPrice(Math.round(sh.settlement))}</p>` : ""}
+      ${typeof sh.fees === "number" ? `<p class="muted small">Fees ${formatPrice(Math.round(sh.fees))} · Seller gets ${formatPrice(Math.round(sh.settlement))}</p>` : ""}
       ${sh.trackingId ? `<p class="muted small">Tracking: ${esc(sh.trackingId)} (${esc(sh.courier)})</p>` : ""}
     </div>`).join("")}`);
 }
@@ -439,7 +439,7 @@ AD_VIEWS.customers = () => {
   const list = all.filter((c) => !q || `${c.name} ${c.email} ${c.phone || ""}`.toLowerCase().includes(q));
   adContent.innerHTML = `
     <h1 class="dash-title">Customers <span class="muted">(${all.length})</span></h1>
-    <div class="ad-toolbar"><span></span><input type="search" id="ad-cq" class="ad-search" placeholder="Naam, email ya phone" value="${esc(AD.custQ)}" aria-label="Customers search" /></div>
+    <div class="ad-toolbar"><span></span><input type="search" id="ad-cq" class="ad-search" placeholder="Name, email or phone" value="${esc(AD.custQ)}" aria-label="Customers search" /></div>
     <section class="panel"><div class="table-wrap"><table class="table">
       <thead><tr><th>Customer</th><th>Phone</th><th>Addresses</th><th>Orders</th><th>Spent</th><th>Joined</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map((c) => {
@@ -456,7 +456,7 @@ AD_VIEWS.customers = () => {
             ? `<button type="button" class="btn-sm btn-outline" data-cunblock="${c.id}">Unblock</button>`
             : `<button type="button" class="btn-sm btn-danger" data-cblock="${c.id}">Block</button>`}</td>
         </tr>`;
-      }).join("") || `<tr><td colspan="8" class="muted">${all.length ? "Koi customer nahi mila." : "Abhi koi customer registered nahi."}</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="8" class="muted">${all.length ? "No customers found." : "No customers have registered yet."}</td></tr>`}</tbody>
     </table></div></section>`;
 };
 function adCustomerModal(id) {
@@ -471,13 +471,13 @@ function adCustomerModal(id) {
       ${c.blocked ? `<dt>Blocked</dt><dd class="text-danger">${esc(c.blockReason || "")}</dd>` : ""}
     </dl>
     <h3 class="ad-h3">Saved addresses (${(c.addresses || []).length})</h3>
-    ${(c.addresses || []).map((a) => `<p class="small"><strong>${esc(a.label)}${a.isDefault ? " · Default" : ""}</strong> — ${esc(a.name)}, ${esc(a.phone)}, ${esc(addressLine(a))}</p>`).join("") || `<p class="muted small">Koi address nahi.</p>`}
+    ${(c.addresses || []).map((a) => `<p class="small"><strong>${esc(a.label)}${a.isDefault ? " · Default" : ""}</strong> — ${esc(a.name)}, ${esc(a.phone)}, ${esc(addressLine(a))}</p>`).join("") || `<p class="muted small">No addresses.</p>`}
     <h3 class="ad-h3">Orders (${os.length})</h3>
-    ${os.map((o) => `<p class="small">#${esc(o.id)} · ${fmtDate(o.createdAt)} · ${formatPrice(o.total)} · ${adPill(adOrderStatus(o), "s-" + adOrderStatus(o).toLowerCase())}</p>`).join("") || `<p class="muted small">Abhi koi order nahi.</p>`}`);
+    ${os.map((o) => `<p class="small">#${esc(o.id)} · ${fmtDate(o.createdAt)} · ${formatPrice(o.total)} · ${adPill(adOrderStatus(o), "s-" + adOrderStatus(o).toLowerCase())}</p>`).join("") || `<p class="muted small">No orders yet.</p>`}`);
 }
 
 // ---------------------------------------------------------------------
-// Support (chat assistant ke "Talk to support" se aayi requests)
+// Support (requests from the chat assistant's "Talk to support")
 // ---------------------------------------------------------------------
 const AD_TICKET_F = {
   reply: adNeedsReply,
@@ -493,22 +493,22 @@ AD_VIEWS.support = () => {
     .sort((a, b) => (adNeedsReply(b) - adNeedsReply(a)) || (b.updatedAt - a.updatedAt));
   adContent.innerHTML = `
     <h1 class="dash-title">Support requests <span class="muted">(${all.length})</span></h1>
-    <p class="muted">Customers website ke 💬 Help chat me "Talk to support" se request bhejte hain. Aapka reply unhe usi chat me dikhta hai.</p>
-    ${adToolbar([["reply", "Reply chahiye", all.filter(adNeedsReply).length], ["open", "Open", all.filter(AD_TICKET_F.open).length], ["closed", "Resolved", all.filter(AD_TICKET_F.closed).length], ["all", "All", all.length]], AD.tickF, "tickF", "ad-tq", AD.tickQ, "Ticket ID, naam, email, order ya text")}
+    <p class="muted">Customers send requests from the 💬 Help chat ("Talk to support"). Your reply appears in the same chat.</p>
+    ${adToolbar([["reply", "Needs reply", all.filter(adNeedsReply).length], ["open", "Open", all.filter(AD_TICKET_F.open).length], ["closed", "Resolved", all.filter(AD_TICKET_F.closed).length], ["all", "All", all.length]], AD.tickF, "tickF", "ad-tq", AD.tickQ, "Ticket ID, name, email, order or text")}
     <section class="panel"><div class="table-wrap"><table class="table">
       <thead><tr><th>Request</th><th>Customer</th><th>Problem</th><th>Last update</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map((t) => {
         const last = t.messages[t.messages.length - 1];
-        const st = t.status !== "open" ? ["Resolved", "s-delivered"] : adNeedsReply(t) ? ["Reply chahiye", "s-placed"] : ["Replied", "s-shipped"];
+        const st = t.status !== "open" ? ["Resolved", "s-delivered"] : adNeedsReply(t) ? ["Needs reply", "s-placed"] : ["Replied", "s-shipped"];
         return `<tr class="${t.unreadAdmin ? "ad-unread" : ""}">
           <td><strong>#${esc(t.id)}</strong>${t.orderId ? `<div class="muted small">Order #${esc(t.orderId)}</div>` : ""}</td>
           <td>${esc(t.name || "—")}<div class="muted small">${esc(t.email || "")}${t.customerId ? " · account" : " · guest"}</div></td>
-          <td class="ad-tk-sub">${esc(t.subject)}<div class="muted small">${last.from === "admin" ? "Aap" : "Customer"}: ${esc(last.text.slice(0, 70))}${last.text.length > 70 ? "…" : ""}</div></td>
+          <td class="ad-tk-sub">${esc(t.subject)}<div class="muted small">${last.from === "admin" ? "You" : "Customer"}: ${esc(last.text.slice(0, 70))}${last.text.length > 70 ? "…" : ""}</div></td>
           <td>${fmtDateTime(t.updatedAt)}<div class="muted small">${t.messages.length} message(s)</div></td>
           <td>${adPill(st[0], st[1])}</td>
           <td class="ad-actions"><button type="button" class="btn-sm ${adNeedsReply(t) ? "" : "btn-outline"}" data-tview="${esc(t.id)}">${adNeedsReply(t) ? "Reply" : "Open"}</button></td>
         </tr>`;
-      }).join("") || `<tr><td colspan="6" class="muted">${all.length ? "Is filter me koi request nahi." : "Abhi koi support request nahi aayi."}</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="6" class="muted">${all.length ? "No requests match this filter." : "No support requests yet."}</td></tr>`}</tbody>
     </table></div></section>`;
 };
 
@@ -529,8 +529,8 @@ function adTicketModal(id) {
         <p>${esc(m.text).replace(/\n/g, "<br>")}</p>
       </div>`).join("")}</div>
     <form id="ad-treply" class="checkout-form" novalidate>
-      <label>Reply (customer ko chat me dikhega)
-        <textarea name="text" rows="3" maxlength="${TICKET_MAX}" placeholder="Namaste! Aapki problem ke baare me…"></textarea><small class="err"></small></label>
+      <label>Reply (the customer sees this in the chat)
+        <textarea name="text" rows="3" maxlength="${TICKET_MAX}" placeholder="Hi! About your request…"></textarea><small class="err"></small></label>
       <div class="modal-actions">
         ${t.status === "open"
           ? `<button type="button" class="btn btn-outline" data-tclose="${esc(t.id)}">✓ Resolve (bina reply)</button><button type="submit" class="btn btn-outline" name="close" value="1">Reply &amp; resolve</button>`
@@ -545,11 +545,11 @@ function adTicketModal(id) {
     e.preventDefault();
     const text = f.elements.text.value.trim();
     const errEl = f.querySelector(".err");
-    if (text.length < 2) { errEl.textContent = "Reply likhein"; f.elements.text.focus(); return; }
+    if (text.length < 2) { errEl.textContent = "Write a reply"; f.elements.text.focus(); return; }
     const close = e.submitter && e.submitter.name === "close";
     ticketReply(t.id, "admin", text);
     if (close) updateTicket(t.id, (x) => { x.status = "closed"; x.closedAt = Date.now(); });
-    showToast(close ? "Reply bheja aur request resolve ki ✓" : "Reply bhej diya ✓");
+    showToast(close ? "Reply sent and request resolved ✓" : "Reply sent ✓");
     adTicketModal(t.id);
     render();
   });
@@ -578,7 +578,7 @@ AD_VIEWS.stores = () => {
             ? `<button type="button" class="btn-sm btn-outline" data-strestore="${s.id}">Restore</button>`
             : `<button type="button" class="btn-sm btn-danger" data-sttake="${s.id}">Take down</button>`}</td>
         </tr>`;
-      }).join("") || `<tr><td colspan="7" class="muted">Abhi kisi seller ne Brand Store nahi banaya.</td></tr>`}</tbody>
+      }).join("") || `<tr><td colspan="7" class="muted">No seller has created a Brand Store yet.</td></tr>`}</tbody>
     </table></div></section>`;
 };
 
@@ -598,7 +598,7 @@ AD_VIEWS.settings = () => {
       <div class="row-actions"><button type="submit" class="btn">Save</button></div>
     </form>
     <form id="ad-pass" class="panel checkout-form" novalidate>
-      <h2>Password badlo</h2>
+      <h2>Change password</h2>
       <div class="form-grid">
         <label class="full">Current password<input name="current" type="password" autocomplete="current-password" /><small class="err"></small></label>
         <label>New password<input name="password" type="password" autocomplete="new-password" /><small class="hint">10+ characters, letter, number, symbol</small><small class="err"></small></label>
@@ -612,7 +612,7 @@ AD_VIEWS.settings = () => {
     </section>
     <section class="panel danger-zone">
       <h2>Reset demo data</h2>
-      <p class="muted">Is browser se saare sellers, customers, listings (images samet), approvals, orders, ads, stores aur stats hata do. Cart bhi saaf hoga. Admin account bana rahega.</p>
+      <p class="muted">Remove all sellers, customers, listings (with images), approvals, orders, ads, stores and stats from this browser. The cart is cleared too. Your admin account stays, and the demo catalogue is added back on the next page load.</p>
       <button type="button" class="btn btn-danger" id="reset">Reset everything</button>
     </section>`;
   const err = (f, n, m) => { const el = f.elements[n]; el.closest("label").querySelector(".err").textContent = m || ""; el.classList.toggle("invalid", !!m); return !m; };
@@ -620,10 +620,10 @@ AD_VIEWS.settings = () => {
   pf.addEventListener("submit", (e) => {
     e.preventDefault();
     const name = pf.elements.name.value.trim(), email = pf.elements.email.value.trim().toLowerCase();
-    if (![err(pf, "name", name.length < 2 ? "Naam daalein" : ""), err(pf, "email", EMAIL_RE.test(email) ? "" : "Sahi email daalein")].every(Boolean)) return;
+    if (![err(pf, "name", name.length < 2 ? "Enter your name" : ""), err(pf, "email", EMAIL_RE.test(email) ? "" : "Enter a valid email")].every(Boolean)) return;
     dbSet(DB.admin, { ...getAdmin(), name, email });
     dbSet(DB.adminSession, { email, exp: Date.now() + AD_SESSION_MS });
-    showToast("Profile save ho gaya ✓");
+    showToast("Profile saved ✓");
     render();
   });
   const pw = document.getElementById("ad-pass");
@@ -632,15 +632,15 @@ AD_VIEWS.settings = () => {
     const adm = getAdmin();
     const cur = pw.elements.current.value, np = pw.elements.password.value;
     const ok = [
-      err(pw, "current", (await hashPassword(cur, adm.salt)) === adm.passwordHash ? "" : "Current password galat hai"),
-      err(pw, "password", adStrongPassword(np) ? "" : "10+ characters, letter, number aur symbol"),
-      err(pw, "confirm", pw.elements.confirm.value === np ? "" : "Dono password same nahi hain"),
+      err(pw, "current", (await hashPassword(cur, adm.salt)) === adm.passwordHash ? "" : "Your current password is incorrect"),
+      err(pw, "password", adStrongPassword(np) ? "" : "10+ characters with a letter, a number and a symbol"),
+      err(pw, "confirm", pw.elements.confirm.value === np ? "" : "Passwords don't match"),
     ].every(Boolean);
     if (!ok) return;
     const salt = crypto.getRandomValues(new Uint32Array(4)).join("-");
     dbSet(DB.admin, { ...adm, salt, passwordHash: await hashPassword(np, salt) });
     pw.reset();
-    showToast("Password badal gaya ✓");
+    showToast("Password changed ✓");
   });
 };
 
@@ -656,34 +656,34 @@ document.addEventListener("click", (e) => {
   if (d.approve) {
     const s = getSeller(d.approve);
     updateSeller(s.id, { kyc: { ...s.kyc, status: "approved", reviewedAt: Date.now(), reason: "" } });
-    notifySeller(s.id, "🎉 Aapka KYC approve ho gaya! Ab poora dashboard unlock hai — products add karna shuru karo.");
+    notifySeller(s.id, "🎉 Your KYC is approved! The full dashboard is unlocked — start adding products.");
     showToast(`${s.shopName} approved ✓`);
     return render();
   }
   if (d.reject) {
     const s = getSeller(d.reject);
     const reason = document.getElementById("reason-" + s.id).value.trim();
-    if (reason.length < 5) { showToast("Reject ka reason likhein"); return; }
+    if (reason.length < 5) { showToast("Write a reason for rejecting"); return; }
     updateSeller(s.id, { kyc: { ...s.kyc, status: "rejected", reviewedAt: Date.now(), reason } });
-    notifySeller(s.id, `❌ KYC reject hua: ${reason}. Dobara submit karein.`);
+    notifySeller(s.id, `❌ KYC rejected: ${reason}. Please submit again.`);
     showToast(`${s.shopName} rejected`);
     return render();
   }
-  if (d.ship) { updateShipment(d.ship, PLATFORM_SELLER, "Shipped", { courier: "Ekart", trackingId: "EK" + Date.now().toString().slice(-8) }); showToast("Shipped ✓"); return render(); }
+  if (d.ship) { updateShipment(d.ship, PLATFORM_SELLER, "Shipped", { courier: "Zzapkart Logistics", trackingId: "ZL" + Date.now().toString().slice(-8) }); showToast("Shipped ✓"); return render(); }
   if (d.deliver) { updateShipment(d.deliver, PLATFORM_SELLER, "Delivered"); showToast("Delivered ✓"); return render(); }
   if (d.sview) return adSellerModal(d.sview);
   if (d.ssus) {
     const s = getSeller(d.ssus);
-    return adAsk(`Suspend: ${s.shopName}`, "Suspend karne ka reason", "Suspend seller", (reason) => {
+    return adAsk(`Suspend: ${s.shopName}`, "Reason for suspending", "Suspend seller", (reason) => {
       updateSeller(s.id, { suspended: { reason, at: Date.now() } });
-      notifySeller(s.id, `⛔ Aapka seller account suspend hua: ${reason}. Products aur store buyers ko nahi dikhenge.`);
+      notifySeller(s.id, `⛔ Your seller account has been suspended: ${reason}. Your products and store are hidden from shoppers.`);
       showToast(`${s.shopName} suspended`);
     });
   }
   if (d.sunsus) {
     const s = getSeller(d.sunsus);
     updateSeller(s.id, { suspended: null });
-    notifySeller(s.id, "✅ Aapka seller account wapas active hai.");
+    notifySeller(s.id, "✅ Your seller account is active again.");
     showToast(`${s.shopName} active ✓`);
     return render();
   }
@@ -697,16 +697,16 @@ document.addEventListener("click", (e) => {
       subscription: planId === "free" ? null : { plan: planId, startedAt: now, expiresAt: now + SUBSCRIPTION_DAYS * DAY, reminded: false },
       payments,
     });
-    notifySeller(s.id, planId === "free" ? "ℹ️ Admin ne aapka plan Free par set kiya." : `⭐ Admin ne aapko ${PLANS[planId].name} plan diya (30 din).`);
+    notifySeller(s.id, planId === "free" ? "ℹ️ Zzapkart admin set your plan to Free." : `⭐ Zzapkart admin gave you the ${PLANS[planId].name} plan (30 days).`);
     adCloseModal();
     showToast(`${s.shopName}: ${PLANS[planId].name} plan ✓`);
     return render();
   }
   if (d.lblock) {
     const L = getListing(Number(d.lblock));
-    return adAsk(`Block listing: ${L.name}`, "Block karne ka reason", "Block listing", (reason) => {
+    return adAsk(`Block listing: ${L.name}`, "Reason for blocking", "Block listing", (reason) => {
       saveListing({ ...L, blockedFrom: L.status, status: "blocked", blockReason: reason, blockedAt: Date.now() });
-      notifySeller(L.sellerId, `⛔ Listing block hui: "${L.name}" — ${reason}`);
+      notifySeller(L.sellerId, `⛔ Listing blocked: "${L.name}" — ${reason}`);
       showToast("Listing blocked");
     });
   }
@@ -715,7 +715,7 @@ document.addEventListener("click", (e) => {
     const back = L.blockedFrom && L.blockedFrom !== "blocked" ? L.blockedFrom : "qc_passed";
     const { blockedFrom, blockReason, blockedAt, ...rest } = L;
     saveListing({ ...rest, status: back });
-    notifySeller(L.sellerId, `✅ Listing unblock hui: "${L.name}"`);
+    notifySeller(L.sellerId, `✅ Listing unblocked: "${L.name}"`);
     showToast("Listing unblocked ✓");
     return render();
   }
@@ -723,20 +723,20 @@ document.addEventListener("click", (e) => {
   if (d.tview) return adTicketModal(d.tview);
   if (d.tclose) {
     updateTicket(d.tclose, (x) => { x.status = "closed"; x.closedAt = Date.now(); });
-    showToast("Request resolve ho gayi ✓");
+    showToast("Request resolved ✓");
     adTicketModal(d.tclose);
     return render();
   }
   if (d.topen) {
     updateTicket(d.topen, (x) => { x.status = "open"; });
-    showToast("Request dobara open ✓");
+    showToast("Request reopened ✓");
     adTicketModal(d.topen);
     return render();
   }
   if (d.cview) return adCustomerModal(d.cview);
   if (d.cblock) {
     const c = getCustomer(d.cblock);
-    return adAsk(`Block customer: ${c.name}`, "Block karne ka reason", "Block customer", (reason) => {
+    return adAsk(`Block customer: ${c.name}`, "Reason for blocking", "Block customer", (reason) => {
       updateCustomer(c.id, { blocked: true, blockReason: reason, blockedAt: Date.now() });
       showToast(`${c.name} blocked`);
     });
@@ -744,25 +744,25 @@ document.addEventListener("click", (e) => {
   if (d.cunblock) { updateCustomer(d.cunblock, { blocked: false, blockReason: "" }); showToast("Customer unblocked ✓"); return render(); }
   if (d.sttake) {
     const s = getSeller(d.sttake);
-    return adAsk(`Take down store: ${(s.store.live || s.store.draft).name}`, "Store band karne ka reason", "Take down", (reason) => {
+    return adAsk(`Take down store: ${(s.store.live || s.store.draft).name}`, "Reason for taking the store down", "Take down", (reason) => {
       updateSeller(s.id, { store: { ...s.store, adminBlocked: { reason, at: Date.now() } } });
-      notifySeller(s.id, `⛔ Zzapkart admin ne aapka Brand Store band kiya: ${reason}`);
+      notifySeller(s.id, `⛔ Zzapkart admin has taken down your Brand Store: ${reason}`);
       showToast("Store taken down");
     });
   }
   if (d.strestore) {
     const s = getSeller(d.strestore);
     updateSeller(s.id, { store: { ...s.store, adminBlocked: null } });
-    notifySeller(s.id, "✅ Aapka Brand Store wapas live kiya gaya.");
+    notifySeller(s.id, "✅ Your Brand Store is live again.");
     showToast("Store restored ✓");
     return render();
   }
-  if (t.id === "reset" && confirm("Saara demo data delete karna hai? Ye wapas nahi aayega.")) {
+  if (t.id === "reset" && confirm("Delete all demo data? This can't be undone.")) {
     Object.entries(DB).filter(([k]) => k !== "admin" && k !== "adminSession").forEach(([, key]) => localStorage.removeItem(key));
     localStorage.removeItem("zzapkart_cart");
     localStorage.removeItem("zzapkart_address");
     MediaDB.clear();
-    showToast("Demo data reset ho gaya");
+    showToast("Demo data has been reset");
     render();
   }
 });

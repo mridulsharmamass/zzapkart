@@ -1,22 +1,24 @@
-// Home page: category list, har category ka alag section, search
+// Home page: hero carousel, categories, deals, reels, brand stores, sponsored products,
+// one section per category, and search.
 const searchInput = document.getElementById("search");
 const browseView = document.getElementById("browse-view");
 const searchView = document.getElementById("search-view");
 const hero = document.getElementById("hero");
 
-const SECTION_LIMIT = 4; // har section mein home par kitne products dikhane hain
+const SECTION_LIMIT = 5; // products per category section on the home page
 
-// ---------- Saari categories ki list (tiles) ----------
-document.getElementById("cat-tiles").innerHTML = CATEGORIES.map(
-  (c) => `
-    <a href="${categoryUrl(c)}" class="cat-tile" style="background:${c.gradient}">
-      <span class="cat-tile-emoji">${c.emoji}</span>
+// ---------- Categories (tiles) ----------
+document.getElementById("cat-tiles").innerHTML = CATEGORIES.map((c) => {
+  const pick = productsOf(c.name).find((p) => safeImg(p.image));
+  return `
+    <a href="${categoryUrl(c)}" class="cat-tile" style="--tile:${c.gradient}">
+      <span class="cat-tile-art">${pick ? `<img src="${safeImg(pick.image)}" alt="" loading="lazy" />` : `<span class="cat-tile-emoji">${c.emoji}</span>`}</span>
       <span class="cat-tile-name">${c.name}</span>
       <span class="cat-tile-count">${productsOf(c.name).length} products</span>
-    </a>`
-).join("");
+    </a>`;
+}).join("");
 
-// ---------- Brand Stores (Premium sellers ke apne stores) ----------
+// ---------- Brand Stores (Premium sellers' own stores) ----------
 const BRAND_STORES = activeStores();
 function storeTileHTML(s, cls = "bs-tile") {
   return `
@@ -27,31 +29,33 @@ function storeTileHTML(s, cls = "bs-tile") {
 }
 if (BRAND_STORES.length) {
   document.getElementById("brand-stores").innerHTML = `
-    <section class="cat-section">
-      <div class="cat-section-head" style="border-left-color:#ff2d95">
-        <div><h2>🏬 Brand Stores</h2><p class="muted">Sellers ke apne official stores — unke saare products ek jagah</p></div>
+    <section class="home-sec">
+      <div class="section-head">
+        <div><h2 class="section-title">🏬 Brand Stores</h2><p class="section-sub">Official stores from our sellers — their full range in one place</p></div>
       </div>
       <div class="bs-strip">${BRAND_STORES.map((s) => storeTileHTML(s)).join("")}</div>
     </section>`;
 }
 
-// ---------- Home banner carousel (apne-aap badalta hai) ----------
+// ---------- Hero carousel (changes automatically) ----------
 function heroSlides() {
   const maxOff = (list) => list.reduce((m, p) => Math.max(m, discount(p)), 0);
   const artOf = (list, fallback) => {
+    const imgs = list.filter((p) => safeImg(p.image)).sort((a, b) => discount(b) - discount(a)).slice(0, 3).map((p) => ({ img: safeImg(p.image) }));
+    if (imgs.length) return imgs;
     const em = [...new Set(list.map((p) => p.emoji).filter((e) => e && e !== "📦"))].slice(0, 3);
-    return em.length ? em : [fallback];
+    return (em.length ? em : [fallback]).map((e) => ({ emoji: e }));
   };
   const slides = [{
-    eyebrow: "Big Saving Days", title: `Up to ${maxOff(PRODUCTS)}% off`, text: "Electronics, fashion, home aur bahut kuch — sab ek jagah",
-    cta: "Shop by category", href: "#cat-tiles", bg: "radial-gradient(circle at 75% 30%, #3a1290 0%, #1e0b3d 70%)", art: ["🛍️", "🎧", "👟"], glow: true,
+    eyebrow: "Big Saving Days", title: `Up to ${maxOff(PRODUCTS)}% off`, text: "Electronics, fashion, home and much more — all in one place",
+    cta: "Shop by category", href: "#cat-tiles", bg: "radial-gradient(circle at 75% 30%, #3a1290 0%, #1e0b3d 70%)", art: artOf(PRODUCTS, "🛍️"), glow: true,
   }];
-  // Har category ka offer = us category ke products ka asli max discount
   [
-    ["Fashion", "Fashion Fest", "Trendy kapde, shoes aur accessories"],
-    ["Electronics", "Electronics Week", "Headphones, smart watches aur gadgets"],
-    ["Home", "Home Makeover", "Kitchen, decor aur lighting — ghar ko naya look do"],
-    ["Sports", "Fit India Sale", "Cricket, football aur yoga gear"],
+    ["Fashion", "Fashion Fest", "Fresh styles in clothing, shoes and bags"],
+    ["Electronics", "Electronics Week", "Headphones, smart watches and gadgets"],
+    ["Home", "Home Makeover", "Kitchen, decor and lighting for every room"],
+    ["Beauty", "Glow Up Sale", "Skincare, makeup and fragrances you'll love"],
+    ["Sports", "Fit India Sale", "Gear for cricket, football, yoga and the gym"],
   ].forEach(([name, eyebrow, text]) => {
     const c = CATEGORIES.find((x) => x.name === name);
     const items = productsOf(name);
@@ -61,13 +65,13 @@ function heroSlides() {
   });
   if (BRAND_STORES.length) {
     slides.push({
-      eyebrow: "New · Brand Stores", title: "Naye Brand Stores", text: `${BRAND_STORES.slice(0, 3).map((s) => s.name).join(" · ")} — sellers ke official stores`,
+      eyebrow: "Brand Stores", title: "Shop official brand stores", text: `${BRAND_STORES.slice(0, 3).map((s) => s.name).join(" · ")} and more`,
       cta: "Explore stores →", href: "#brand-stores", bg: `linear-gradient(120deg, #120a26, ${storeTheme(BRAND_STORES[0])})`, stores: BRAND_STORES.slice(0, 3),
     });
   }
   slides.push({
-    eyebrow: "Zzapkart Seller Hub", title: "Apna business online lao", text: "Seller bano — listings, orders, payments aur ads ek hi dashboard me",
-    cta: "Start selling →", href: "seller.html", bg: "linear-gradient(120deg, #ff8a5c, #ff2d95)", art: ["🏪", "📦", "💰"],
+    eyebrow: "Zzapkart Seller Hub", title: "Grow your business online", text: "Listings, orders, payments and ads — all from one dashboard",
+    cta: "Start selling →", href: "seller.html", bg: "linear-gradient(120deg, #ff8a5c, #ff2d95)", art: [{ emoji: "🏪" }, { emoji: "📦" }, { emoji: "💰" }],
   });
   return slides;
 }
@@ -75,12 +79,12 @@ function heroSlides() {
 const HERO_SLIDES = heroSlides();
 const heroArt = (s) => s.stores
   ? s.stores.map((st) => `<span class="hh-bubble hh-logo">${safeImg(st.logo) ? `<img src="${safeImg(st.logo)}" alt="" />` : esc(storeInitials(st.name))}</span>`).join("")
-  : s.art.map((e) => `<span class="hh-bubble">${e}</span>`).join("");
+  : s.art.map((a) => `<span class="hh-bubble${a.img ? " hh-photo" : ""}">${a.img ? `<img src="${a.img}" alt="" />` : a.emoji}</span>`).join("");
 hero.innerHTML = `
   <div class="hh-viewport">
     <div class="hh-track">
       ${HERO_SLIDES.map((s, i) => `
-        <div class="hh-slide car-slide ${i === 0 ? "active" : ""}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${HERO_SLIDES.length}: ${esc(s.eyebrow)}" style="--hh-bg:${esc(s.bg)}">
+        <div class="hh-slide car-slide ${i === 0 ? "active" : ""}" role="group" aria-roledescription="slide" aria-label="${i + 1} of ${HERO_SLIDES.length}: ${esc(s.eyebrow)}" style="--hh-bg:${esc(s.bg)}">
           <div class="hh-text">
             <span class="hh-eyebrow">${esc(s.eyebrow)}</span>
             <h2 class="hh-title${s.glow ? " glow" : ""}">${esc(s.title)}</h2>
@@ -91,8 +95,8 @@ hero.innerHTML = `
         </div>`).join("")}
     </div>
   </div>
-  <button type="button" class="hh-arrow car-prev" aria-label="Pichhla banner">‹</button>
-  <button type="button" class="hh-arrow car-next" aria-label="Agla banner">›</button>
+  <button type="button" class="hh-arrow car-prev" aria-label="Previous banner">‹</button>
+  <button type="button" class="hh-arrow car-next" aria-label="Next banner">›</button>
   <div class="hh-controls">
     <div class="hh-dots">${HERO_SLIDES.map((s, i) => `<button type="button" data-dot="${i}" aria-label="Banner ${i + 1}: ${esc(s.eyebrow)}"></button>`).join("")}</div>
   </div>
@@ -100,19 +104,41 @@ hero.innerHTML = `
 const heroTrack = hero.querySelector(".hh-track");
 startCarousel(hero, { interval: 4500, onShow: (i) => { heroTrack.style.transform = `translateX(-${i * 100}%)`; } });
 
+// ---------- Promises strip ----------
+document.getElementById("promises").innerHTML = `
+  <div class="promise"><span>🚚</span><div><strong>Free delivery</strong><small>On orders above ${formatPrice(FREE_DELIVERY_MIN)}</small></div></div>
+  <div class="promise"><span>↩️</span><div><strong>Easy returns</strong><small>7-day returns on most items</small></div></div>
+  <div class="promise"><span>🔒</span><div><strong>Secure payments</strong><small>UPI, cards and cash on delivery</small></div></div>
+  <div class="promise"><span>✅</span><div><strong>Verified sellers</strong><small>Every seller is KYC checked</small></div></div>`;
+
+// ---------- Deals of the day ----------
+const deals = PRODUCTS.filter((p) => inStock(p) && discount(p) >= 30).sort((a, b) => discount(b) - discount(a)).slice(0, 10);
+const dealsEl = document.getElementById("deals");
+if (deals.length) {
+  dealsEl.innerHTML = `
+    <section class="home-sec deals-sec">
+      <div class="section-head">
+        <div><h2 class="section-title">⚡ Deals of the Day</h2><p class="section-sub">Biggest discounts right now — while stocks last</p></div>
+        <a href="browse.html" class="link">See all →</a>
+      </div>
+      <div class="scroll-row">${deals.map((p) => productCard(p)).join("")}</div>
+    </section>`;
+  enableAddToCart(dealsEl);
+}
+
+// ---------- Reels ----------
+if (typeof renderReelsStrip === "function") renderReelsStrip(document.getElementById("reels"));
+
 // ---------- Sponsored (seller ads) ----------
 const sponsoredEl = document.getElementById("sponsored");
-// Search ke saath khula ho (?q=) to home ads chhupe rehte — unka auction/impression mat karo
+// Opened with a search (?q=) → home ads stay hidden, so don't run their auction / count impressions
 const openedWithSearch = !!new URLSearchParams(location.search).get("q");
 const homeSlots = openedWithSearch ? [] : runAuction({ placement: "home" }, 4);
 if (homeSlots.length) {
   sponsoredEl.innerHTML = `
-    <section class="cat-section sponsored-section">
-      <div class="cat-section-head" style="border-left-color:#ff2d95">
-        <div>
-          <h2>Sponsored Products</h2>
-          <p class="muted">Hamare sellers ke promoted products</p>
-        </div>
+    <section class="home-sec sponsored-section">
+      <div class="section-head">
+        <div><h2 class="section-title">Sponsored Products</h2><p class="section-sub">Promoted by our sellers</p></div>
       </div>
       <div class="grid">${sponsoredCards(homeSlots)}</div>
     </section>`;
@@ -120,27 +146,25 @@ if (homeSlots.length) {
 }
 enableAddToCart(sponsoredEl);
 
-// ---------- Har category ka alag section ----------
+// ---------- One section per category ----------
 const sectionsEl = document.getElementById("category-sections");
 sectionsEl.innerHTML = CATEGORIES.map((c) => {
   const items = productsOf(c.name);
   if (items.length === 0) return "";
   return `
-    <section class="cat-section">
-      <div class="cat-section-head" style="border-left-color:${c.gradient.match(/#\w+/)[0]}">
-        <div>
-          <h2>${c.emoji} ${c.name}</h2>
-          <p class="muted">${c.tagline}</p>
-        </div>
-        <a href="${categoryUrl(c)}" class="btn view-all">View All (${items.length}) →</a>
+    <section class="home-sec">
+      <div class="section-head">
+        <div><h2 class="section-title">${c.emoji} ${c.name}</h2><p class="section-sub">${esc(c.tagline)}</p></div>
+        <a href="${categoryUrl(c)}" class="link">View all ${items.length} →</a>
       </div>
-      <div class="grid">${items.slice(0, SECTION_LIMIT).map(productCard).join("")}</div>
+      <div class="grid">${items.slice(0, SECTION_LIMIT).map((p) => productCard(p)).join("")}</div>
     </section>`;
 }).join("");
 enableAddToCart(sectionsEl);
 
 // ---------- Search ----------
 const searchGrid = document.getElementById("search-grid");
+const searchBrand = document.getElementById("search-brand");
 enableAddToCart(searchGrid);
 
 function runSearch() {
@@ -150,10 +174,11 @@ function runSearch() {
 
   browseView.classList.toggle("hidden", searching);
   hero.classList.toggle("hidden", searching);
+  document.getElementById("promises").classList.toggle("hidden", searching);
   searchView.classList.toggle("hidden", !searching);
   if (!searching) return;
 
-  // Har shabd naam / category / description mein hona chahiye ("summer shirt" → dono words)
+  // Every word must match the name / brand / category / description ("summer shirt" → both words)
   const qWords = words(raw).map(stem);
   const list = PRODUCTS.filter((p) => {
     const hay = new Set(words(`${p.name} ${p.brand || ""} ${p.category} ${p.catName || ""} ${p.verticalName || ""} ${p.keywords || ""} ${p.description || ""}`).map(stem));
@@ -168,7 +193,7 @@ function runSearch() {
   const organic = list.filter((p) => !topIds.has(p.id));
   const rest = runAuction({ placement: "rest", query: raw }, 4).filter((s) => !topIds.has(s.pid)).slice(0, 2);
 
-  // Store ka naam search kiya ho to store ka link sabse upar
+  // Searching for a store name → show that store first
   const nq = normalizeQuery(raw);
   const storeHits = nq.length < 3 ? [] : BRAND_STORES.filter((s) => {
     const n = normalizeQuery(`${s.name} ${s.slug.replace(/-/g, " ")}`);
@@ -191,17 +216,16 @@ function runSearch() {
 
   const total = list.length;
   document.getElementById("empty").classList.toggle("hidden", total > 0 || top.length + rest.length > 0);
-  document.getElementById("result-info").textContent = `"${raw}" ke liye ${total} result(s)`;
+  document.getElementById("result-info").textContent = `${total} result${total === 1 ? "" : "s"} for "${raw}"`;
 }
 
-// Har keystroke par nahi — typing rukne par search (ad impressions sahi ginne ke liye)
-const searchBrand = document.getElementById("search-brand");
+// Search after typing pauses (not on every key — keeps ad impressions accurate)
 let searchTimer;
 searchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(runSearch, 350);
 });
-// Enter ya search icon: turant search
+// Enter or the search icon: search right away
 document.getElementById("home-search-form").addEventListener("submit", (e) => {
   e.preventDefault();
   clearTimeout(searchTimer);
@@ -209,7 +233,7 @@ document.getElementById("home-search-form").addEventListener("submit", (e) => {
   runSearch();
 });
 
-// Doosre page se search karke aaye ho to (?q=...) wala text bhar do
+// Came from another page with a search (?q=...)
 const initialQ = new URLSearchParams(location.search).get("q");
 if (initialQ) searchInput.value = initialQ;
 runSearch();

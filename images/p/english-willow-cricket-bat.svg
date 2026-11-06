@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dcfce7"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eac692"/><stop offset="1" stop-color="#caa36b"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <g transform="rotate(-16 200 260)">
+      <rect x="188" y="62" width="24" height="120" rx="10" fill="#1f2937"/>
+      <rect x="186" y="80" width="28" height="8" rx="4" fill="#1d4ed8"/><rect x="186" y="100" width="28" height="8" rx="4" fill="#1d4ed8"/><rect x="186" y="120" width="28" height="8" rx="4" fill="#1d4ed8"/><rect x="186" y="140" width="28" height="8" rx="4" fill="#1d4ed8"/><rect x="186" y="160" width="28" height="8" rx="4" fill="#1d4ed8"/>
+      <path d="M176 176 L224 176 L236 220 L236 410 Q200 426 164 410 L164 220 Z" fill="url(#g)"/>
+      <path d="M200 200 L200 404" stroke="#a58558" stroke-width="4" opacity=".35"/>
+      <rect x="172" y="300" width="56" height="28" rx="4" fill="#1d4ed8"/>
+    </g>
+</svg>

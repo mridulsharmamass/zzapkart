@@ -1,4 +1,4 @@
-// Shared cart logic (localStorage mein save hota hai, page refresh pe bhi rehta hai)
+// Shared cart logic (saved in localStorage, survives page refreshes)
 const CART_KEY = "zzapkart_cart";
 
 function getCart() {

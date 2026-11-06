@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ccfbf1"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#624637"/><stop offset="1" stop-color="#371a0a"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <rect x="112" y="120" width="176" height="44" rx="12" fill="#f59e0b"/>
+    <rect x="102" y="156" width="196" height="254" rx="26" fill="url(#g)"/>
+    <rect x="102" y="210" width="196" height="120" fill="#000" opacity=".15"/>
+    <text x="200" y="262" font-family="Arial, sans-serif" font-size="40" font-weight="900" fill="#fff" text-anchor="middle">WHEY</text>
+    <rect x="140" y="282" width="120" height="12" rx="6" fill="#f59e0b"/>
+    <rect x="118" y="172" width="14" height="220" rx="7" fill="#fff" opacity=".2"/>
+</svg>

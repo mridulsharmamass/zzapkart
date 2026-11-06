@@ -1,17 +1,17 @@
 // =====================================================================
-// Zzapkart Assistant — website ka chat bot (home + shopping pages)
-// Bina server ke kaam karta hai: asli catalog (PRODUCTS), cart, customer ke
-// orders, policies aur Brand Stores se jawab deta hai. Hindi / Hinglish /
-// English samajhta hai. "Talk to support" se support ticket banta hai →
-// Super Admin (admin.html → Support) reply karta hai → reply yahin chat me.
-// Sab kuch is IIFE ke andar hai (koi global naam nahi banta).
+// Zzapkart Assistant — the website's chat bot (home + shopping pages)
+// Works without a server: answers come from the real catalogue (PRODUCTS), the cart,
+// the customer's orders, our policies and Brand Stores. Understands English and
+// Hinglish, and always replies in English. "Talk to support" creates a ticket →
+// Super Admin (admin.html → Support) replies → the reply appears in this chat.
+// Everything lives inside this IIFE (no global names).
 // =====================================================================
 (() => {
   if (typeof PRODUCTS === "undefined" || document.getElementById("zc-root")) return;
 
   const MAX_LOG = 80;
   const ORDER_RE = /\bzk\d{6,10}\b/i;
-  const CANCEL_RE = /^(cancel|stop|chhodo|chodo|rehne do|rahne do|nahi|no|exit|quit|band karo|✖ rehne do)$/i;
+  const CANCEL_RE = /^(cancel|stop|chhodo|chodo|rehne do|rahne do|nahi|no|exit|quit|band karo|never mind|✖ never mind)$/i;
   const page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
   const here = page + location.search;
   const loginHref = () => "account.html?next=" + encodeURIComponent(here);
@@ -19,7 +19,7 @@
   const money = (n) => formatPrice(n);
 
   // ---------------------------------------------------------------
-  // Chat history (localStorage — page badalne par bhi chat bani rahe)
+  // Chat history (localStorage — the chat survives page changes)
   // ---------------------------------------------------------------
   let S = load();
   function load() {
@@ -46,9 +46,9 @@
     human: { label: "🙋 Talk to support", q: "talk to support" },
     cart: { label: "🛒 My cart", q: "my cart" },
     sell: { label: "🏪 Sell on Zzapkart", q: "sell on zzapkart" },
-    tickets: { label: "🎫 Meri requests", q: "my support requests" },
+    tickets: { label: "🎫 My requests", q: "my support requests" },
     stores: { label: "🏬 Brand stores", q: "brand stores" },
-    cancel: { label: "✖ Rehne do", q: "cancel" },
+    cancel: { label: "✖ Never mind", q: "cancel" },
   };
   const MENU = [C.track, C.deals, C.cats, C.returns, C.delivery, C.human];
   const pdpId = page === "product.html" ? new URLSearchParams(location.search).get("id") : null;
@@ -56,15 +56,15 @@
 
   function welcome() {
     const c = currentCustomer();
-    const chips = pdpProduct ? [{ label: "📦 Is product ke baare me", q: "__product:" + pdpProduct.id }, ...MENU.slice(0, 5)] : MENU;
+    const chips = pdpProduct ? [{ label: "📦 About this product", q: "__product:" + pdpProduct.id }, ...MENU.slice(0, 5)] : MENU;
     return {
-      html: `Namaste${c ? " " + firstName(c) : ""}! 👋 Main <strong>Zzapkart Assistant</strong> hoon.<br>Product dhoondhna ho, order track karna ho, ya return / delivery / payment ke baare me poochna ho — bas likhiye.<br><span class="zc-muted">Jaise: "running shoes under 3000" ya "mera order kahan hai"</span>`,
+      html: `Hi${c ? " " + firstName(c) : ""}! 👋 I'm the <strong>Zzapkart Assistant</strong>.<br>Ask me to find products, track an order, or anything about returns, delivery and payments.<br><span class="zc-muted">Try: "running shoes under 3000" or "where is my order"</span>`,
       chips,
     };
   }
 
   // ---------------------------------------------------------------
-  // Product search (catalog se) — price filter bhi samajhta hai
+  // Product search (from the catalogue) — understands price filters too
   // ---------------------------------------------------------------
   const STOP = new Set(("show me my i want need needed looking look for a an the some any please pls plz buy kharidna kharidni kharid chahiye chahie chaiye " +
     "dikhao dikha dikhaiye do de dena dedo batao bata under below above over less more than upto up to within between and or rs inr ka ki ke ko " +
@@ -105,7 +105,7 @@
     if (!(min >= 0)) min = 0;
     if (!(max > 0)) max = Infinity;
     if (min > max) [min, max] = [max, min];
-    if (max < 50) { min = 0; max = Infinity; } // "size 8 to 10" jaisa — price nahi
+    if (max < 50) { min = 0; max = Infinity; } // e.g. "size 8 to 10" — not a price
     return { min, max, has: min > 0 || max < Infinity };
   }
   function tokensOf(text) {
@@ -136,7 +136,7 @@
     const off = discount(p);
     const out = !inStock(p);
     const act = out ? `<span class="zc-out">Out of stock</span>`
-      : p.hasSizes ? `<a class="zc-mini-btn" href="${productUrl(p)}">Size chunein</a>`
+      : p.hasSizes ? `<a class="zc-mini-btn" href="${productUrl(p)}">Select size</a>`
       : `<button type="button" class="zc-mini-btn" data-zc-add="${p.id}">+ Add to cart</button>`;
     return `<div class="zc-prod">
       <a class="zc-prod-img" href="${productUrl(p)}" style="background:${esc(p.color || "#f3eefc")}" tabindex="-1" aria-hidden="true">${productThumb(p)}</a>
@@ -150,8 +150,8 @@
   const prodList = (list) => `<div class="zc-prods">${list.map(prodCard).join("")}</div>`;
   function priceText(pr) {
     if (pr.min > 0 && pr.max < Infinity) return ` (${money(pr.min)} – ${money(pr.max)})`;
-    if (pr.max < Infinity) return ` (${money(pr.max)} tak)`;
-    if (pr.min > 0) return ` (${money(pr.min)} se upar)`;
+    if (pr.max < Infinity) return ` (up to ${money(pr.max)})`;
+    if (pr.min > 0) return ` (above ${money(pr.min)})`;
     return "";
   }
 
@@ -177,13 +177,13 @@
   function ordersAnswer() {
     const c = currentCustomer();
     if (!c) return {
-      html: `Order track karne ke liye pehle <a href="${loginHref()}">login</a> karein — phir main aapke saare orders ka status yahin bata dunga. 📦`,
-      chips: [{ label: "🔐 Login karo", href: loginHref() }, C.human],
+      html: `Please <a href="${loginHref()}">log in</a> to track your orders — then I can show the status of all of them right here. 📦`,
+      chips: [{ label: "🔐 Log in", href: loginHref() }, C.human],
     };
     const os = customerOrders(c.id);
-    if (!os.length) return { html: `${firstName(c)}, aapne abhi tak koi order nahi kiya. Shopping shuru karein? 🛍️`, chips: [C.deals, C.cats] };
+    if (!os.length) return { html: `${firstName(c)}, you haven't placed any orders yet. Ready to start shopping? 🛍️`, chips: [C.deals, C.cats] };
     return {
-      html: `Aapke latest order${os.length > 1 ? "s" : ""}:${os.slice(0, 3).map(orderHtml).join("")}<a class="zc-more" href="account.html#orders">Saare ${os.length} orders dekho →</a>`,
+      html: `Your latest order${os.length > 1 ? "s" : ""}:${os.slice(0, 3).map(orderHtml).join("")}<a class="zc-more" href="account.html#orders">See all ${os.length} orders →</a>`,
       chips: [{ label: "↩️ Return / problem", q: "__ticket:Return / problem with order" }, C.human, C.deals],
     };
   }
@@ -191,13 +191,13 @@
     id = id.toUpperCase();
     const o = getOrders().find((x) => x.id === id);
     const c = currentCustomer();
-    if (!o) return { html: `Order <strong>#${esc(id)}</strong> nahi mila. ID dobara check karein (jaise ZK12345678) — ye order confirmation aur My Orders me likhi hoti hai.`, chips: [C.track, C.human] };
+    if (!o) return { html: `I couldn't find order <strong>#${esc(id)}</strong>. Please check the ID (e.g. ZK12345678) — it's on your order confirmation and in My Orders.`, chips: [C.track, C.human] };
     if (o.customerId && (!c || c.id !== o.customerId)) {
       return c
-        ? { html: `Order #${esc(id)} aapke account ka nahi hai. Jis account se order kiya tha, us se login karein.`, chips: [C.track, C.human] }
-        : { html: `Order #${esc(id)} dekhne ke liye pehle <a href="${loginHref()}">login</a> karein (privacy ke liye).`, chips: [{ label: "🔐 Login karo", href: loginHref() }] };
+        ? { html: `Order #${esc(id)} doesn't belong to your account. Please log in with the account you ordered from.`, chips: [C.track, C.human] }
+        : { html: `Please <a href="${loginHref()}">log in</a> to see order #${esc(id)} (for your privacy).`, chips: [{ label: "🔐 Log in", href: loginHref() }] };
     }
-    return { html: `Order ki jaankari:${orderHtml(o)}`, chips: [{ label: "↩️ Return / problem", q: `__ticket:Return / problem — order ${o.id}` }, C.human] };
+    return { html: `Here are the order details:${orderHtml(o)}`, chips: [{ label: "↩️ Return / problem", q: `__ticket:Return / problem — order ${o.id}` }, C.human] };
   }
 
   // ---------------------------------------------------------------
@@ -210,56 +210,56 @@
     save();
     if (c) {
       return {
-        html: `Zaroor ${firstName(c)}! 🙋 Apni problem thodi detail me likhiye${S.flow.topic ? ` <span class="zc-muted">(${esc(S.flow.topic)})</span>` : ""}. Order se judi ho to <strong>Order ID</strong> bhi likhein.<br>Hamari team 24 ghante me reply karegi — reply <strong>yahin chat me</strong> aayega.`,
+        html: `Of course, ${firstName(c)}! 🙋 Please describe the problem${S.flow.topic ? ` <span class="zc-muted">(${esc(S.flow.topic)})</span>` : ""}. If it's about an order, include the <strong>order ID</strong>.<br>Our team replies within 24 hours — the reply appears <strong>right here in this chat</strong>.`,
         chips: [C.cancel],
       };
     }
     return {
-      html: `Support team aapki madad karegi 🙋 Pehle apna <strong>naam</strong> batayiye.<br><span class="zc-muted">Login karke poochenge to aapke orders apne-aap jud jayenge.</span>`,
-      chips: [{ label: "🔐 Login karo", href: loginHref() }, C.cancel],
+      html: `Our support team will help you 🙋 First, what's your <strong>name</strong>?<br><span class="zc-muted">Tip: log in and your orders are linked automatically.</span>`,
+      chips: [{ label: "🔐 Log in", href: loginHref() }, C.cancel],
     };
   }
   function flowStep(q) {
     const f = S.flow;
     const text = q.trim();
-    if (CANCEL_RE.test(text)) { S.flow = null; save(); return { html: "Theek hai 👍 Request cancel kar di. Aur kuch madad karun?", chips: MENU }; }
+    if (CANCEL_RE.test(text)) { S.flow = null; save(); return { html: "No problem 👍 I've cancelled that request. Anything else I can help with?", chips: MENU }; }
     if (f.k === "ticket") {
       if (f.step === "name") {
         const n = text.replace(/\s+/g, " ");
-        if (n.length < 2 || n.length > 60 || /[\d@]/.test(n)) return { html: "Kripya apna sahi naam likhiye (2–60 letters).", chips: [C.cancel] };
+        if (n.length < 2 || n.length > 60 || /[\d@]/.test(n)) return { html: "Please enter your name (2–60 letters).", chips: [C.cancel] };
         f.name = n;
         f.step = "email";
         save();
-        return { html: `Shukriya ${esc(n.split(" ")[0])}! Ab apna <strong>email</strong> likhiye.`, chips: [C.cancel] };
+        return { html: `Thanks, ${esc(n.split(" ")[0])}! Now, what's your <strong>email</strong>?`, chips: [C.cancel] };
       }
       if (f.step === "email") {
         const e = text.toLowerCase();
-        if (!EMAIL_RE.test(e)) return { html: "Ye email sahi nahi lag raha. Jaise: <em>naam@gmail.com</em>", chips: [C.cancel] };
+        if (!EMAIL_RE.test(e)) return { html: "That email doesn't look right. For example: <em>name@gmail.com</em>", chips: [C.cancel] };
         f.email = e;
         f.step = "msg";
         save();
-        return { html: `Ab apni problem detail me likhiye${f.topic ? ` <span class="zc-muted">(${esc(f.topic)})</span>` : ""}. Order ID ho to woh bhi.`, chips: [C.cancel] };
+        return { html: `Now describe the problem${f.topic ? ` <span class="zc-muted">(${esc(f.topic)})</span>` : ""}. Include the order ID if you have one.`, chips: [C.cancel] };
       }
-      if (text.length < 10) return { html: "Thoda aur detail me likhiye (kam se kam 10 characters) taaki team sahi madad kar sake.", chips: [C.cancel] };
+      if (text.length < 10) return { html: "Please add a little more detail (at least 10 characters) so our team can help.", chips: [C.cancel] };
       const full = f.topic && !text.toLowerCase().includes(f.topic.toLowerCase()) ? `[${f.topic}] ${text}` : text;
       const orderId = ((text.match(ORDER_RE) || [])[0] || f.orderId || "").toUpperCase();
       const t = createTicket({ name: f.name, email: f.email, text: full, orderId });
       S.flow = null;
       save();
-      if (!t) return { html: "Request save nahi ho payi (browser storage bhar gaya). Thodi der baad try karein.", chips: MENU };
+      if (!t) return { html: "Your request couldn't be saved (browser storage is full). Please try again later.", chips: MENU };
       return {
-        html: `✅ Aapki request <strong>#${esc(t.id)}</strong> ban gayi.<br>Hamari support team 24 ghante me reply karegi — reply <strong>yahin chat me</strong> aayega${t.customerId ? "" : " (isi browser me)"}.`,
+        html: `✅ Your request <strong>#${esc(t.id)}</strong> has been created.<br>Our support team replies within 24 hours — the reply appears <strong>right here in this chat</strong>${t.customerId ? "" : " (in this browser)"}.`,
         chips: [C.tickets, C.deals, C.track],
       };
     }
     if (f.k === "reply") {
-      if (text.length < 2) return { html: "Apna message likhiye.", chips: [C.cancel] };
+      if (text.length < 2) return { html: "Please type your message.", chips: [C.cancel] };
       const t = ticketReply(f.id, "customer", text);
       S.flow = null;
       save();
       return t
-        ? { html: `✅ Aapka message request <strong>#${esc(t.id)}</strong> par bhej diya. Team jaldi reply karegi.`, chips: [C.tickets, ...MENU.slice(0, 2)] }
-        : { html: "Ye request nahi mili.", chips: MENU };
+        ? { html: `✅ Your message was added to request <strong>#${esc(t.id)}</strong>. The team will reply soon.`, chips: [C.tickets, ...MENU.slice(0, 2)] }
+        : { html: "I couldn't find that request.", chips: MENU };
     }
     S.flow = null;
     save();
@@ -267,14 +267,14 @@
   }
   function ticketsAnswer() {
     const list = myTickets().slice(0, 5);
-    if (!list.length) return { html: "Aapki koi support request nahi hai. Koi problem ho to batayiye 🙋", chips: [C.human, C.track] };
+    if (!list.length) return { html: "You don't have any support requests. Tell me if something's wrong 🙋", chips: [C.human, C.track] };
     return {
-      html: `Aapki support requests:${list.map((t) => {
+      html: `Your support requests:${list.map((t) => {
         const last = t.messages[t.messages.length - 1];
-        const st = t.status !== "open" ? ["Resolved", "st-delivered"] : last.from === "admin" ? ["Reply aaya", "st-shipped"] : ["Open — team dekh rahi hai", "st-placed"];
+        const st = t.status !== "open" ? ["Resolved", "st-delivered"] : last.from === "admin" ? ["Reply received", "st-shipped"] : ["Open — our team is on it", "st-placed"];
         return `<div class="zc-ticket"><div><strong>#${esc(t.id)}</strong> <span class="zc-st ${st[1]}">${st[0]}</span></div>
           <small>${esc(t.subject)}</small>
-          <small class="zc-muted">${last.from === "admin" ? "Support" : "Aap"}: ${esc(last.text.slice(0, 100))}${last.text.length > 100 ? "…" : ""}</small></div>`;
+          <small class="zc-muted">${last.from === "admin" ? "Support" : "You"}: ${esc(last.text.slice(0, 100))}${last.text.length > 100 ? "…" : ""}</small></div>`;
       }).join("")}`,
       chips: list.filter((t) => t.status === "open").slice(0, 2).map((t) => ({ label: `↩ Reply #${t.id}`, q: "__reply:" + t.id })).concat([C.human]),
     };
@@ -317,7 +317,7 @@
       const id = q.slice(8);
       S.flow = { k: "reply", id };
       save();
-      return { html: `Request <strong>#${esc(id)}</strong> par apna reply likhiye:`, chips: [C.cancel] };
+      return { html: `Type your reply to request <strong>#${esc(id)}</strong>:`, chips: [C.cancel] };
     }
     if (q.startsWith("__product:")) return productInfo(q.slice(10)) || welcome();
     if (q.startsWith("__ticket:")) return startTicket(q.slice(9));
@@ -326,21 +326,21 @@
     let t = q.toLowerCase().trim();
     if (R.greet.test(t)) {
       const rest = t.replace(R.greet, "").replace(/^[\s,!.]+/, "").trim();
-      if (rest.replace(/[^a-z0-9]/g, "").length < 3) return { html: `Namaste${c ? " " + firstName(c) : ""}! 😊 Batayiye, aaj kya dhoondh rahe hain?`, chips: MENU };
-      t = rest; // "hi, shoes dikhao" → baaki sawaal ka jawab
+      if (rest.replace(/[^a-z0-9]/g, "").length < 3) return { html: `Hi${c ? " " + firstName(c) : ""}! 😊 What are you looking for today?`, chips: MENU };
+      t = rest; // "hi, show me shoes" → answer the rest of the question
       q = rest;
     }
-    if (R.thanks.test(t)) return { html: "Aapka swagat hai! 😊 Aur kuch madad chahiye to batayiye.", chips: [C.deals, C.track] };
-    if (R.bye.test(t)) return { html: "Bye! 👋 Happy shopping — kabhi bhi zaroorat ho to main yahin hoon." };
-    if (R.how.test(t)) return { html: "Main badhiya hoon, shukriya! 😊 Aapki kya madad karun?", chips: MENU };
-    if (R.who.test(t)) return { html: "Main <strong>Zzapkart Assistant</strong> hoon — ek chat bot 🤖. Products, orders, returns, delivery aur payment me madad karta hoon. Kisi insaan se baat karni ho to <strong>Talk to support</strong> dabayein.", chips: MENU };
-    if (R.ok.test(t)) return { html: "👍 Aur kuch madad chahiye?", chips: MENU };
+    if (R.thanks.test(t)) return { html: "You're welcome! 😊 Let me know if there's anything else.", chips: [C.deals, C.track] };
+    if (R.bye.test(t)) return { html: "Bye! 👋 Happy shopping — I'm here whenever you need me." };
+    if (R.how.test(t)) return { html: "I'm doing great, thanks! 😊 How can I help you?", chips: MENU };
+    if (R.who.test(t)) return { html: "I'm the <strong>Zzapkart Assistant</strong> — a chat bot 🤖. I help with products, orders, returns, delivery and payments. To reach a person, tap <strong>Talk to support</strong>.", chips: MENU };
+    if (R.ok.test(t)) return { html: "👍 Anything else I can help with?", chips: MENU };
 
     const oid = t.match(ORDER_RE);
     if (R.cancel.test(t)) {
       return {
-        html: `Order ship hone se pehle cancel ho sakta hai. Website par abhi khud cancel ka button nahi hai — support team aapke liye cancel karegi aur prepaid payment poora refund hoga.${oid ? ` <br>Order: <strong>#${esc(oid[0].toUpperCase())}</strong>` : ""}`,
-        chips: [{ label: "🙋 Cancel request bhejo", q: `__ticket:Cancel order${oid ? " " + oid[0].toUpperCase() : ""}` }, C.track],
+        html: `Orders can be cancelled before they ship. There's no self-service cancel button yet — our support team will cancel it for you, and prepaid orders are refunded in full.${oid ? ` <br>Order: <strong>#${esc(oid[0].toUpperCase())}</strong>` : ""}`,
+        chips: [{ label: "🙋 Request cancellation", q: `__ticket:Cancel order${oid ? " " + oid[0].toUpperCase() : ""}` }, C.track],
       };
     }
     if (oid && !R.returns.test(t) && !R.human.test(t)) return orderById(oid[0]);
@@ -348,8 +348,8 @@
     if (R.human.test(t)) return startTicket(oid ? `Order ${oid[0].toUpperCase()}` : "");
     if (R.returns.test(t)) {
       return {
-        html: `<strong>Returns &amp; refunds</strong><br>• Zyadatar products par <strong>7 din easy return</strong> (kuch sellers 10 / 30 din dete hain — product page aur seller ke store par likha hota hai).<br>• Product unused ho, tags aur packing ke saath.<br>• Refund pickup ke baad <strong>5–7 din</strong> me — prepaid ho to usi payment method me, COD ho to bank / UPI me.<br>• Damaged / galat product mila? Delivery ke 48 ghante ke andar batayein — replacement ya poora refund.`,
-        chips: [{ label: "↩️ Return request bhejo", q: `__ticket:Return request${oid ? " — order " + oid[0].toUpperCase() : ""}` }, C.track],
+        html: `<strong>Returns &amp; refunds</strong><br>• Most products have <strong>7-day easy returns</strong> (some sellers offer 10 / 30 days — shown on the product page and in the seller's store).<br>• Items must be unused, with tags and packaging.<br>• Refunds are issued <strong>5–7 days</strong> after pickup — to the original payment method, or to your bank / UPI for cash on delivery.<br>• Got a damaged or wrong item? Tell us within 48 hours of delivery for a replacement or full refund.`,
+        chips: [{ label: "↩️ Request a return", q: `__ticket:Return request${oid ? " — order " + oid[0].toUpperCase() : ""}` }, C.track],
       };
     }
     if (R.track.test(t)) return ordersAnswer();
@@ -357,58 +357,58 @@
     if (pin && (R.delivery.test(t) || /pin ?code|pincode|pin\b/.test(t) || t.replace(/\D/g, "").length === t.replace(/\s/g, "").length)) return pincodeAnswer(pin[1]);
     if (R.delivery.test(t) && !R.track.test(t)) {
       return {
-        html: `<strong>Delivery</strong><br>• ${money(FREE_DELIVERY_MIN)} ya zyada ke order par <strong>FREE delivery</strong>, warna ₹40.<br>• Standard: dispatch ke baad ~${DELIVERY_OPTIONS.standard.days} din.<br>• Express: ${money(DELIVERY_OPTIONS.express.charge)} me ~${DELIVERY_OPTIONS.express.days} din.<br>• Har order ki tracking My Orders me.<br><span class="zc-muted">Apna pincode likhiye — main bata dunga delivery hoti hai ya nahi.</span>`,
+        html: `<strong>Delivery</strong><br>• <strong>FREE delivery</strong> on orders of ${money(FREE_DELIVERY_MIN)} or more, otherwise ₹40.<br>• Standard: about ${DELIVERY_OPTIONS.standard.days} days after dispatch.<br>• Express: ${money(DELIVERY_OPTIONS.express.charge)}, about ${DELIVERY_OPTIONS.express.days} day.<br>• Track every order in My Orders.<br><span class="zc-muted">Type your pincode and I'll check delivery for you.</span>`,
         chips: [C.track, C.pay],
       };
     }
     if (R.pay.test(t)) {
       return {
-        html: `<strong>Payment options</strong><br>• 💵 Cash on Delivery (COD)<br>• 📱 UPI (GPay, PhonePe, Paytm…)<br>• 💳 Debit / Credit card<br>Saare payments Zzapkart checkout par safe hain. EMI abhi available nahi. <span class="zc-muted">(Ye demo site hai — asli payment nahi hota.)</span>`,
+        html: `<strong>Payment options</strong><br>• 💵 Cash on Delivery (COD)<br>• 📱 UPI (GPay, PhonePe, Paytm…)<br>• 💳 Debit / Credit card<br>All payments are secure on Zzapkart's checkout. EMI isn't available yet. <span class="zc-muted">(This is a demo site — no real payments are taken.)</span>`,
         chips: [C.cart, C.delivery],
       };
     }
     if (R.coupon.test(t)) {
       const deal = topDeals(3);
-      return { html: `Abhi koi coupon code nahi chal raha — par products par seedha discount hai 🎉 Ye dekhiye:${prodList(deal)}`, chips: [C.deals, C.cats] };
+      return { html: `There are no coupon codes right now — but prices already include big discounts 🎉 Take a look:${prodList(deal)}`, chips: [C.deals, C.cats] };
     }
     if (R.cart.test(t)) return cartAnswer();
     if (R.password.test(t)) {
-      return { html: "Abhi website par khud se password reset ka option nahi hai 🙏 Support team ko request bhejiye — wo aapka account verify karke madad karenge.", chips: [C.human, { label: "🔐 Login page", href: loginHref() }] };
+      return { html: "There's no self-service password reset yet 🙏 Send a request to our support team — they'll verify your account and help you.", chips: [C.human, { label: "🔐 Login page", href: loginHref() }] };
     }
     if (R.address.test(t) && !R.sell.test(t)) {
       return c
-        ? { html: `Aapke <strong>${(c.addresses || []).length}</strong> saved address hain. Naya address jodna, edit karna ya default badalna — <a href="account.html#addresses">Saved Addresses</a> me. Checkout par bhi naya address daal sakte hain (apne-aap save ho jata hai).`, chips: [{ label: "📍 Saved addresses", href: "account.html#addresses" }] }
-        : { html: `Address save karne ke liye <a href="${loginHref()}">login</a> karein. Checkout par jo address daalenge wo account me save ho jayega.`, chips: [{ label: "🔐 Login karo", href: loginHref() }] };
+        ? { html: `You have <strong>${(c.addresses || []).length}</strong> saved address(es). Add, edit or change your default in <a href="account.html#addresses">Saved Addresses</a>. You can also add a new address at checkout (it's saved automatically).`, chips: [{ label: "📍 Saved addresses", href: "account.html#addresses" }] }
+        : { html: `Please <a href="${loginHref()}">log in</a> to save addresses. The address you enter at checkout is saved to your account.`, chips: [{ label: "🔐 Log in", href: loginHref() }] };
     }
     if (R.sell.test(t)) return sellAnswer();
     if (R.account.test(t)) {
       return c
-        ? { html: `Aap <strong>${esc(c.name)}</strong> (${esc(c.email)}) ke roop me logged in hain. My Account me orders, addresses aur profile / password.`, chips: [{ label: "👤 My account", href: "account.html" }, C.track] }
-        : { html: `Account banane ya login ke liye <a href="${loginHref()}">yahan</a> jaiye — naam, email aur password se 1 minute me. Login karke orders track kar sakte hain aur address save hote hain.`, chips: [{ label: "🔐 Login / Sign up", href: loginHref() }] };
+        ? { html: `You're logged in as <strong>${esc(c.name)}</strong> (${esc(c.email)}). My Account has your orders, addresses and profile / password.`, chips: [{ label: "👤 My account", href: "account.html" }, C.track] }
+        : { html: `<a href="${loginHref()}">Log in or create an account</a> — it takes a minute with your name, email and a password. Then you can track orders and save addresses.`, chips: [{ label: "🔐 Login / Sign up", href: loginHref() }] };
     }
     if (R.stores.test(t)) return storesAnswer();
-    if (R.deals.test(t) && !tokensOf(t).length && !parsePrice(t).has) return { html: `🔥 Aaj ke best deals:${prodList(topDeals(4))}`, chips: [C.cats, C.cart] };
+    if (R.deals.test(t) && !tokensOf(t).length && !parsePrice(t).has) return { html: `🔥 Today's best deals:${prodList(topDeals(4))}`, chips: [C.cats, C.cart] };
     if (R.cats.test(t)) return catsAnswer();
-    if (R.help.test(t)) return { html: "Main in cheezon me madad kar sakta hoon 👇 Ya seedha product ka naam likhiye.", chips: [...MENU, C.cart, C.pay, C.sell, C.tickets] };
+    if (R.help.test(t)) return { html: "Here's what I can help with 👇 Or just type a product name.", chips: [...MENU, C.cart, C.pay, C.sell, C.tickets] };
 
     // Product search
     const res = searchProducts(q);
     if (res && res.list.length) {
       const n = res.list.length;
-      const qLink = res.toks.length ? `<a class="zc-more" href="index.html?q=${encodeURIComponent(res.toks.join(" "))}">Saare results dekho →</a>` : "";
+      const qLink = res.toks.length ? `<a class="zc-more" href="index.html?q=${encodeURIComponent(res.toks.join(" "))}">See all results →</a>` : "";
       return {
-        html: `${res.exact ? `Ye mile — <strong>${n}</strong> product${n > 1 ? "s" : ""}${priceText(res.price)}:` : `Bilkul wahi nahi mila, par ye milte-julte products hain${priceText(res.price)}:`}${prodList(res.list.slice(0, 4))}${n > 4 ? qLink : ""}`,
+        html: `${res.exact ? `I found <strong>${n}</strong> product${n > 1 ? "s" : ""}${priceText(res.price)}:` : `No exact match, but these are similar${priceText(res.price)}:`}${prodList(res.list.slice(0, 4))}${n > 4 ? qLink : ""}`,
         chips: [C.cart, C.deals],
       };
     }
     if (res && res.toks.length && !R.question.test(t)) {
       return {
-        html: `"${esc(q.slice(0, 60))}" abhi Zzapkart par nahi mila 😕${res.price.has ? " (is price range me)" : ""}<br>Spelling check karein, ya categories dekhiye.`,
+        html: `I couldn't find "${esc(q.slice(0, 60))}" on Zzapkart 😕${res.price.has ? " (in this price range)" : ""}<br>Check the spelling, or browse the categories.`,
         chips: [C.cats, C.deals, C.human],
       };
     }
     return {
-      html: "Maaf kijiye, ye main abhi samajh nahi paaya 🤔 Aap ye pooch sakte hain — ya <strong>Talk to support</strong> se hamari team se baat karein:",
+      html: "Sorry, I didn't quite get that 🤔 Here's what I can help with — or tap <strong>Talk to support</strong> to reach our team:",
       chips: MENU,
     };
   }
@@ -418,42 +418,42 @@
   }
   function cartAnswer() {
     const items = cartItemsResolved().filter((x) => x.qty > 0);
-    if (!items.length) return { html: "Aapka cart khaali hai 🛒 Kuch dhoondhein?", chips: [C.deals, C.cats] };
+    if (!items.length) return { html: "Your cart is empty 🛒 Shall we find something?", chips: [C.deals, C.cats] };
     const count = items.reduce((s, x) => s + x.qty, 0);
     const total = items.reduce((s, x) => s + x.product.price * x.qty, 0);
     const left = FREE_DELIVERY_MIN - total;
     return {
-      html: `🛒 Cart me <strong>${count}</strong> item${count > 1 ? "s" : ""} · <strong>${money(total)}</strong><ul class="zc-list">${items.slice(0, 5).map((x) => `<li>${esc(x.product.name)}${x.variant && x.variant.size ? ` (${esc(x.variant.size)})` : ""} × ${x.qty}</li>`).join("")}</ul>${left > 0 ? `₹${left.toLocaleString("en-IN")} aur add karo → <strong>FREE delivery</strong>` : "🎉 Aapko FREE delivery mil rahi hai"}`,
-      chips: [{ label: "✅ Checkout", href: "checkout.html" }, { label: "🛒 Cart kholo", href: "cart.html" }],
+      html: `🛒 <strong>${count}</strong> item${count > 1 ? "s" : ""} in your cart · <strong>${money(total)}</strong><ul class="zc-list">${items.slice(0, 5).map((x) => `<li>${esc(x.product.name)}${x.variant && x.variant.size ? ` (${esc(x.variant.size)})` : ""} × ${x.qty}</li>`).join("")}</ul>${left > 0 ? `Add ₹${left.toLocaleString("en-IN")} more for <strong>FREE delivery</strong>` : "🎉 You've got FREE delivery"}`,
+      chips: [{ label: "✅ Checkout", href: "checkout.html" }, { label: "🛒 Open cart", href: "cart.html" }],
     };
   }
   function catsAnswer() {
     return {
-      html: `Zzapkart par ye categories hain 👇 <a href="browse.html">Saari sub-categories dekho →</a>`,
+      html: `Here are our categories 👇 <a href="browse.html">See all sub-categories →</a>`,
       chips: CATEGORIES.map((cat) => ({ label: `${cat.emoji} ${cat.name}`, href: categoryUrl(cat) })),
     };
   }
   function sellAnswer() {
     const P = PLAN_ORDER.map((k) => PLANS[k]);
     return {
-      html: `<strong>Zzapkart par bechna shuru karein</strong> 🏪<br>1. <a href="seller.html">Seller account</a> banao<br>2. KYC (ID + address proof) submit karo<br>3. Products list karo → QC pass → live!<br><br><strong>Plans:</strong> Free (3 products) · ${P.map((p) => `${p.name} ${money(p.price)}/mahina`).join(" · ")}<br><span class="zc-muted">Premium me apna Brand Store (khud ki website) milta hai.</span>`,
-      chips: [{ label: "🏪 Seller account banao", href: "seller.html" }, C.stores],
+      html: `<strong>Start selling on Zzapkart</strong> 🏪<br>1. Create a <a href="seller.html">seller account</a><br>2. Submit KYC (ID + address proof)<br>3. List products → pass QC → go live!<br><br><strong>Plans:</strong> Free (3 products) · ${P.map((p) => `${p.name} ${money(p.price)}/month`).join(" · ")}<br><span class="zc-muted">Premium includes your own Brand Store.</span>`,
+      chips: [{ label: "🏪 Create a seller account", href: "seller.html" }, C.stores],
     };
   }
   function storesAnswer() {
     const st = activeStores();
-    if (!st.length) return { html: "Abhi koi Brand Store live nahi hai. Seller ho? Premium plan me apna store bana sakte ho 🏬", chips: [C.sell] };
+    if (!st.length) return { html: "No Brand Stores are live yet. Are you a seller? You can build your own store with the Premium plan 🏬", chips: [C.sell] };
     return {
-      html: `🏬 Zzapkart Brand Stores — brands ki apni dukaan:`,
+      html: `🏬 Zzapkart Brand Stores — official stores from our sellers:`,
       chips: st.slice(0, 8).map((s) => ({ label: s.name, href: storeUrl(s.slug) })),
     };
   }
   function pincodeAnswer(pin) {
     const zone = { 1: "Delhi / Haryana / Punjab / HP / J&K", 2: "Uttar Pradesh / Uttarakhand", 3: "Rajasthan / Gujarat", 4: "Maharashtra / MP / Chhattisgarh / Goa", 5: "Andhra / Telangana / Karnataka", 6: "Tamil Nadu / Kerala", 7: "West Bengal / Odisha / North-East", 8: "Bihar / Jharkhand" }[pin[0]];
-    if (!zone) return { html: `${esc(pin)} sahi Indian pincode nahi lag raha. 6 digit ka pincode likhiye, jaise 110001.`, chips: [C.delivery] };
+    if (!zone) return { html: `${esc(pin)} doesn't look like a valid Indian pincode. Please enter a 6-digit pincode, e.g. 110001.`, chips: [C.delivery] };
     const d = new Date(Date.now() + (2 + DELIVERY_OPTIONS.standard.days) * DAY).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
     return {
-      html: `✅ Haan! Pincode <strong>${esc(pin)}</strong> (${esc(zone)}) par delivery hoti hai.<br>• Standard: aaj order karein to ~<strong>${d}</strong> tak<br>• Express (${money(DELIVERY_OPTIONS.express.charge)}): 1–2 din jaldi<br>• 💵 Cash on Delivery available`,
+      html: `✅ Yes! We deliver to pincode <strong>${esc(pin)}</strong> (${esc(zone)}).<br>• Standard: order today and get it by ~<strong>${d}</strong><br>• Express (${money(DELIVERY_OPTIONS.express.charge)}): 1–2 days sooner<br>• 💵 Cash on Delivery available`,
       chips: [C.deals, C.pay],
     };
   }
@@ -464,7 +464,7 @@
     const sizes = p.hasSizes ? p.variants.filter((v) => v.stock > 0).map((v) => esc(v.size)) : [];
     const ship = new Date(Date.now() + ((p.sla || 2) + 2) * DAY).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
     return {
-      html: `<strong>${esc(p.name)}</strong><br>💰 ${money(p.price)}${off ? ` <span class="zc-muted">(${off}% off · MRP ${money(p.mrp)})</span>` : ""}<br>${inStock(p) ? (p.stock !== undefined && p.stock <= 5 ? `⚠️ Sirf ${p.stock} bache hain` : "✅ In stock") : "❌ Abhi out of stock"}${p.hasSizes ? `<br>📏 Sizes available: ${sizes.join(", ") || "—"}` : ""}<br>🚚 Delivery by <strong>${ship}</strong> · ${money(FREE_DELIVERY_MIN)}+ par FREE<br>🏪 Sold by ${esc(p.sellerName || "Zzapkart")}${p.storeSlug ? ` · <a href="${storeUrl(p.storeSlug)}">Store dekho</a>` : ""}${p.video ? "<br>🎬 Is product ka video bhi hai — photos ke saath dekhiye" : ""}`,
+      html: `<strong>${esc(p.name)}</strong><br>💰 ${money(p.price)}${off ? ` <span class="zc-muted">(${off}% off · MRP ${money(p.mrp)})</span>` : ""}<br>${inStock(p) ? (p.stock !== undefined && p.stock <= 5 ? `⚠️ Only ${p.stock} left` : "✅ In stock") : "❌ Out of stock right now"}${p.hasSizes ? `<br>📏 Sizes available: ${sizes.join(", ") || "—"}` : ""}<br>🚚 Delivery by <strong>${ship}</strong> · FREE above ${money(FREE_DELIVERY_MIN)}<br>🏪 Sold by ${esc(p.sellerName || "Zzapkart")}${p.storeSlug ? ` · <a href="${storeUrl(p.storeSlug)}">Visit store</a>` : ""}${p.video ? "<br>🎬 This product has a video reel — watch it in the photo gallery" : ""}`,
       chips: [C.returns, C.pay, C.human],
     };
   }
@@ -477,13 +477,13 @@
     const item = resolveCartItem(key, 0);
     const inCart = getCart()[key] || 0;
     if (!item || inCart >= item.maxStock) {
-      bot(`Sorry, <strong>${esc(p.name)}</strong> ke sirf ${item ? item.maxStock : 0} piece stock me hain — sab aapke cart me hain.`, [C.cart]);
+      bot(`Sorry, only ${item ? item.maxStock : 0} of <strong>${esc(p.name)}</strong> are in stock — they're all in your cart.`, [C.cart]);
       return;
     }
     addToCart(key);
     trackCartAdd(p.id);
-    showToast(`${p.name} cart mein add ho gaya ✓`);
-    bot(`✅ <strong>${esc(p.name)}</strong> cart me add ho gaya. Cart me ab ${cartCount()} item(s).`, [{ label: "✅ Checkout", href: "checkout.html" }, { label: "🛒 Cart kholo", href: "cart.html" }, C.deals]);
+    showToast(`${p.name} added to your cart ✓`);
+    bot(`✅ <strong>${esc(p.name)}</strong> added to your cart. You now have ${cartCount()} item(s).`, [{ label: "✅ Checkout", href: "checkout.html" }, { label: "🛒 Open cart", href: "cart.html" }, C.deals]);
   }
 
   // ---------------------------------------------------------------
@@ -492,22 +492,22 @@
   const root = document.createElement("div");
   root.id = "zc-root";
   root.innerHTML = `
-    <button type="button" class="zc-fab" id="zc-fab" aria-label="Help chat kholo" aria-expanded="false" aria-controls="zc-panel">
+    <button type="button" class="zc-fab" id="zc-fab" aria-label="Open help chat" aria-expanded="false" aria-controls="zc-panel">
       <span class="zc-fab-ico" aria-hidden="true">💬</span><span class="zc-fab-label">Help</span>
-      <span class="zc-badge hidden" id="zc-badge" aria-label="Naye reply"></span>
+      <span class="zc-badge hidden" id="zc-badge" aria-label="New replies"></span>
     </button>
     <section class="zc-panel" id="zc-panel" role="dialog" aria-label="Zzapkart Assistant chat" hidden>
       <header class="zc-head">
         <span class="zc-ava" aria-hidden="true">🤖</span>
-        <div class="zc-title"><strong>Zzapkart Assistant</strong><small><i class="zc-dot" aria-hidden="true"></i> Online · turant jawab</small></div>
-        <button type="button" class="zc-icon" data-zc="restart" title="Nayi chat" aria-label="Nayi chat shuru karo">↺</button>
-        <button type="button" class="zc-icon" data-zc="close" title="Band karo" aria-label="Chat band karo">✕</button>
+        <div class="zc-title"><strong>Zzapkart Assistant</strong><small><i class="zc-dot" aria-hidden="true"></i> Online · instant answers</small></div>
+        <button type="button" class="zc-icon" data-zc="restart" title="New chat" aria-label="Start a new chat">↺</button>
+        <button type="button" class="zc-icon" data-zc="close" title="Close" aria-label="Close chat">✕</button>
       </header>
       <div class="zc-log" id="zc-log" role="log" aria-live="polite" aria-relevant="additions"></div>
       <div class="zc-chips" id="zc-chips"></div>
       <form class="zc-form" id="zc-form" autocomplete="off">
-        <input id="zc-input" type="text" maxlength="500" placeholder="Apna sawaal likhiye…" aria-label="Apna message likhiye" enterkeyhint="send" />
-        <button type="submit" class="zc-send" aria-label="Message bhejo"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 11.5 21 3l-8.5 18-2.2-7.3L3 11.5Z" fill="currentColor"/></svg></button>
+        <input id="zc-input" type="text" maxlength="500" placeholder="Ask me anything…" aria-label="Type your message" enterkeyhint="send" />
+        <button type="submit" class="zc-send" aria-label="Send message"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 11.5 21 3l-8.5 18-2.2-7.3L3 11.5Z" fill="currentColor"/></svg></button>
       </form>
     </section>`;
   document.body.appendChild(root);
@@ -533,9 +533,9 @@
   function renderChips() {
     const last = S.msgs[S.msgs.length - 1];
     let chips = last && last.from !== "user" ? last.chips || [] : [];
-    // Product page par "is product ke baare me" hamesha haath me rahe (flow ke beech nahi)
+    // On product pages keep "About this product" handy (except in the middle of a flow)
     if (pdpProduct && !S.flow && last && last.from !== "user" && !chips.some((c) => String(c.q || "").startsWith("__product:"))) {
-      chips = [{ label: "📦 Is product ke baare me", q: "__product:" + pdpProduct.id }, ...chips];
+      chips = [{ label: "📦 About this product", q: "__product:" + pdpProduct.id }, ...chips];
     }
     chipsEl.innerHTML = chips.map(chipHtml).join("");
     chipsEl.classList.toggle("hidden", !chips.length);
@@ -561,7 +561,7 @@
   let typingEl = null;
   function typing(on) {
     if (on && !typingEl) {
-      logEl.insertAdjacentHTML("beforeend", `<div class="zc-msg bot zc-typing"><span class="zc-ava-s" aria-hidden="true">🤖</span><div class="zc-bubble" aria-label="Assistant likh raha hai"><i></i><i></i><i></i></div></div>`);
+      logEl.insertAdjacentHTML("beforeend", `<div class="zc-msg bot zc-typing"><span class="zc-ava-s" aria-hidden="true">🤖</span><div class="zc-bubble" aria-label="The assistant is typing"><i></i><i></i><i></i></div></div>`);
       typingEl = logEl.lastElementChild;
       scrollEnd();
     } else if (!on && typingEl) { typingEl.remove(); typingEl = null; }
@@ -577,7 +577,7 @@
       pending--;
       if (!pending) typing(false);
       let r;
-      try { r = reply(q); } catch (e) { console.error(e); r = { html: "Oops, kuch gadbad ho gayi 🙏 Dobara try karein ya Talk to support.", chips: [C.human] }; }
+      try { r = reply(q); } catch (e) { console.error(e); r = { html: "Oops, something went wrong 🙏 Please try again or tap Talk to support.", chips: [C.human] }; }
       bot(r.html, r.chips);
     }, 300 + Math.min(500, q.length * 6));
   }
@@ -585,9 +585,9 @@
   function setBadge(n) {
     badgeEl.textContent = n > 9 ? "9+" : String(n);
     badgeEl.classList.toggle("hidden", !n);
-    fab.setAttribute("aria-label", n ? `Help chat kholo — ${n} naya reply` : "Help chat kholo");
+    fab.setAttribute("aria-label", n ? `Open help chat — ${n} new repl${n === 1 ? "y" : "ies"}` : "Open help chat");
   }
-  // Support team ka reply aaya? Chat khuli ho to dikhao, warna badge
+  // Has the support team replied? Show it if the chat is open, otherwise a badge
   function checkReplies() {
     let unread;
     try { unread = myTickets().filter((t) => t.unreadCustomer > 0); } catch { return; }
@@ -597,7 +597,7 @@
         push({
           from: "support",
           html: `<strong>Zzapkart Support</strong> <span class="zc-muted">· request #${esc(t.id)}</span><br>${esc(m.text).replace(/\n/g, "<br>")}`,
-          chips: t.status === "open" ? [{ label: "↩ Reply karo", q: "__reply:" + t.id }, C.tickets] : [C.tickets, ...MENU.slice(0, 2)],
+          chips: t.status === "open" ? [{ label: "↩ Reply", q: "__reply:" + t.id }, C.tickets] : [C.tickets, ...MENU.slice(0, 2)],
         });
       });
       updateTicket(t.id, (x) => { x.unreadCustomer = 0; });
@@ -662,10 +662,10 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkReplies(); });
   checkReplies();
 
-  // Doosre scripts / links se chat kholne ke liye: <a href="#help-chat"> ya ?chat=1
+  // Open the chat from other links: <a href="#help-chat">, [data-open-chat] or ?chat=1
   if (location.hash === "#help-chat" || new URLSearchParams(location.search).get("chat") === "1") openChat();
   document.addEventListener("click", (e) => {
-    const a = e.target.closest('a[href="#help-chat"]');
+    const a = e.target.closest('a[href="#help-chat"], [data-open-chat]');
     if (a) { e.preventDefault(); openChat(); }
   });
 })();

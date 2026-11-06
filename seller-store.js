@@ -1,8 +1,8 @@
 // =====================================================================
-// Seller → Brand Store builder (sirf Premium plan)
-// Seller ki apni mini website: logo, banners (carousel), featured products,
-// collections, about + policy. Draft apne-aap save hota hai; "Publish" karne
-// par buyers ko dikhta hai (store.html?s=<slug>).
+// Seller → Brand Store builder (Premium plan only)
+// The seller's own online store: logo, banners (carousel), featured products,
+// collections, design, pages and policy. The draft saves automatically; shoppers
+// see it after "Publish" (store.html?s=<slug>).
 // Routes: #store  #store/branding  #store/design  #store/banners  #store/products  #store/pages
 // =====================================================================
 const SB_TABS = [["branding", "🪪 Branding"], ["design", "🎨 Design"], ["banners", "🖼️ Banners"], ["products", "📦 Products & Collections"], ["pages", "📄 Pages"]];
@@ -10,7 +10,7 @@ const SB_MENU_PAGES = 3; // header menu me max pages
 let sbPrevTimer = null;
 const SB_RETURN_ORDER = ["7", "10", "30", "0"];
 const sbClone = (x) => JSON.parse(JSON.stringify(x));
-const sbImg = {}; // banner id → data URL (IndexedDB se ek baar load)
+const sbImg = {}; // banner id → data URL (loaded once from IndexedDB)
 let SB = null;     // { draft, tab, tried }
 let sbTimer = null;
 
@@ -46,7 +46,7 @@ function sbLoad() {
 }
 
 // ---------------------------------------------------------------------
-// Save (draft) — har change ke 400ms baad
+// Save (draft) — 400ms after each change
 // ---------------------------------------------------------------------
 function sbPersist() {
   clearTimeout(sbTimer);
@@ -67,45 +67,45 @@ function sbChanged() {
 }
 
 // ---------------------------------------------------------------------
-// Validation: errors (publish rokte hain) + recommendations
+// Validation: errors (block publishing) + recommendations
 // ---------------------------------------------------------------------
 function sbChecks(d) {
   const E = [], W = [];
   const err = (k, msg, missing = false) => E.push({ k, msg, missing });
   const live = sbLiveIds();
   const name = String(d.name || "").trim();
-  if (!name) err("name", "Store name daalein", true);
-  else if (name.length < 3) err("name", "Store name kam se kam 3 characters ka ho");
-  else if (/zzapkart/i.test(name)) err("name", "Store name me 'Zzapkart' nahi aa sakta");
-  else if (CONTACT_RE.test(name)) err("name", "Store name me phone, email ya website allowed nahi");
-  if (!STORE_SLUG_RE.test(d.slug)) err("slug", "URL 3–30 characters ka ho: sirf a-z, 0-9 aur '-' (shuru ya ant me '-' nahi)");
-  else if (storeSlugTaken(d.slug, me.id)) err("slug", "Ye URL kisi aur store ka hai ya reserved hai — doosra chunein");
-  if (CONTACT_RE.test(d.tagline || "")) err("tagline", "Tagline me phone, email ya website allowed nahi");
-  if (CONTACT_RE.test(d.about || "")) err("about", "About me phone, email ya website allowed nahi");
-  if (!d.logo) err("logo", "Logo upload karein", true);
-  if (!d.banners.length) err("banners", "Kam se kam 1 banner lagayein", true);
+  if (!name) err("name", "Enter a store name", true);
+  else if (name.length < 3) err("name", "The store name must be at least 3 characters");
+  else if (/zzapkart/i.test(name)) err("name", "The store name can't include 'Zzapkart'");
+  else if (CONTACT_RE.test(name)) err("name", "Phone numbers, emails and websites aren't allowed in the store name");
+  if (!STORE_SLUG_RE.test(d.slug)) err("slug", "The URL must be 3–30 characters: only a-z, 0-9 and '-' (not at the start or end)");
+  else if (storeSlugTaken(d.slug, me.id)) err("slug", "This URL is taken or reserved — please choose another");
+  if (CONTACT_RE.test(d.tagline || "")) err("tagline", "Phone numbers, emails and websites aren't allowed in the tagline");
+  if (CONTACT_RE.test(d.about || "")) err("about", "Phone numbers, emails and websites aren't allowed in About");
+  if (!d.logo) err("logo", "Upload a logo", true);
+  if (!d.banners.length) err("banners", "Add at least 1 banner", true);
   d.banners.forEach((b) => {
     const k = "banner-" + b.id;
-    if (CONTACT_RE.test(`${b.headline} ${b.sub} ${b.cta}`)) err(k, "Banner text me phone, email ya website allowed nahi");
-    if (String(b.link).startsWith("c:") && !d.collections.some((c) => "c:" + c.id === b.link)) err(k, "Is banner ki collection delete ho gayi — naya link chunein");
-    if (String(b.link).startsWith("p:") && !live.has(Number(b.link.slice(2)))) err(k, "Is banner ka product abhi live nahi — doosra link chunein");
-    if (String(b.link).startsWith("pg:") && !(d.pages || []).some((pg) => "pg:" + pg.id === b.link)) err(k, "Is banner ka page delete ho gaya — naya link chunein");
+    if (CONTACT_RE.test(`${b.headline} ${b.sub} ${b.cta}`)) err(k, "Phone numbers, emails and websites aren't allowed in banner text");
+    if (String(b.link).startsWith("c:") && !d.collections.some((c) => "c:" + c.id === b.link)) err(k, "This banner's collection was deleted — choose a new link");
+    if (String(b.link).startsWith("p:") && !live.has(Number(b.link.slice(2)))) err(k, "This banner's product isn't live — choose another link");
+    if (String(b.link).startsWith("pg:") && !(d.pages || []).some((pg) => "pg:" + pg.id === b.link)) err(k, "This banner's page was deleted — choose a new link");
   });
   const seen = new Set();
   d.collections.forEach((c) => {
     const k = "coll-" + c.id;
     const n = String(c.name || "").trim().toLowerCase();
-    if (n.length < 2) err(k, "Collection ka naam daalein (2–30 characters)");
-    else if (seen.has(n)) err(k, "Do collections ka naam same nahi ho sakta");
-    else if (CONTACT_RE.test(c.name)) err(k, "Naam me phone, email ya website allowed nahi");
+    if (n.length < 2) err(k, "Enter a collection name (2–30 characters)");
+    else if (seen.has(n)) err(k, "Two collections can't have the same name");
+    else if (CONTACT_RE.test(c.name)) err(k, "Phone numbers, emails and websites aren't allowed in the name");
     seen.add(n);
-    if (!c.productIds.length) err(k, "Collection me kam se kam 1 product daalein");
+    if (!c.productIds.length) err(k, "Add at least 1 product to the collection");
   });
-  if (!live.size) err("products", "Store ke liye kam se kam 1 live product chahiye (QC pass + in stock)", true);
+  if (!live.size) err("products", "Your store needs at least 1 live product (QC passed + in stock)", true);
 
   // Design + pages
   const ds = storeDesign(d);
-  if (CONTACT_RE.test(ds.announce)) err("announce", "Announcement me phone, email ya website allowed nahi");
+  if (CONTACT_RE.test(ds.announce)) err("announce", "Phone numbers, emails and websites aren't allowed in the announcement");
   const pages = d.pages || [];
   const slugs = new Set();
   pages.forEach((pg) => {
@@ -113,21 +113,21 @@ function sbChecks(d) {
     const title = String(pg.title || "").trim();
     const body = String(pg.body || "").trim();
     const slug = storePageSlug(pg);
-    if (title.length < 2) err(k, "Page ka title daalein (2–40 characters)");
-    else if (slugs.has(slug)) err(k, "Do pages ka title same nahi ho sakta");
-    else if (CONTACT_RE.test(title)) err(k, "Title me phone, email ya website allowed nahi");
+    if (title.length < 2) err(k, "Enter a page title (2–40 characters)");
+    else if (slugs.has(slug)) err(k, "Two pages can't have the same title");
+    else if (CONTACT_RE.test(title)) err(k, "Phone numbers, emails and websites aren't allowed in the title");
     slugs.add(slug);
-    if (body.length < 20) err(k, "Page me kam se kam 20 characters likhein");
-    else if (CONTACT_RE.test(body)) err(k, "Page me phone number, email ya website link allowed nahi — buyers Zzapkart support / chat se contact karte hain");
+    if (body.length < 20) err(k, "Write at least 20 characters on the page");
+    else if (CONTACT_RE.test(body)) err(k, "Phone numbers, emails and website links aren't allowed — shoppers contact you through Zzapkart support / chat");
   });
-  if (pages.filter((pg) => pg.menu).length > SB_MENU_PAGES) err("pages-menu", `Header menu me max ${SB_MENU_PAGES} pages — baaki footer me dikhenge`);
+  if (pages.filter((pg) => pg.menu).length > SB_MENU_PAGES) err("pages-menu", `Up to ${SB_MENU_PAGES} pages in the header menu — the rest show in the footer`);
 
-  if (String(d.about || "").trim().length < 30) W.push({ k: "about", msg: "About section likhein (30+ characters)" });
-  if (!pages.length) W.push({ k: "pages", msg: "Privacy / Return policy jaise pages banayein" });
-  if (!d.featured.length) W.push({ k: "featured", msg: "Featured products chunein" });
-  if (!d.collections.length) W.push({ k: "collections", msg: "Kam se kam 1 collection banayein" });
+  if (String(d.about || "").trim().length < 30) W.push({ k: "about", msg: "Write an About section (30+ characters)" });
+  if (!pages.length) W.push({ k: "pages", msg: "Add pages such as a privacy or return policy" });
+  if (!d.featured.length) W.push({ k: "featured", msg: "Choose featured products" });
+  if (!d.collections.length) W.push({ k: "collections", msg: "Create at least 1 collection" });
   const notLive = new Set(d.featured.concat(...d.collections.map((c) => c.productIds)).filter((id) => !live.has(id)));
-  if (notLive.size) W.push({ k: "notlive", msg: `${notLive.size} chune hue product abhi live nahi — live hote hi store par dikhenge` });
+  if (notLive.size) W.push({ k: "notlive", msg: `${notLive.size} selected product(s) aren't live yet — they'll appear once they go live` });
   return { E, W };
 }
 
@@ -136,7 +136,7 @@ function sbStatus() {
   const differs = !st.live || JSON.stringify(st.live) !== JSON.stringify(SB.draft);
   if (st.published && st.live) return differs ? ["Live · unpublished changes", "s-pending", differs] : ["Live", "s-live", differs];
   if (st.live) return ["Offline", "s-paused", differs];
-  return ["Draft — publish nahi hua", "s-completed", differs];
+  return ["Draft — not published", "s-completed", differs];
 }
 
 function sbShowErrors() {
@@ -167,7 +167,7 @@ function sbLoadImgs(scope) {
     });
   });
 }
-// In banners ko ab koi (draft ya live) use nahi karta → IndexedDB se hatao
+// Banners no longer used by the draft or live store → remove them from IndexedDB
 function sbGcBanners(candidates) {
   const st = me.store || {};
   const keep = new Set([...((st.draft && st.draft.banners) || []), ...((st.live && st.live.banners) || [])].map((b) => b.id));
@@ -187,7 +187,7 @@ async function sbUploadLogo(file) {
     sbPersist();
     sbRenderMain();
     sbSide();
-    showToast(["Logo upload ho gaya ✓", r.fitted && "poora logo square me fit kiya", r.lowRes && "500×500 px ho to aur saaf dikhega"].filter(Boolean).join(" · "));
+    showToast(["Logo uploaded ✓", r.fitted && "the whole logo was fitted into a square", r.lowRes && "500×500 px will look sharper"].filter(Boolean).join(" · "));
   } catch (e) {
     if (errEl) errEl.textContent = e.message;
     showToast(e.message);
@@ -200,13 +200,13 @@ async function sbUploadBanner(file) {
   if (errEl) errEl.textContent = "Processing…";
   try {
     const r = await processStoreBanner(file);
-    if (!(await MediaDB.put(storeBannerKey(r.id), r.data))) throw new Error("Banner save nahi ho paya (browser storage). Dobara try karein.");
+    if (!(await MediaDB.put(storeBannerKey(r.id), r.data))) throw new Error("The banner couldn't be saved (browser storage). Please try again.");
     sbImg[r.id] = r.data;
     SB.draft.banners.push({ id: r.id, headline: "", sub: "", cta: "Shop now", link: "all", tone: "light", w: r.w, h: r.h });
     sbPersist();
     sbRenderMain();
     sbSide();
-    showToast(["Banner add ho gaya ✓", r.fitted ? "poori photo banner me fit ki (kuch kata nahi)" : r.cropped && "3:1 me thoda crop kiya", r.lowRes && "1500×500 px ho to aur saaf dikhega"].filter(Boolean).join(" · "));
+    showToast(["Banner added ✓", r.fitted ? "the whole photo was fitted into the banner (nothing cut off)" : r.cropped && "cropped slightly to 3:1", r.lowRes && "1500×500 px will look sharper"].filter(Boolean).join(" · "));
   } catch (e) {
     if (errEl) errEl.textContent = e.message;
     showToast(e.message);
@@ -223,7 +223,7 @@ function sbBrandingHTML(d) {
     <div class="form-grid">
       <label>Store name *
         <input data-sb="name" value="${esc(d.name)}" maxlength="40" />
-        <small class="hint">Store ke upar bada dikhega · 3–40 characters</small>
+        <small class="hint">Shown large at the top of your store · 3–40 characters</small>
         <small class="err" data-err="name"></small>
       </label>
       <label>Store URL *
@@ -232,12 +232,12 @@ function sbBrandingHTML(d) {
         <small class="err" data-err="slug"></small>
       </label>
       <label class="full"><span>Tagline <span class="muted">(optional)</span></span>
-        <input data-sb="tagline" value="${esc(d.tagline)}" maxlength="60" placeholder="Jaise: Everyday comfort, made in India" />
+        <input data-sb="tagline" value="${esc(d.tagline)}" maxlength="60" placeholder="e.g. Everyday comfort, made in India" />
         <small class="err" data-err="tagline"></small>
       </label>
       <label class="full">About your store
-        <textarea data-sb="about" rows="5" maxlength="600" placeholder="Aapka brand kya banata hai, kis cheez me khaas hai, kab se kaam kar rahe ho…">${esc(d.about)}</textarea>
-        <small class="hint"><span id="sb-about-count">${String(d.about || "").length}</span>/600 · Phone, email ya website link allowed nahi</small>
+        <textarea data-sb="about" rows="5" maxlength="600" placeholder="What your brand makes, what makes it special, how long you've been around…">${esc(d.about)}</textarea>
+        <small class="hint"><span id="sb-about-count">${String(d.about || "").length}</span>/600 · No phone numbers, emails or website links</small>
         <small class="err" data-err="about"></small>
       </label>
     </div>
@@ -253,9 +253,9 @@ function sbBrandingHTML(d) {
           ${d.logo ? `<button type="button" class="btn btn-sm btn-outline" data-sb-act="del-logo">Remove</button>` : ""}
         </div>
         <ul class="sb-rules">
-          <li><strong>Koi bhi size chalegi</strong> — square (500×500 px) best</li>
-          <li>JPG, PNG, WEBP… · 1 GB tak · transparent PNG best</li>
-          <li>Square na ho to poora logo square me fit ho jayega (kuch katega nahi)</li>
+          <li><strong>Any size works</strong> — square (500×500 px) is best</li>
+          <li>JPG, PNG, WEBP… · up to 1 GB · transparent PNG works best</li>
+          <li>If it isn't square, the whole logo is fitted into a square (nothing is cut off)</li>
         </ul>
         <small class="err" data-err="logo"></small>
       </div>
@@ -267,31 +267,31 @@ function sbBrandingHTML(d) {
     <div class="form-grid">
       <label>Return policy
         <select data-sb="returnDays">${SB_RETURN_ORDER.map((v) => `<option value="${v}" ${String(d.returnDays) === v ? "selected" : ""}>${STORE_RETURNS[v]}</option>`).join("")}</select>
-        <small class="hint">Store par har jagah dikhegi · poori policy <a class="link" href="#store/pages">📄 Pages</a> me likhein</small>
+        <small class="hint">Shown across your store · write the full policy under <a class="link" href="#store/pages">📄 Pages</a></small>
       </label>
     </div>
   </section>
-  <p class="muted sb-next-tip">🎨 Theme colour, font, buttons aur layout → <a class="link" href="#store/design">Design tab</a></p>`;
+  <p class="muted sb-next-tip">🎨 Theme colour, font, buttons and layout → <a class="link" href="#store/design">Design tab</a></p>`;
 }
 
 // ---------------------------------------------------------------------
-// 🎨 Design tab: colour (preset ya apna), font, buttons, header, grid, announcement, homepage sections
+// 🎨 Design tab: colour (preset or custom), font, buttons, header, grid, announcement, homepage sections
 // ---------------------------------------------------------------------
 function sbDefaultAnnounce(d) {
-  return `🚚 ₹${FREE_DELIVERY_MIN}+ par FREE delivery · ↩️ ${STORE_RETURNS[d.returnDays] || STORE_RETURNS[7]} · 💵 Cash on Delivery available`;
+  return `🚚 FREE delivery over ₹${FREE_DELIVERY_MIN} · ↩️ ${STORE_RETURNS[d.returnDays] || STORE_RETURNS[7]} · 💵 Cash on Delivery available`;
 }
 function sbSetDesign(k, v) {
   const d = SB.draft;
   d.design = { ...storeDesign(d), [k]: v };
 }
-// Builder ka live preview: CSS variables + samples
+// Live preview in the builder: CSS variables + samples
 function sbApplyPreview() {
   const page = document.getElementById("sb-page");
   if (!page || !SB) return;
   applyStoreVars(page, SB.draft);
   const pal = storePalette(SB.draft);
   const note = document.getElementById("sb-color-note");
-  if (note) note.textContent = pal.light ? "Halka rang hai — buttons par text kaala dikhega aur links thode gehre, taaki sab padhne me saaf rahe." : "";
+  if (note) note.textContent = pal.light ? "This is a light colour — button text turns dark and links get slightly deeper so everything stays easy to read." : "";
   const ds = storeDesign(SB.draft);
   const hp = document.getElementById("sbd-header-prev");
   if (hp) hp.className = "sbd-head-prev head-" + ds.header;
@@ -307,11 +307,11 @@ function sbDesignHTML(d) {
   return `
   <section class="panel">
     <h2>Theme colour</h2>
-    <p class="muted">Buttons, links, announcement bar, badges aur highlights is rang me dikhenge.</p>
+    <p class="muted">Buttons, links, the announcement bar, badges and highlights use this colour.</p>
     <div class="sb-themes">${Object.entries(STORE_THEMES).map(([k, t]) => `
       <button type="button" class="sb-theme ${d.theme === k ? "active" : ""}" data-sb-act="theme" data-theme="${k}" style="--c:${t.color}" aria-pressed="${d.theme === k}"><i></i>${t.label}</button>`).join("")}
-      <span class="sb-theme sb-theme-custom ${custom ? "active" : ""}"><i style="--c:${fill}"></i>Apna rang
-        <input type="color" data-sbd-color="1" value="${fill}" aria-label="Apna theme colour chunein" /></span>
+      <span class="sb-theme sb-theme-custom ${custom ? "active" : ""}"><i style="--c:${fill}"></i>Custom colour
+        <input type="color" data-sbd-color="1" value="${fill}" aria-label="Pick your own theme colour" /></span>
     </div>
     <div class="sbd-hex-row">
       <label>Hex code <input data-sbd-hex="1" value="${fill}" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Theme colour hex code" /></label>
@@ -354,18 +354,18 @@ function sbDesignHTML(d) {
 
   <section class="panel">
     <h2>Product grid</h2>
-    <p class="muted">Computer par ek line me kitne products (mobile par hamesha 2).</p>
+    <p class="muted">Products per row on desktop (always 2 on mobile).</p>
     <div class="sbd-grid three">${STORE_COLS.map((n) =>
       radio("cols", n, ds.cols, `<span class="sbd-cols">${"<i></i>".repeat(n)}</span><small>${n} per row</small>`)).join("")}</div>
   </section>
 
   <section class="panel">
     <h2>Announcement bar</h2>
-    <label class="check"><input type="checkbox" data-sbd-check="announceOn" ${ds.announceOn ? "checked" : ""} /> Store ke sabse upar announcement bar dikhao</label>
+    <label class="check"><input type="checkbox" data-sbd-check="announceOn" ${ds.announceOn ? "checked" : ""} /> Show an announcement bar at the top of the store</label>
     <div class="form-grid">
-      <label class="full"><span>Text <span class="muted">(khaali chhodo to default)</span></span>
+      <label class="full"><span>Text <span class="muted">(leave empty for the default)</span></span>
         <input data-sbd-text="announce" value="${esc(ds.announce)}" maxlength="90" placeholder="${esc(sbDefaultAnnounce(d))}" />
-        <small class="hint">Jaise: "🎉 Diwali Sale — sab par 20% tak off" · 90 characters tak</small>
+        <small class="hint">e.g. "🎉 Diwali Sale — up to 20% off everything" · up to 90 characters</small>
         <small class="err" data-err="announce"></small>
       </label>
     </div>
@@ -374,18 +374,18 @@ function sbDesignHTML(d) {
 
   <section class="panel">
     <h2>Homepage sections</h2>
-    <p class="muted">Store ke home page par kaun se sections, kis order me. Banners hamesha sabse upar.</p>
+    <p class="muted">Choose which sections appear on your store's home page, and in what order. Banners always come first.</p>
     <ul class="sbd-secs">${ds.sections.map((s, i) => `
       <li class="${s.on ? "" : "off"}">
         <label class="check"><input type="checkbox" data-sbd-sec="${s.k}" ${s.on ? "checked" : ""} /> ${esc(STORE_SECTIONS[s.k])}</label>
-        <button type="button" class="icon-mini" data-sb-act="sec-up" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Upar" aria-label="${esc(STORE_SECTIONS[s.k])} upar">↑</button>
-        <button type="button" class="icon-mini" data-sb-act="sec-down" data-i="${i}" ${i === ds.sections.length - 1 ? "disabled" : ""} title="Neeche" aria-label="${esc(STORE_SECTIONS[s.k])} neeche">↓</button>
+        <button type="button" class="icon-mini" data-sb-act="sec-up" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move ${esc(STORE_SECTIONS[s.k])} up">↑</button>
+        <button type="button" class="icon-mini" data-sb-act="sec-down" data-i="${i}" ${i === ds.sections.length - 1 ? "disabled" : ""} title="Move down" aria-label="Move ${esc(STORE_SECTIONS[s.k])} down">↓</button>
       </li>`).join("")}</ul>
   </section>`;
 }
 
 // ---------------------------------------------------------------------
-// 📄 Pages tab: Privacy Policy, Terms, Shipping, Returns, FAQ, Contact… (templates ya blank)
+// 📄 Pages tab: Privacy Policy, Terms, Shipping, Returns, FAQ, Contact… (templates or blank)
 // ---------------------------------------------------------------------
 function sbPagesHTML(d) {
   const pages = d.pages || [];
@@ -394,46 +394,46 @@ function sbPagesHTML(d) {
   return `
   <section class="panel">
     <div class="panel-head"><h2>📄 Store pages (${pages.length}/${STORE_PAGE_LIMIT})</h2></div>
-    <p class="muted">Apne store ke policy aur info pages khud banao. Saare pages store ke <strong>footer</strong> me dikhenge; chaho to <strong>header menu</strong> me bhi (max ${SB_MENU_PAGES}).</p>
+    <p class="muted">Create your store's policy and info pages. All pages appear in the store <strong>footer</strong>, and you can add up to ${SB_MENU_PAGES} to the <strong>header menu</strong>.</p>
     <div class="sb-tpl-row">
-      <span class="small"><strong>Ready template se shuru karo:</strong></span>
+      <span class="small"><strong>Start from a template:</strong></span>
       ${Object.entries(STORE_PAGE_TEMPLATES).filter(([k]) => !used.has(k)).map(([k, t]) => `<button type="button" class="chip" data-sb-act="page-tpl" data-tpl="${k}" ${full ? "disabled" : ""}>+ ${esc(t.label)}</button>`).join("")}
       <button type="button" class="chip" data-sb-act="page-add" ${full ? "disabled" : ""}>+ Blank page</button>
     </div>
     <small class="err" data-err="pages-menu"></small>
-    <details class="sb-fmt-help"><summary>✍️ Formatting kaise karein?</summary>
+    <details class="sb-fmt-help"><summary>✍️ How to format text</summary>
       <table class="table small"><tbody>
         <tr><td><code>## Heading</code></td><td>Bada heading</td></tr>
         <tr><td><code>### Sub-heading</code></td><td>Chhota heading</td></tr>
         <tr><td><code>- point</code></td><td>Bullet list</td></tr>
         <tr><td><code>1. step</code></td><td>Numbered list</td></tr>
-        <tr><td><code>**zaroori**</code></td><td><strong>Bold</strong> text</td></tr>
-        <tr><td>Khaali line</td><td>Naya paragraph</td></tr>
+        <tr><td><code>**important**</code></td><td><strong>Bold</strong> text</td></tr>
+        <tr><td>Empty line</td><td>New paragraph</td></tr>
       </tbody></table>
-      <p class="small muted">Phone number, email aur website link allowed nahi — buyers Zzapkart chat / support se contact karte hain.</p>
+      <p class="small muted">Phone numbers, emails and website links aren't allowed — shoppers contact you through Zzapkart chat / support.</p>
     </details>
   </section>
   ${pages.map((pg, i) => `
   <section class="panel sb-pg" data-pid="${esc(pg.id)}">
     <div class="sb-pg-head">
       <span class="sb-pg-no">${i + 1}</span>
-      <input data-sbp="title" value="${esc(pg.title)}" maxlength="40" placeholder="Page ka title (jaise Privacy Policy)" aria-label="Page ${i + 1} ka title" />
-      <button type="button" class="icon-mini" data-sb-act="page-up" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Upar" aria-label="Upar">↑</button>
-      <button type="button" class="icon-mini" data-sb-act="page-down" data-i="${i}" ${i === pages.length - 1 ? "disabled" : ""} title="Neeche" aria-label="Neeche">↓</button>
-      <button type="button" class="icon-mini danger" data-sb-act="page-del" data-i="${i}" title="Page delete karo" aria-label="Page delete karo">🗑</button>
+      <input data-sbp="title" value="${esc(pg.title)}" maxlength="40" placeholder="Page title (e.g. Privacy Policy)" aria-label="Title of page ${i + 1}" />
+      <button type="button" class="icon-mini" data-sb-act="page-up" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move up">↑</button>
+      <button type="button" class="icon-mini" data-sb-act="page-down" data-i="${i}" ${i === pages.length - 1 ? "disabled" : ""} title="Move down" aria-label="Move down">↓</button>
+      <button type="button" class="icon-mini danger" data-sb-act="page-del" data-i="${i}" title="Delete page" aria-label="Delete page">🗑</button>
     </div>
     <small class="hint sb-pg-link">Link: store.html?s=${esc(d.slug)}#page/<span data-pv="slug">${esc(storePageSlug(pg))}</span></small>
     <small class="err" data-err="page-${esc(pg.id)}"></small>
     <div class="sb-pg-edit">
       <label>Content
-        <textarea data-sbp="body" rows="14" maxlength="${STORE_PAGE_MAX}" placeholder="Yahan likhein…">${esc(pg.body)}</textarea>
+        <textarea data-sbp="body" rows="14" maxlength="${STORE_PAGE_MAX}" placeholder="Write here…">${esc(pg.body)}</textarea>
         <small class="hint"><span data-pv="count">${String(pg.body || "").length}</span>/${STORE_PAGE_MAX}</small>
       </label>
       <div class="sb-pg-prev"><span class="sb-pg-prev-tag">Preview</span><div class="sh-rich" data-pv="body">${storeRichText(pg.body)}</div></div>
     </div>
-    <label class="check"><input type="checkbox" data-sbp-check="menu" ${pg.menu ? "checked" : ""} /> Header menu me bhi dikhao <span class="muted">(footer me hamesha dikhega)</span></label>
+    <label class="check"><input type="checkbox" data-sbp-check="menu" ${pg.menu ? "checked" : ""} /> Also show in the header menu <span class="muted">(always shown in the footer)</span></label>
   </section>`).join("")}
-  ${pages.length ? "" : `<div class="panel sb-empty-note"><p class="muted">Abhi koi page nahi. Upar se template chunein — Privacy Policy aur Return Policy se shuru karna achha hai.</p></div>`}`;
+  ${pages.length ? "" : `<div class="panel sb-empty-note"><p class="muted">No pages yet. Pick a template above — a Privacy Policy and Return Policy are a good start.</p></div>`}`;
 }
 
 function sbAddPage(tplKey) {
@@ -450,17 +450,17 @@ function sbAddPage(tplKey) {
     last.scrollIntoView({ behavior: "smooth", block: "start" });
     last.querySelector(t ? "textarea" : "input").focus({ preventScroll: true });
   }
-  showToast(t ? `"${t.title}" page ban gaya — apne hisaab se edit karein` : "Naya page — title aur content likhein");
+  showToast(t ? `"${t.title}" page created — edit it to suit your store` : "New page — add a title and content");
 }
 
 function sbLinkOptions(d, cur) {
   const opt = (v, l) => `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(l)}</option>`;
   const live = sbListings().filter(isListingLive);
   return opt("all", "All products") +
-    (d.collections.length ? `<optgroup label="Collection">${d.collections.map((c) => opt("c:" + c.id, c.name || "(naam nahi)")).join("")}</optgroup>` : "") +
+    (d.collections.length ? `<optgroup label="Collection">${d.collections.map((c) => opt("c:" + c.id, c.name || "(no name)")).join("")}</optgroup>` : "") +
     (live.length ? `<optgroup label="Product">${live.map((p) => opt("p:" + p.id, p.name)).join("")}</optgroup>` : "") +
-    ((d.pages || []).length ? `<optgroup label="Page">${d.pages.map((p) => opt("pg:" + p.id, p.title || "(title nahi)")).join("")}</optgroup>` : "") +
-    opt("none", "Kahin nahi (sirf image)");
+    ((d.pages || []).length ? `<optgroup label="Page">${d.pages.map((p) => opt("pg:" + p.id, p.title || "(no title)")).join("")}</optgroup>` : "") +
+    opt("none", "Nowhere (image only)");
 }
 
 function sbBannerCard(d, b, i) {
@@ -468,7 +468,7 @@ function sbBannerCard(d, b, i) {
   return `
   <div class="sb-banner" data-bid="${esc(b.id)}">
     <div class="sb-banner-img tone-${tone}">
-      <img data-banner-img="${esc(b.id)}" alt="Banner ${i + 1}" />
+      <img data-banner-img="${esc(b.id)}" ${safeImg(b.src) ? `src="${safeImg(b.src)}"` : ""} alt="Banner ${i + 1}" />
       <span class="sb-bn-num">#${i + 1}</span>
       <div class="bs-slide-text">
         <h2 data-pv="headline">${esc(b.headline)}</h2>
@@ -480,21 +480,21 @@ function sbBannerCard(d, b, i) {
       <label><span>Headline <span class="muted">(optional)</span></span>
         <input data-sbb="headline" value="${esc(b.headline)}" maxlength="40" placeholder="Summer Collection" /></label>
       <label><span>Sub-text <span class="muted">(optional)</span></span>
-        <input data-sbb="sub" value="${esc(b.sub)}" maxlength="80" placeholder="Naye styles, naye rang" /></label>
+        <input data-sbb="sub" value="${esc(b.sub)}" maxlength="80" placeholder="New styles, new colours" /></label>
       <label>Button text
         <input data-sbb="cta" value="${esc(b.cta)}" maxlength="20" placeholder="Shop now" /></label>
-      <label>Click karne par kahan jaye
+      <label>Link to
         <select data-sbb="link">${sbLinkOptions(d, b.link)}</select></label>
-      <label>Text ka rang
+      <label>Text colour
         <select data-sbb="tone">
-          <option value="light" ${tone === "light" ? "selected" : ""}>Safed text (dark image par)</option>
-          <option value="dark" ${tone === "dark" ? "selected" : ""}>Kaala text (light image par)</option>
+          <option value="light" ${tone === "light" ? "selected" : ""}>White text (for dark images)</option>
+          <option value="dark" ${tone === "dark" ? "selected" : ""}>Dark text (for light images)</option>
         </select></label>
     </div>
     <small class="err" data-err="banner-${esc(b.id)}"></small>
     <div class="row-actions">
-      <button type="button" class="btn btn-sm btn-outline" data-sb-act="banner-up" data-i="${i}" ${i === 0 ? "disabled" : ""}>↑ Upar</button>
-      <button type="button" class="btn btn-sm btn-outline" data-sb-act="banner-down" data-i="${i}" ${i === d.banners.length - 1 ? "disabled" : ""}>↓ Neeche</button>
+      <button type="button" class="btn btn-sm btn-outline" data-sb-act="banner-up" data-i="${i}" ${i === 0 ? "disabled" : ""}>↑ Up</button>
+      <button type="button" class="btn btn-sm btn-outline" data-sb-act="banner-down" data-i="${i}" ${i === d.banners.length - 1 ? "disabled" : ""}>↓ Down</button>
       <button type="button" class="btn btn-sm btn-danger" data-sb-act="banner-del" data-i="${i}">🗑 Remove</button>
     </div>
   </div>`;
@@ -507,24 +507,24 @@ function sbBannersHTML(d) {
     <div class="panel-head"><h2>Banners (${n}/${STORE_LIMITS.banners})</h2>
       <button type="button" class="btn btn-sm" data-sb-act="pick-banner" ${n >= STORE_LIMITS.banners ? "disabled" : ""}>+ Add banner</button></div>
     <ul class="sb-rules">
-      <li><strong>Koi bhi size chalegi</strong> — 1500×500 px (3:1) best</li>
-      <li>Lambi (landscape) photo beech se 3:1 me aati hai; square / portrait photo poori dikhegi, peeche usi ki blur photo · 1 GB tak</li>
-      <li>Store ke upar slideshow me har 5 second me badlenge · max ${STORE_LIMITS.banners}</li>
+      <li><strong>Any size works</strong> — 1500×500 px (3:1) is best</li>
+      <li>Wide (landscape) photos are centred at 3:1; square / portrait photos are shown whole on a blurred background · up to 1 GB</li>
+      <li>They change every 5 seconds in a slideshow at the top of your store · max ${STORE_LIMITS.banners}</li>
     </ul>
     <small class="err" data-err="banners"></small>
     ${n ? d.banners.map((b, i) => sbBannerCard(d, b, i)).join("") : `
-      <button type="button" class="sb-drop" data-sb-act="pick-banner"><span>🖼️</span><strong>Pehla banner upload karein</strong><small>1500×500 px · JPG / PNG</small></button>`}
+      <button type="button" class="sb-drop" data-sb-act="pick-banner"><span>🖼️</span><strong>Upload your first banner</strong><small>1500×500 px · JPG / PNG</small></button>`}
   </section>`;
 }
 
 function sbTarget(target) {
-  if (target === "featured") return { arr: SB.draft.featured, max: STORE_LIMITS.featured, title: "Featured products chunein" };
+  if (target === "featured") return { arr: SB.draft.featured, max: STORE_LIMITS.featured, title: "Choose featured products" };
   const c = SB.draft.collections.find((x) => "c:" + x.id === target);
-  return c ? { arr: c.productIds, max: STORE_LIMITS.perCollection, title: `"${c.name || "Collection"}" ke products` } : null;
+  return c ? { arr: c.productIds, max: STORE_LIMITS.perCollection, title: `Products in "${c.name || "Collection"}"` } : null;
 }
 
 function sbChips(ids, target) {
-  if (!ids.length) return `<p class="muted sb-empty-note">Koi product nahi chuna.</p>`;
+  if (!ids.length) return `<p class="muted sb-empty-note">No products selected.</p>`;
   const byId = new Map(sbListings().map((l) => [l.id, l]));
   return `<div class="sb-chips">${ids.map((id, i) => {
     const L = byId.get(id);
@@ -534,9 +534,9 @@ function sbChips(ids, target) {
       <span class="thumb">${thumbOf(L)}</span>
       <span class="sb-chip-name"><span>${esc(L.name || "(untitled)")}</span><small class="muted">${formatPrice(Number(L.price) || 0)}</small></span>
       <span class="status-pill ${ds.cls}">${ds.label}</span>
-      <button type="button" class="icon-mini" data-sb-act="chip-up" data-target="${esc(target)}" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Upar" aria-label="Upar">↑</button>
-      <button type="button" class="icon-mini" data-sb-act="chip-down" data-target="${esc(target)}" data-i="${i}" ${i === ids.length - 1 ? "disabled" : ""} title="Neeche" aria-label="Neeche">↓</button>
-      <button type="button" class="icon-mini danger" data-sb-act="chip-del" data-target="${esc(target)}" data-i="${i}" title="Hatao" aria-label="Hatao">✕</button>
+      <button type="button" class="icon-mini" data-sb-act="chip-up" data-target="${esc(target)}" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move up">↑</button>
+      <button type="button" class="icon-mini" data-sb-act="chip-down" data-target="${esc(target)}" data-i="${i}" ${i === ids.length - 1 ? "disabled" : ""} title="Move down" aria-label="Move down">↓</button>
+      <button type="button" class="icon-mini danger" data-sb-act="chip-del" data-target="${esc(target)}" data-i="${i}" title="Remove" aria-label="Remove">✕</button>
     </div>`;
   }).join("")}</div>`;
 }
@@ -548,35 +548,35 @@ function sbProductsHTML(d) {
   <section class="panel">
     <div class="panel-head"><h2>Store products</h2>
       <div class="row-actions"><a href="#add-listing" class="btn btn-sm">+ Add new product</a><a href="#bulk" class="btn btn-sm btn-outline">Bulk upload</a></div></div>
-    <p>Aapki <strong>${live.length} live</strong> listing(s) store ke <strong>All products</strong> page par apne-aap dikhti hain.
-      ${ls.length - live.length ? `<span class="muted">${ls.length - live.length} abhi live nahi (draft / QC / out of stock / inactive) — <a class="link" href="#listings">My Listings</a></span>` : ""}</p>
+    <p>Your <strong>${live.length} live</strong> listing(s) appear automatically on the store's <strong>All products</strong> page.
+      ${ls.length - live.length ? `<span class="muted">${ls.length - live.length} not live yet (draft / QC / out of stock / inactive) — <a class="link" href="#listings">My Listings</a></span>` : ""}</p>
     <small class="err" data-err="products"></small>
-    <p class="small muted">"New arrivals", featured aur collection rows ko home par dikhana / chhupana aur order badalna → <a class="link" href="#store/design">🎨 Design → Homepage sections</a></p>
+    <p class="small muted">Show / hide "New arrivals", featured and collection rows on the home page, or change their order → <a class="link" href="#store/design">🎨 Design → Homepage sections</a></p>
   </section>
 
   <section class="panel">
     <div class="panel-head"><h2>⭐ Featured products (${d.featured.length}/${STORE_LIMITS.featured})</h2>
       <button type="button" class="btn btn-sm" data-sb-act="pick-prod" data-target="featured">+ Choose products</button></div>
-    <p class="muted">Store home par banner ke theek neeche sabse pehle dikhenge.</p>
+    <p class="muted">Shown first on your store's home page, right below the banner.</p>
     ${sbChips(d.featured, "featured")}
   </section>
 
   <section class="panel">
     <div class="panel-head"><h2>🗂️ Collections (${d.collections.length}/${STORE_LIMITS.collections})</h2>
       <button type="button" class="btn btn-sm" data-sb-act="coll-add" ${d.collections.length >= STORE_LIMITS.collections ? "disabled" : ""}>+ New collection</button></div>
-    <p class="muted">Har collection store ke menu me ek tab banti hai — jaise "Summer Collection", "T-Shirts", "Best Sellers".</p>
+    <p class="muted">Each collection gets its own tab in the store menu — e.g. "Summer Collection", "T-Shirts", "Best Sellers".</p>
     ${d.collections.map((c, i) => `
       <div class="sb-coll" data-cid="${esc(c.id)}">
         <div class="sb-coll-head">
-          <input data-sbc="name" data-ci="${i}" value="${esc(c.name)}" maxlength="30" placeholder="Collection ka naam" aria-label="Collection ka naam" />
-          <button type="button" class="icon-mini" data-sb-act="coll-up" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Upar" aria-label="Upar">↑</button>
-          <button type="button" class="icon-mini" data-sb-act="coll-down" data-i="${i}" ${i === d.collections.length - 1 ? "disabled" : ""} title="Neeche" aria-label="Neeche">↓</button>
+          <input data-sbc="name" data-ci="${i}" value="${esc(c.name)}" maxlength="30" placeholder="Collection name" aria-label="Collection name" />
+          <button type="button" class="icon-mini" data-sb-act="coll-up" data-i="${i}" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move up">↑</button>
+          <button type="button" class="icon-mini" data-sb-act="coll-down" data-i="${i}" ${i === d.collections.length - 1 ? "disabled" : ""} title="Move down" aria-label="Move down">↓</button>
           <button type="button" class="icon-mini danger" data-sb-act="coll-del" data-i="${i}" title="Delete collection" aria-label="Delete collection">🗑</button>
         </div>
         <small class="err" data-err="coll-${esc(c.id)}"></small>
         ${sbChips(c.productIds, "c:" + c.id)}
         <button type="button" class="btn btn-sm btn-outline" data-sb-act="pick-prod" data-target="c:${esc(c.id)}">+ Add products (${c.productIds.length}/${STORE_LIMITS.perCollection})</button>
-      </div>`).join("") || `<p class="muted sb-empty-note">Abhi koi collection nahi.</p>`}
+      </div>`).join("") || `<p class="muted sb-empty-note">No collections yet.</p>`}
   </section>`;
 }
 
@@ -584,12 +584,12 @@ function sbPickProducts(target) {
   const t = sbTarget(target);
   if (!t) return;
   const ls = sbListings();
-  if (!ls.length) { showToast("Pehle product add karein"); location.hash = "#add-listing"; return; }
+  if (!ls.length) { showToast("Add a product first"); location.hash = "#add-listing"; return; }
   const sel = new Set(t.arr.map(String));
   openModal(`
     <div class="modal-head"><h2>${esc(t.title)}</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
-    <input type="search" id="sbp-q" class="sbp-q" placeholder="Product search karein" aria-label="Product search" />
-    <p class="muted">Max ${t.max} · <strong id="sbp-count">${sel.size}</strong> chune · Jo abhi live nahi, wo live hote hi store par dikhenge</p>
+    <input type="search" id="sbp-q" class="sbp-q" placeholder="Search products" aria-label="Product search" />
+    <p class="muted">Max ${t.max} · <strong id="sbp-count">${sel.size}</strong> selected · Products that aren't live yet appear once they go live</p>
     <div class="pick-list" id="sbp-list">${ls.map((L) => {
       const ds = LISTING_STATUS[listingDisplayStatus(L)];
       return `
@@ -620,7 +620,7 @@ function sbPickProducts(target) {
     closeModal();
     sbChanged();
     sbRenderMain();
-    showToast("Products update ho gaye ✓");
+    showToast("Products updated ✓");
   });
 }
 
@@ -636,14 +636,14 @@ function sbSide() {
   const st = me.store || {};
   const [label, cls, differs] = sbStatus();
   const req = [
-    ["Store name aur URL", !E.some((x) => ["name", "slug", "tagline", "about"].includes(x.k)), "branding"],
+    ["Store name and URL", !E.some((x) => ["name", "slug", "tagline", "about"].includes(x.k)), "branding"],
     ["Logo", !!d.logo, "branding"],
     [`Banner (${d.banners.length}/${STORE_LIMITS.banners})`, d.banners.length > 0 && !E.some((x) => x.k.startsWith("banner")), "banners"],
     [`Live products (${live.size})`, live.size > 0, "products"],
   ];
-  if (d.collections.length) req.push(["Collections sahi bhari", !E.some((x) => x.k.startsWith("coll-")), "products"]);
+  if (d.collections.length) req.push(["Collections complete", !E.some((x) => x.k.startsWith("coll-")), "products"]);
   if (E.some((x) => x.k === "announce")) req.push(["Announcement text", false, "design"]);
-  if ((d.pages || []).length) req.push([`Pages sahi bhare (${d.pages.length})`, !E.some((x) => x.k.startsWith("page")), "pages"]);
+  if ((d.pages || []).length) req.push([`Pages complete (${d.pages.length})`, !E.some((x) => x.k.startsWith("page")), "pages"]);
   const rec = [
     ["About section", String(d.about || "").trim().length >= 30, "branding"],
     [`Featured products (${d.featured.length})`, d.featured.length > 0, "products"],
@@ -657,24 +657,24 @@ function sbSide() {
     <section class="panel sb-side">
       <div class="sb-mini head-${ds.header}" style="--st:${storeTheme(d)}">
         ${ds.announceOn ? `<div class="sb-mini-ann"></div>` : ""}
-        <div class="sb-mini-banner">${b0 ? `<img data-banner-img="${esc(b0.id)}" alt="" />` : `<span>Banner</span>`}</div>
+        <div class="sb-mini-banner">${b0 ? `<img data-banner-img="${esc(b0.id)}" ${safeImg(b0.src) ? `src="${safeImg(b0.src)}"` : ""} alt="" />` : `<span>Banner</span>`}</div>
         <div class="sb-mini-id">
           <span class="sb-mini-logo">${safeImg(d.logo) ? `<img src="${safeImg(d.logo)}" alt="" />` : esc(storeInitials(d.name))}</span>
           <span class="sb-mini-text"><strong>${esc(d.name || "Store name")}</strong><small>${esc(d.tagline || "Tagline")}</small></span>
         </div>
       </div>
       <div class="sb-status"><span class="status-pill ${cls}">${esc(label)}</span></div>
-      <h3>Publish ke liye zaroori</h3>
+      <h3>Required to publish</h3>
       <ul class="sb-check">${req.map(([l, ok, tab]) => `<li class="${ok ? "ok" : "bad"}"><a href="#store/${tab}">${esc(l)}</a></li>`).join("")}</ul>
-      <h3>Behtar store ke liye</h3>
+      <h3>Recommended</h3>
       <ul class="sb-check">${rec.map(([l, ok, tab]) => `<li class="${ok ? "ok" : "rec"}"><a href="#store/${tab}">${esc(l)}</a></li>`).join("")}</ul>
       ${notLive ? `<p class="small text-warn">${esc(notLive.msg)}</p>` : ""}
       ${SB.tried && E.length ? `<ul class="err-list sb-errs">${E.map((x) => `<li class="err">${esc(x.msg)}</li>`).join("")}</ul>` : ""}
       <a class="btn btn-outline sb-btn" id="sb-preview" href="store.html?preview=1" target="_blank" rel="noopener" data-sb-act="preview">👁 Preview</a>
       <button type="button" class="btn checkout-btn" id="sb-publish" data-sb-act="publish" ${st.published && !differs ? "disabled" : ""}>${st.published ? (differs ? "🚀 Publish changes" : "✓ Published") : "🚀 Publish store"}</button>
-      ${st.live && differs ? `<button type="button" class="link-btn" data-sb-act="discard">↺ Draft changes discard karo</button>` : ""}
-      ${st.published ? `<button type="button" class="link-btn text-danger" data-sb-act="unpublish">Store offline karo</button>` : ""}
-      <p class="small muted" id="sb-saved">Changes apne-aap draft me save hote hain.</p>
+      ${st.live && differs ? `<button type="button" class="link-btn" data-sb-act="discard">↺ Discard draft changes</button>` : ""}
+      ${st.published ? `<button type="button" class="link-btn text-danger" data-sb-act="unpublish">Take store offline</button>` : ""}
+      <p class="small muted" id="sb-saved">Changes are saved to your draft automatically.</p>
     </section>`;
   sbLoadImgs(side);
   const top = document.getElementById("sb-status-top");
@@ -706,7 +706,7 @@ function sbPublish() {
     const tab = ["logo", "name", "slug", "tagline", "about"].includes(first) ? "branding"
       : first === "announce" ? "design" : first.startsWith("page") ? "pages"
       : first.startsWith("banner") ? "banners" : "products";
-    showToast(`Publish se pehle ${E.length} cheez(en) theek karein`);
+    showToast(`Fix ${E.length} item(s) before publishing`);
     if (SB.tab !== tab) location.hash = "#store/" + tab;
     return;
   }
@@ -719,24 +719,24 @@ function sbPublish() {
   refreshMe();
   if (oldLive) sbGcBanners(oldLive.banners);
   notifySeller(me.id, first
-    ? `🏬 Aapka Brand Store "${live.name}" live ho gaya! Link: ${sbFullUrl(live.slug)}`
-    : `🏬 Store changes publish ho gaye: "${live.name}"`);
-  showToast(first ? "🎉 Aapka store live ho gaya!" : "Changes publish ho gaye ✓");
+    ? `🏬 Your Brand Store "${live.name}" is live! Link: ${sbFullUrl(live.slug)}`
+    : `🏬 Store changes published: "${live.name}"`);
+  showToast(first ? "🎉 Your store is live!" : "Changes published ✓");
   SB.tried = false;
-  render(); // nav ("View my Brand Store") bhi update ho
+  render(); // also refresh the nav ("View my Brand Store")
 }
 
 function sbUnpublish() {
   openModal(`
-    <div class="modal-head"><h2>Store offline karein?</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
-    <p>Buyers ko store link par "Store abhi available nahi hai" dikhega. Aapka design save rahega — kabhi bhi dobara publish kar sakte hain.</p>
-    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close>Cancel</button><button type="button" class="btn btn-danger" id="sb-unpub-ok">Haan, offline karo</button></div>`);
+    <div class="modal-head"><h2>Take your store offline?</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <p>Shoppers will see "This store isn't available right now" at your store link. Your design is kept — you can publish again any time.</p>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close>Cancel</button><button type="button" class="btn btn-danger" id="sb-unpub-ok">Yes, take it offline</button></div>`);
   document.getElementById("sb-unpub-ok").addEventListener("click", () => {
     refreshMe();
     updateSeller(me.id, { store: { ...me.store, published: false } });
     refreshMe();
     closeModal();
-    showToast("Store offline ho gaya");
+    showToast("Your store is offline");
     render();
   });
 }
@@ -749,7 +749,7 @@ function sbDiscard() {
   updateSeller(me.id, { store: { ...st, draft: sbClone(st.live), updatedAt: Date.now() } });
   refreshMe();
   sbGcBanners(oldDraft.banners);
-  showToast("Draft wapas published version par aa gaya");
+  showToast("Draft reset to the published version");
   render();
 }
 
@@ -766,8 +766,8 @@ function sbOnInput(e) {
     }
     return;
   }
-  // Text fields: sirf "input" par. Blur wala "change" sidebar dobara banata to Publish ka pehla click kho jaata.
-  // Select / checkbox: sirf "change" par.
+  // Text fields: only on "input". The "change" on blur would rebuild the sidebar and swallow the first Publish click.
+  // Select / checkbox: only on "change".
   const isText = t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && t.type !== "checkbox" && t.type !== "radio");
   if (isText !== (e.type === "input")) return;
   const d = SB.draft;
@@ -801,14 +801,14 @@ function sbOnInput(e) {
   } else if (t.dataset.sbCheck) {
     d[t.dataset.sbCheck] = t.checked;
   } else if (t.dataset.sbdColor || t.dataset.sbdHex) {
-    // Apna rang: color picker ya hex code. Re-render nahi (picker / typing ka focus na toote)
+    // Custom colour: colour picker or hex code. No re-render (keeps focus in the picker / text field)
     let v = t.value.trim();
     const errEl = document.querySelector('#sb-main [data-err="color"]');
     if (t.dataset.sbdHex) {
       if (v && !v.startsWith("#")) v = "#" + v;
       if (!HEX_RE.test(v)) {
         const typing = v.length < 7 && /^#?[0-9a-f]*$/i.test(v);
-        if (errEl) errEl.textContent = typing ? "" : "6 digit hex code daalein, jaise #e91e63";
+        if (errEl) errEl.textContent = typing ? "" : "Enter a 6-digit hex code, e.g. #e91e63";
         return;
       }
     }
@@ -868,13 +868,13 @@ function sbDeletePage(i) {
     SB.draft.banners.forEach((bn) => { if (bn.link === "pg:" + pg.id) bn.link = "all"; });
     sbChanged();
     sbRenderMain();
-    showToast("Page delete ho gaya");
+    showToast("Page deleted");
   };
   if (String(pg.body || "").trim().length < 20) return go();
   openModal(`
-    <div class="modal-head"><h2>"${esc(pg.title || "Page")}" delete karein?</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
-    <p>Is page ka saara content hat jayega. Publish karne ke baad buyers ko bhi nahi dikhega.</p>
-    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close>Cancel</button><button type="button" class="btn btn-danger" id="sb-pgdel-ok">Haan, delete karo</button></div>`);
+    <div class="modal-head"><h2>Delete "${esc(pg.title || "Page")}"?</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <p>All content on this page will be removed. After you publish, shoppers won't see it either.</p>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" data-close>Cancel</button><button type="button" class="btn btn-danger" id="sb-pgdel-ok">Yes, delete</button></div>`);
   document.getElementById("sb-pgdel-ok").addEventListener("click", () => { closeModal(); go(); });
 }
 
@@ -915,7 +915,7 @@ function sbOnClick(e) {
       let relinked = 0;
       d.banners.forEach((bn) => { if (bn.link === "c:" + c.id) { bn.link = "all"; relinked++; } });
       done();
-      showToast(`Collection delete ho gayi${relinked ? " · banner link 'All products' par set kiya" : ""}`);
+      showToast(`Collection deleted${relinked ? " · banner link set to 'All products'" : ""}`);
       break;
     }
     case "sec-up": case "sec-down": {
@@ -939,14 +939,14 @@ function sbOnClick(e) {
       done();
       break;
     }
-    case "preview": sbPersist(); break; // link naye tab me khulta hai
+    case "preview": sbPersist(); break; // the link opens in a new tab
     case "publish": sbPublish(); break;
     case "unpublish": sbUnpublish(); break;
     case "discard": sbDiscard(); break;
     case "copy": {
       const inp = document.getElementById("sb-link-out");
-      const ok = () => showToast("Store link copy ho gaya ✓");
-      const fallback = () => { inp.select(); try { document.execCommand("copy"); ok(); } catch { showToast("Link select ho gaya — Ctrl+C dabayein"); } };
+      const ok = () => showToast("Store link copied ✓");
+      const fallback = () => { inp.select(); try { document.execCommand("copy"); ok(); } catch { showToast("Link selected — press Ctrl+C"); } };
       if (navigator.clipboard) navigator.clipboard.writeText(inp.value).then(ok, fallback); else fallback();
       break;
     }
@@ -960,7 +960,7 @@ function sbUpsell() {
   const st = me.store || {};
   content.innerHTML = `
     <h1 class="dash-title">🏬 Brand Store</h1>
-    ${st.live ? `<div class="alert warn">Aapka store "<strong>${esc(st.live.name)}</strong>" abhi <strong>offline</strong> hai kyunki Premium plan active nahi hai. Premium lete hi wapas live ho jayega — design save hai.</div>` : ""}
+    ${st.live ? `<div class="alert warn">Your store "<strong>${esc(st.live.name)}</strong>" is <strong>offline</strong> because your Premium plan isn't active. It goes live again as soon as you're back on Premium — your design is saved.</div>` : ""}
     <section class="panel sb-upsell">
       <div class="sb-art" aria-hidden="true">
         <div class="sb-art-banner"></div>
@@ -969,17 +969,17 @@ function sbUpsell() {
       </div>
       <div class="sb-upsell-text">
         <span class="status-pill s-pending">⭐ Premium feature</span>
-        <h2>Zzapkart par apni khud ki mini website</h2>
+        <h2>Your own online store on Zzapkart</h2>
         <ul class="sb-upsell-list">
-          <li>🖼️ Apna <strong>logo</strong>, store ka naam aur <strong>apna rang, font, layout</strong></li>
-          <li>📄 Apne pages — Privacy Policy, Terms, FAQ, Contact</li>
-          <li>🎞️ <strong>5 tak banners</strong> — slideshow ke saath</li>
-          <li>🗂️ <strong>Collections</strong> aur featured products</li>
-          <li>🔗 Apna store link — Instagram / WhatsApp par share karo</li>
+          <li>🖼️ Your <strong>logo</strong>, store name and <strong>your own colours, fonts and layout</strong></li>
+          <li>📄 Your own pages — Privacy Policy, Terms, FAQ, Contact</li>
+          <li>🎞️ <strong>Up to 5 banners</strong> in a slideshow</li>
+          <li>🗂️ <strong>Collections</strong> and featured products</li>
+          <li>🔗 Your own store link — share it on Instagram / WhatsApp</li>
           <li>📈 Store visits report</li>
         </ul>
         <a href="#subscription" class="btn">⭐ Premium lo — ${formatPrice(PLANS.premium.price)}/month</a>
-        <p class="muted">Aapka current plan: <strong>${esc(plan().name)}</strong></p>
+        <p class="muted">Your current plan: <strong>${esc(plan().name)}</strong></p>
       </div>
     </section>`;
 }
@@ -991,7 +991,7 @@ function viewStore() {
   const tab = location.hash.split("/")[1];
   const tried = SB ? SB.tried : false;
   SB = { draft: sbLoad(), tab: SB_TABS.some(([k]) => k === tab) ? tab : "branding", tried };
-  if (!me.store || !me.store.draft) sbPersist(); // pehli baar: draft (aur URL) reserve karo
+  if (!me.store || !me.store.draft) sbPersist(); // first visit: reserve the draft (and URL)
 
   const st = me.store || {};
   const stats = storeStats(me.id);
@@ -1001,18 +1001,18 @@ function viewStore() {
         <h1 class="dash-title">🏬 Brand Store</h1>
         <span id="sb-status-top"></span>
       </div>
-      <p class="muted sb-sub">Zzapkart par aapki apni mini website — apna logo, banners, collections aur products. Buyers ise <strong>store link</strong> se ya product page ke "Visit store" se kholte hain.</p>
-      ${st.adminBlocked ? `<div class="alert error">⛔ Zzapkart admin ne aapka store band kiya hai: <strong>${esc(st.adminBlocked.reason)}</strong>. Theek karke support se contact karein — tab tak store buyers ko nahi dikhega.</div>` : ""}
+      <p class="muted sb-sub">Your own online store on Zzapkart — logo, banners, collections, pages and products. Shoppers open it from your <strong>store link</strong> or "Visit store" on product pages.</p>
+      ${st.adminBlocked ? `<div class="alert error">⛔ Zzapkart admin has taken down your store: <strong>${esc(st.adminBlocked.reason)}</strong>. Fix the issue and contact support — until then shoppers can't see it.</div>` : ""}
       ${st.published && st.live ? `
         <section class="panel sb-livebar">
-          <span class="sb-live-dot" aria-hidden="true"></span><strong>Store live hai</strong>
+          <span class="sb-live-dot" aria-hidden="true"></span><strong>Your store is live</strong>
           <input id="sb-link-out" class="sb-link-out" readonly value="${esc(sbFullUrl(st.live.slug))}" aria-label="Store link" />
           <button type="button" class="btn btn-sm" data-sb-act="copy">Copy link</button>
           <a class="btn btn-sm btn-outline" href="${esc(storeUrl(st.live.slug))}" target="_blank" rel="noopener">Open store ↗</a>
-          <span class="sb-stat"><strong>${stats.last7}</strong> visits (7 din)</span>
+          <span class="sb-stat"><strong>${stats.last7}</strong> visits (7 days)</span>
           <span class="sb-stat"><strong>${stats.total}</strong> total visits</span>
           <span class="sb-stat"><strong>${storeSubscribers(me.id).length}</strong> newsletter subscribers</span>
-        </section>` : st.live ? `<div class="alert warn">Store abhi <strong>offline</strong> hai. "Publish" karte hi wapas live ho jayega.</div>` : ""}
+        </section>` : st.live ? `<div class="alert warn">Your store is <strong>offline</strong>. It goes live again as soon as you publish.</div>` : ""}
       <nav class="sub-tabs sb-tabs">${SB_TABS.map(([k, l]) => `<a href="#store/${k}" class="${k === SB.tab ? "active" : ""}">${l}</a>`).join("")}</nav>
       <div id="sb-root" class="wizard lf-wrap sb-wrap checkout-form">
         <div class="wizard-main" id="sb-main"></div>

@@ -2,11 +2,11 @@
 // Customer account: login / signup, order history, saved addresses, profile
 //   account.html                    → logged out: login / signup, logged in: My Orders
 //   account.html#orders | #addresses | #profile
-//   account.html?next=checkout.html → login ke baad wapas usi page par
+//   account.html?next=checkout.html → back to that page after login
 // =====================================================================
 const acRoot = document.getElementById("acct");
 const acParams = new URLSearchParams(location.search);
-// Sirf apni site ke page par wapas bhejo (open redirect nahi)
+// Only redirect back to a page on our own site (no open redirect)
 const acNext = (() => {
   const n = acParams.get("next") || "";
   return /^[a-z0-9-]+\.html(\?[^#]*)?(#.*)?$/i.test(n) && !/^account\.html/i.test(n) ? n : "";
@@ -28,7 +28,7 @@ function acErr(form, name, msg) {
 }
 const pwField = (name, auto, extra = "") => `
   <span class="pw-wrap"><input name="${name}" type="password" autocomplete="${auto}" ${extra} />
-  <button type="button" class="pw-toggle" data-pw="1" aria-label="Password dikhao">👁</button></span>`;
+  <button type="button" class="pw-toggle" data-pw="1" aria-label="Show password">👁</button></span>`;
 
 // ---------------------------------------------------------------------
 // Login / signup
@@ -39,12 +39,12 @@ function acAuthView() {
     <div class="cauth-wrap">
       <section class="cauth-art">
         <img src="images/logo-icon.png" alt="" class="cauth-logo" />
-        <h1>${acTab === "signup" ? "Zzapkart par account banao" : "Welcome back!"}</h1>
-        <p>Login karke shopping aur bhi aasaan:</p>
+        <h1>${acTab === "signup" ? "Create your Zzapkart account" : "Welcome back!"}</h1>
+        <p>Log in for a faster, easier shopping experience:</p>
         <ul>
-          <li>📍 Saved addresses — checkout ek click me</li>
-          <li>📦 Saari order history aur tracking ek jagah</li>
-          <li>🔁 Pichhla order dobara — "Buy again"</li>
+          <li>📍 Saved addresses — one-click checkout</li>
+          <li>📦 All your orders and tracking in one place</li>
+          <li>🔁 Reorder in a tap with "Buy again"</li>
         </ul>
       </section>
       <section class="panel cauth-card">
@@ -52,23 +52,23 @@ function acAuthView() {
           <button type="button" role="tab" data-tab="login" aria-selected="${acTab === "login"}" class="${acTab === "login" ? "active" : ""}">Login</button>
           <button type="button" role="tab" data-tab="signup" aria-selected="${acTab === "signup"}" class="${acTab === "signup" ? "active" : ""}">Create account</button>
         </div>
-        ${acNext.startsWith("checkout.html") ? `<div class="alert info">🛒 Order place karne ke liye login karein ya naya account banayein.</div>` : ""}
+        ${acNext.startsWith("checkout.html") ? `<div class="alert info">🛒 Log in or create an account to place your order.</div>` : ""}
         ${acTab === "login" ? `
         <form id="ac-login" class="checkout-form" novalidate>
           <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" /><small class="err"></small></label>
           <label>Password${pwField("password", "current-password")}<small class="err"></small></label>
           <p class="err" id="ac-login-err" role="alert"></p>
           <button class="btn checkout-btn" type="submit">Login</button>
-          <p class="muted cauth-switch">Naya customer? <button type="button" class="link-btn" data-tab="signup">Account banao →</button></p>
+          <p class="muted cauth-switch">New to Zzapkart? <button type="button" class="link-btn" data-tab="signup">Create an account →</button></p>
         </form>` : `
         <form id="ac-signup" class="checkout-form" novalidate>
           <label>Full name<input name="name" autocomplete="name" maxlength="60" placeholder="Rahul Sharma" /><small class="err"></small></label>
           <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" /><small class="err"></small></label>
           <label><span>Mobile number <span class="muted">(optional)</span></span><input name="phone" inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="10-digit mobile" /><small class="err"></small></label>
-          <label>Password${pwField("password", "new-password")}<small class="hint">Kam se kam 8 characters, ek letter aur ek number</small><small class="err"></small></label>
+          <label>Password${pwField("password", "new-password")}<small class="hint">At least 8 characters, with a letter and a number</small><small class="err"></small></label>
           <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" /><small class="err"></small></label>
           <button class="btn checkout-btn" type="submit">Create account</button>
-          <p class="muted cauth-switch">Pehle se account hai? <button type="button" class="link-btn" data-tab="login">Login karein →</button></p>
+          <p class="muted cauth-switch">Already have an account? <button type="button" class="link-btn" data-tab="login">Log in →</button></p>
         </form>`}
       </section>
     </div>`;
@@ -78,7 +78,7 @@ function acAuthView() {
     const inp = b.previousElementSibling;
     const show = inp.type === "password";
     inp.type = show ? "text" : "password";
-    b.setAttribute("aria-label", show ? "Password chhupao" : "Password dikhao");
+    b.setAttribute("aria-label", show ? "Hide password" : "Show password");
   }));
   const login = document.getElementById("ac-login");
   if (login) {
@@ -88,15 +88,15 @@ function acAuthView() {
       const pw = login.elements.password.value;
       const errEl = document.getElementById("ac-login-err");
       const ok = [
-        acErr(login, "email", EMAIL_RE.test(email) ? "" : "Sahi email daalein"),
-        acErr(login, "password", pw ? "" : "Password daalein"),
+        acErr(login, "email", EMAIL_RE.test(email) ? "" : "Enter a valid email"),
+        acErr(login, "password", pw ? "" : "Enter your password"),
       ].every(Boolean);
       errEl.textContent = "";
       if (!ok) return;
       const c = customerByEmail(email);
       const match = c ? (await hashPassword(pw, c.salt)) === c.passwordHash : false;
-      if (!match) { errEl.textContent = "Email ya password galat hai"; return; }
-      if (c.blocked) { errEl.textContent = "Ye account Zzapkart ne block kiya hai. Support se contact karein."; return; }
+      if (!match) { errEl.textContent = "Incorrect email or password"; return; }
+      if (c.blocked) { errEl.textContent = "This account has been blocked by Zzapkart. Please contact support."; return; }
       setCustomerSession(c.id);
       updateCustomer(c.id, { lastLoginAt: Date.now() });
       showToast(`Welcome back, ${c.name.split(" ")[0]} ✓`);
@@ -113,11 +113,11 @@ function acAuthView() {
       const email = v("email").toLowerCase();
       const pw = signup.elements.password.value;
       const ok = [
-        acErr(signup, "name", v("name").length < 2 ? "Apna naam daalein" : ""),
-        acErr(signup, "email", !EMAIL_RE.test(email) ? "Sahi email daalein" : customerByEmail(email) ? "Is email se account pehle se hai — login karein" : ""),
-        acErr(signup, "phone", v("phone") && !MOBILE_RE.test(v("phone")) ? "Sahi 10-digit mobile number daalein" : ""),
-        acErr(signup, "password", pw.length < 8 || !/[A-Za-z]/.test(pw) || !/\d/.test(pw) ? "Kam se kam 8 characters, ek letter aur ek number" : ""),
-        acErr(signup, "confirm", signup.elements.confirm.value !== pw ? "Dono password same nahi hain" : ""),
+        acErr(signup, "name", v("name").length < 2 ? "Enter your name" : ""),
+        acErr(signup, "email", !EMAIL_RE.test(email) ? "Enter a valid email" : customerByEmail(email) ? "An account with this email already exists — please log in" : ""),
+        acErr(signup, "phone", v("phone") && !MOBILE_RE.test(v("phone")) ? "Enter a valid 10-digit mobile number" : ""),
+        acErr(signup, "password", pw.length < 8 || !/[A-Za-z]/.test(pw) || !/\d/.test(pw) ? "At least 8 characters, with a letter and a number" : ""),
+        acErr(signup, "confirm", signup.elements.confirm.value !== pw ? "Passwords don't match" : ""),
       ].every(Boolean);
       if (!ok) { signup.querySelector(".invalid")?.focus(); return; }
       const salt = crypto.getRandomValues(new Uint32Array(4)).join("-");
@@ -126,7 +126,7 @@ function acAuthView() {
       list.push(c);
       if (!saveCustomers(list)) return;
       setCustomerSession(c.id);
-      showToast(`Welcome, ${c.name.split(" ")[0]}! Account ban gaya ✓`);
+      showToast(`Welcome, ${c.name.split(" ")[0]}! Your account is ready ✓`);
       acDone();
     });
     signup.elements.name.focus();
@@ -170,7 +170,7 @@ function acAccountView(me) {
   document.getElementById("ac-logout").addEventListener("click", () => {
     clearCustomerSession();
     acResetState();
-    showToast("Logout ho gaye");
+    showToast("You've been logged out");
     history.replaceState(null, "", "account.html");
     acTab = "login";
     acRender();
@@ -239,7 +239,7 @@ function acOrdersView(me, box) {
   const spent = all.reduce((s, o) => s + o.total, 0);
   const myIds = new Set(all.map((o) => o.id));
   const notifs = dbGet(DB.buyerNotifs, []).filter((n) => myIds.has(n.orderId));
-  const listHtml = () => acFilteredOrders(me).map(acOrderCard).join("") || `<div class="panel"><p class="muted">Is filter me koi order nahi.</p></div>`;
+  const listHtml = () => acFilteredOrders(me).map(acOrderCard).join("") || `<div class="panel"><p class="muted">No orders match this filter.</p></div>`;
   box.innerHTML = `
     <div class="acct-head"><h1 class="dash-title">My Orders</h1>
       <span class="muted">${all.length} order(s) · ${formatPrice(spent)} total</span></div>
@@ -248,10 +248,10 @@ function acOrdersView(me, box) {
     ${all.length ? `
       <div class="acct-toolbar">
         <div class="filter-tabs">${[["all", "All"], ["active", "In progress"], ["delivered", "Delivered"]].map(([k, l]) => `<button type="button" class="chip ${acOrderFilter === k ? "active" : ""}" data-ofilter="${k}">${l}</button>`).join("")}</div>
-        <input type="search" id="ac-oq" class="acct-search" placeholder="Order ID ya product search karein" value="${esc(acOrderQ)}" aria-label="Orders search" />
+        <input type="search" id="ac-oq" class="acct-search" placeholder="Search by order ID or product" value="${esc(acOrderQ)}" aria-label="Orders search" />
       </div>
       <div id="ac-olist">${listHtml()}</div>`
-    : `<div class="empty"><div class="empty-emoji">📦</div><p>Abhi tak koi order nahi kiya.</p><a href="index.html" class="btn">Shopping shuru karo</a></div>`}`;
+    : `<div class="empty"><div class="empty-emoji">📦</div><p>You haven't placed any orders yet.</p><a href="index.html" class="btn">Start shopping</a></div>`}`;
   if (notifs.some((n) => !n.read)) dbSet(DB.buyerNotifs, dbGet(DB.buyerNotifs, []).map((n) => (myIds.has(n.orderId) ? { ...n, read: true } : n)));
 
   box.querySelectorAll("[data-ofilter]").forEach((b) => b.addEventListener("click", () => { acOrderFilter = b.dataset.ofilter; acRender(); }));
@@ -276,7 +276,7 @@ function acBuyAgain(orderId) {
     added += n;
     if (n < it.qty) missing++;
   }));
-  showToast(added ? `${added} item(s) cart me add ho gaye ✓${missing ? " · kuch items abhi stock me nahi" : ""}` : "Ye items abhi available nahi hain");
+  showToast(added ? `${added} item(s) added to your cart ✓${missing ? " · some items are out of stock" : ""}` : "These items aren't available right now");
 }
 
 // ---------- Addresses ----------
@@ -285,7 +285,7 @@ function acAddrForm(me, a) {
   const label = a ? a.label : "Home";
   return `
   <form id="ac-addr-form" class="panel checkout-form addr-form" novalidate>
-    <h2>${a ? "Address edit karein" : "Naya address"}</h2>
+    <h2>${a ? "Edit address" : "New address"}</h2>
     <div class="form-grid">
       <label>Full name<input name="name" value="${val("name", me.name)}" maxlength="60" autocomplete="name" /><small class="err"></small></label>
       <label>Mobile number<input name="phone" value="${val("phone", me.phone || "")}" inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="10-digit mobile" /><small class="err"></small></label>
@@ -298,7 +298,7 @@ function acAddrForm(me, a) {
     <div class="addr-type" role="radiogroup" aria-label="Address type">
       ${["Home", "Work", "Other"].map((l) => `<label class="check"><input type="radio" name="label" value="${l}" ${label === l ? "checked" : ""} /> ${l}</label>`).join("")}
     </div>
-    <label class="check"><input type="checkbox" name="isDefault" ${a ? (a.isDefault ? "checked" : "") : !(me.addresses || []).length ? "checked" : ""} /> Ise default address banao</label>
+    <label class="check"><input type="checkbox" name="isDefault" ${a ? (a.isDefault ? "checked" : "") : !(me.addresses || []).length ? "checked" : ""} /> Make this my default address</label>
     <div class="row-actions"><button type="submit" class="btn">Save address</button><button type="button" class="btn btn-outline" data-addr-cancel="1">Cancel</button></div>
   </form>`;
 }
@@ -322,7 +322,7 @@ function acAddressesView(me, box) {
           <button type="button" class="btn btn-sm btn-danger" data-addr-del="${a.id}">Delete</button>
         </div>
       </div>`).join("")}</div>`
-    : acEditAddr ? "" : `<div class="empty"><div class="empty-emoji">📍</div><p>Koi saved address nahi. Address save karo — checkout tez ho jayega.</p><button type="button" class="btn" data-addr-new="1">+ Add address</button></div>`}`;
+    : acEditAddr ? "" : `<div class="empty"><div class="empty-emoji">📍</div><p>No saved addresses yet. Save one for a faster checkout.</p><button type="button" class="btn" data-addr-new="1">+ Add address</button></div>`}`;
 
   const save = (addresses) => { updateCustomer(me.id, { addresses }); acRender(); };
   box.addEventListener("click", (e) => {
@@ -331,14 +331,14 @@ function acAddressesView(me, box) {
     if (t.dataset.addrNew) { acEditAddr = "new"; acRender(); }
     else if (t.dataset.addrCancel) { acEditAddr = null; acRender(); }
     else if (t.dataset.addrEdit) { acEditAddr = t.dataset.addrEdit; acRender(); }
-    else if (t.dataset.addrDefault) { save(list.map((a) => ({ ...a, isDefault: a.id === t.dataset.addrDefault }))); showToast("Default address badal gaya ✓"); }
+    else if (t.dataset.addrDefault) { save(list.map((a) => ({ ...a, isDefault: a.id === t.dataset.addrDefault }))); showToast("Default address updated ✓"); }
     else if (t.dataset.addrDel) {
-      if (!confirm("Ye address delete karna hai?")) return;
+      if (!confirm("Delete this address?")) return;
       const rest = list.filter((a) => a.id !== t.dataset.addrDel);
       if (rest.length && !rest.some((a) => a.isDefault)) rest[0].isDefault = true;
       if (acEditAddr === t.dataset.addrDel) acEditAddr = null;
       save(rest);
-      showToast("Address delete ho gaya");
+      showToast("Address deleted");
     }
   });
 
@@ -350,12 +350,12 @@ function acAddressesView(me, box) {
     e.preventDefault();
     const v = (n) => f.elements[n].value.trim();
     const ok = [
-      acErr(f, "name", v("name").length < 2 ? "Naam daalein" : ""),
-      acErr(f, "phone", MOBILE_RE.test(v("phone")) ? "" : "Sahi 10-digit mobile number daalein"),
-      acErr(f, "pincode", PIN_RE.test(v("pincode")) ? "" : "Sahi 6-digit pincode daalein"),
-      acErr(f, "city", v("city").length >= 2 ? "" : "City daalein"),
-      acErr(f, "address", v("address").length >= 8 ? "" : "Poora address daalein"),
-      acErr(f, "state", v("state") ? "" : "State chunein"),
+      acErr(f, "name", v("name").length < 2 ? "Enter a name" : ""),
+      acErr(f, "phone", MOBILE_RE.test(v("phone")) ? "" : "Enter a valid 10-digit mobile number"),
+      acErr(f, "pincode", PIN_RE.test(v("pincode")) ? "" : "Enter a valid 6-digit pincode"),
+      acErr(f, "city", v("city").length >= 2 ? "" : "Enter the city"),
+      acErr(f, "address", v("address").length >= 8 ? "" : "Enter the full address"),
+      acErr(f, "state", v("state") ? "" : "Select the state"),
     ].every(Boolean);
     if (!ok) { f.querySelector(".invalid")?.focus(); return; }
     const rec = { label: f.elements.label.value || "Home", name: v("name"), phone: v("phone"), pincode: v("pincode"), city: v("city"), address: v("address"), landmark: v("landmark"), state: v("state") };
@@ -369,7 +369,7 @@ function acAddressesView(me, box) {
     if (f.elements.isDefault.checked || !next.some((a) => a.isDefault)) next = next.map((a) => ({ ...a, isDefault: a.id === id }));
     acEditAddr = null;
     save(next);
-    showToast(editing ? "Address update ho gaya ✓" : "Address save ho gaya ✓");
+    showToast(editing ? "Address updated ✓" : "Address saved ✓");
   });
 }
 
@@ -387,7 +387,7 @@ function acProfileView(me, box) {
       <div class="row-actions"><button type="submit" class="btn">Save changes</button></div>
     </form>
     <form id="ac-pass" class="panel checkout-form" novalidate>
-      <h2>Password badlo</h2>
+      <h2>Change password</h2>
       <div class="form-grid">
         <label class="full">Current password${pwField("current", "current-password")}<small class="err"></small></label>
         <label>New password${pwField("password", "new-password")}<small class="hint">8+ characters, letter + number</small><small class="err"></small></label>
@@ -407,13 +407,13 @@ function acProfileView(me, box) {
     const email = v("email").toLowerCase();
     const other = customerByEmail(email);
     const ok = [
-      acErr(pf, "name", v("name").length < 2 ? "Naam daalein" : ""),
-      acErr(pf, "phone", v("phone") && !MOBILE_RE.test(v("phone")) ? "Sahi 10-digit mobile number daalein" : ""),
-      acErr(pf, "email", !EMAIL_RE.test(email) ? "Sahi email daalein" : other && other.id !== me.id ? "Ye email kisi aur account me hai" : ""),
+      acErr(pf, "name", v("name").length < 2 ? "Enter your name" : ""),
+      acErr(pf, "phone", v("phone") && !MOBILE_RE.test(v("phone")) ? "Enter a valid 10-digit mobile number" : ""),
+      acErr(pf, "email", !EMAIL_RE.test(email) ? "Enter a valid email" : other && other.id !== me.id ? "This email is used by another account" : ""),
     ].every(Boolean);
     if (!ok) return;
     updateCustomer(me.id, { name: v("name"), phone: v("phone"), email });
-    showToast("Profile update ho gaya ✓");
+    showToast("Profile updated ✓");
     acRender();
   });
   const pw = document.getElementById("ac-pass");
@@ -422,15 +422,15 @@ function acProfileView(me, box) {
     const cur = pw.elements.current.value, np = pw.elements.password.value;
     const curOk = (await hashPassword(cur, me.salt)) === me.passwordHash;
     const ok = [
-      acErr(pw, "current", curOk ? "" : "Current password galat hai"),
-      acErr(pw, "password", np.length < 8 || !/[A-Za-z]/.test(np) || !/\d/.test(np) ? "8+ characters, letter + number" : np === cur ? "Naya password purane se alag rakhein" : ""),
-      acErr(pw, "confirm", pw.elements.confirm.value !== np ? "Dono password same nahi hain" : ""),
+      acErr(pw, "current", curOk ? "" : "Your current password is incorrect"),
+      acErr(pw, "password", np.length < 8 || !/[A-Za-z]/.test(np) || !/\d/.test(np) ? "8+ characters, letter + number" : np === cur ? "Choose a new password that's different from your current one" : ""),
+      acErr(pw, "confirm", pw.elements.confirm.value !== np ? "Passwords don't match" : ""),
     ].every(Boolean);
     if (!ok) return;
     const salt = crypto.getRandomValues(new Uint32Array(4)).join("-");
     updateCustomer(me.id, { salt, passwordHash: await hashPassword(np, salt) });
     pw.reset();
-    showToast("Password badal gaya ✓");
+    showToast("Password changed ✓");
   });
 }
 
@@ -439,7 +439,7 @@ function acRender() {
   const me = currentCustomer();
   renderAccountNav();
   if (!me) return acAuthView();
-  if (acNext) { location.replace(acNext); return; } // pehle se login hai → seedha wapas
+  if (acNext) { location.replace(acNext); return; } // already logged in → go straight back
   acAccountView(me);
 }
 window.addEventListener("hashchange", acRender);

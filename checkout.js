@@ -2,7 +2,7 @@
 const DELIVERY_FREE_ABOVE = FREE_DELIVERY_MIN;
 const DELIVERY_CHARGE = 40;
 
-// Order ke liye login zaroori (order history + saved addresses ke liye)
+// Login is required to order (for order history + saved addresses)
 const CUSTOMER = currentCustomer();
 if (!CUSTOMER) location.replace("account.html?next=checkout.html");
 
@@ -52,7 +52,7 @@ function renderSummary() {
   document.getElementById("sum-total").textContent = formatPrice(t.total);
 }
 
-// Cart khaali ho to checkout ka matlab nahi — wapas cart par bhejo
+// Nothing to check out with an empty cart — go back to the cart
 if (cartItems().length === 0) {
   location.replace("cart.html");
 }
@@ -81,14 +81,14 @@ function renderSavedAddrs() {
       <input type="radio" name="savedAddr" value="${a.id}" ${selectedAddr === a.id ? "checked" : ""} />
       <span><strong>${esc(a.name)}</strong> <span class="addr-label">${esc(a.label)}</span> <span class="muted">${esc(a.phone)}</span><br>${esc(addressLine(a))}</span>
     </label>`).join("") + `
-    <label class="addr-opt new ${selectedAddr === "new" ? "selected" : ""}"><input type="radio" name="savedAddr" value="new" ${selectedAddr === "new" ? "checked" : ""} /> <span>+ Naya address daalo</span></label>` : "";
+    <label class="addr-opt new ${selectedAddr === "new" ? "selected" : ""}"><input type="radio" name="savedAddr" value="new" ${selectedAddr === "new" ? "checked" : ""} /> <span>+ Add a new address</span></label>` : "";
   const useNew = selectedAddr === "new";
   addrFields.classList.toggle("hidden", !useNew);
   saveAddrWrap.classList.toggle("hidden", !useNew || !CUSTOMER);
   fillAddress(useNew ? null : list.find((a) => a.id === selectedAddr));
 }
 if (CUSTOMER) {
-  document.getElementById("acct-line").innerHTML = `Logged in as <strong>${esc(CUSTOMER.name)}</strong> (${esc(CUSTOMER.email)}) · <a href="account.html#addresses" class="link">Addresses manage karo</a>`;
+  document.getElementById("acct-line").innerHTML = `Logged in as <strong>${esc(CUSTOMER.name)}</strong> (${esc(CUSTOMER.email)}) · <a href="account.html#addresses" class="link">Manage addresses</a>`;
   renderSavedAddrs();
 }
 
@@ -136,25 +136,25 @@ function setError(name, msg) {
 function validate() {
   const v = (n) => form.elements[n].value.trim();
   const checks = [
-    setError("name", v("name").length < 2 ? "Naam daalein" : ""),
-    setError("phone", /^[6-9]\d{9}$/.test(v("phone")) ? "" : "Sahi 10-digit mobile number daalein"),
-    setError("address", v("address").length < 8 ? "Poora address daalein" : ""),
-    setError("city", v("city") ? "" : "City daalein"),
-    setError("pincode", /^[1-9]\d{5}$/.test(v("pincode")) ? "" : "Sahi 6-digit pincode daalein"),
-    setError("state", v("state") ? "" : "State chunein"),
-    setError("email", !v("email") || /^\S+@\S+\.\S+$/.test(v("email")) ? "" : "Sahi email daalein"),
+    setError("name", v("name").length < 2 ? "Enter your name" : ""),
+    setError("phone", /^[6-9]\d{9}$/.test(v("phone")) ? "" : "Enter a valid 10-digit mobile number"),
+    setError("address", v("address").length < 8 ? "Enter your full address" : ""),
+    setError("city", v("city") ? "" : "Enter your city"),
+    setError("pincode", /^[1-9]\d{5}$/.test(v("pincode")) ? "" : "Enter a valid 6-digit pincode"),
+    setError("state", v("state") ? "" : "Select your state"),
+    setError("email", !v("email") || /^\S+@\S+\.\S+$/.test(v("email")) ? "" : "Enter a valid email"),
   ];
 
   const method = form.elements.payment.value;
-  // Pehle saare payment errors saaf karo
+  // Clear all payment errors first
   ["upi", "cardNumber", "cardExpiry", "cardCvv"].forEach((n) => setError(n, ""));
 
   if (method === "upi") {
-    checks.push(setError("upi", /^[\w.-]{2,}@[a-zA-Z]{2,}$/.test(v("upi")) ? "" : "Sahi UPI ID daalein (jaise name@upi)"));
+    checks.push(setError("upi", /^[\w.-]{2,}@[a-zA-Z]{2,}$/.test(v("upi")) ? "" : "Enter a valid UPI ID (e.g. name@upi)"));
   }
   if (method === "card") {
     const num = v("cardNumber").replace(/\s/g, "");
-    checks.push(setError("cardNumber", /^\d{16}$/.test(num) ? "" : "16-digit card number daalein"));
+    checks.push(setError("cardNumber", /^\d{16}$/.test(num) ? "" : "Enter the 16-digit card number"));
     const m = v("cardExpiry").match(/^(\d{2})\/(\d{2})$/);
     let expOk = false;
     if (m) {
@@ -164,14 +164,14 @@ function validate() {
       expOk = month >= 1 && month <= 12 &&
         (year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1));
     }
-    checks.push(setError("cardExpiry", expOk ? "" : "Sahi expiry daalein"));
+    checks.push(setError("cardExpiry", expOk ? "" : "Enter a valid expiry date"));
     checks.push(setError("cardCvv", /^\d{3}$/.test(v("cardCvv")) ? "" : "3-digit CVV"));
   }
 
   return checks.every(Boolean);
 }
 
-// Typing karte hi us field ka error hata do
+// Clear a field's error as soon as the user types
 form.addEventListener("input", (e) => {
   if (e.target.classList.contains("invalid")) setError(e.target.name, "");
 });
@@ -186,10 +186,10 @@ function escapeHtml(s) {
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   if (!validate()) {
-    addrFields.classList.remove("hidden"); // saved address me kami ho to fields dikhao
+    addrFields.classList.remove("hidden"); // show the fields if the saved address is incomplete
     const first = form.querySelector(".invalid");
     if (first) first.focus();
-    showToast("Kuch details galat ya missing hain");
+    showToast("Some details are missing or incorrect");
     return;
   }
 
@@ -199,14 +199,14 @@ form.addEventListener("submit", (e) => {
     city: f("city"), pincode: f("pincode"), state: f("state"), email: f("email"),
   };
   if (CUSTOMER && selectedAddr === "new" && document.getElementById("save-addr").checked) {
-    saveCustomerAddress(CUSTOMER.id, { ...address, label: "Home" }); // agli baar ke liye account me
+    saveCustomerAddress(CUSTOMER.id, { ...address, label: "Home" }); // saved to the account for next time
   }
 
   const items = cartItems();
-  // Stock dobara check karo (ho sakta hai beech mein khatam ho gaya ho)
+  // Re-check stock (it may have run out in the meantime)
   const short = items.find(({ qty, maxStock }) => qty > maxStock);
   if (short) {
-    showToast(`${short.product.name}${short.variant && short.variant.size ? " (" + short.variant.size + ")" : ""}: sirf ${short.maxStock} stock mein hai. Cart update karein.`);
+    showToast(`${short.product.name}${short.variant && short.variant.size ? " (" + short.variant.size + ")" : ""}: only ${short.maxStock} in stock. Please update your cart.`);
     return;
   }
 

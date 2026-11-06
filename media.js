@@ -1,5 +1,5 @@
 // =====================================================================
-// Product images: IndexedDB me gallery (localStorage me sirf chhota thumbnail)
+// Product images: gallery in IndexedDB (only a small thumbnail in localStorage)
 // =====================================================================
 const MediaDB = (() => {
   let dbp = null;
@@ -34,32 +34,32 @@ const MediaDB = (() => {
   };
 })();
 
-// Image: koi bhi size / resolution / ratio chalegi (1 GB file tak). Jo format browser khol sake
-// (JPG, PNG, WEBP, GIF, AVIF, BMP…) — save hamesha chhote JPEG / PNG me hota hai.
+// Images: any size / resolution / ratio works (files up to 1 GB), in any format the browser
+// can open (JPG, PNG, WEBP, GIF, AVIF, BMP…) — they are always saved as small JPEG / PNG.
 const IMAGE_MAX_BYTES = 1024 * 1048576;
 function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
-    if (!file || !String(file.type).startsWith("image/") || /svg/i.test(file.type)) return reject(new Error("Sirf photo / image file chunein (JPG, PNG, WEBP…)"));
-    if (file.size > IMAGE_MAX_BYTES) return reject(new Error(`Image 1 GB tak ki ho sakti hai (ye ${(file.size / 1073741824).toFixed(2)} GB hai)`));
+    if (!file || !String(file.type).startsWith("image/") || /svg/i.test(file.type)) return reject(new Error("Please choose a photo / image file (JPG, PNG, WEBP…)"));
+    if (file.size > IMAGE_MAX_BYTES) return reject(new Error(`Images can be up to 1 GB (this one is ${(file.size / 1073741824).toFixed(2)} GB)`));
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.decoding = "async";
     img.onload = () => {
-      if (!img.naturalWidth || !img.naturalHeight) { URL.revokeObjectURL(url); reject(new Error("Image khul nahi payi")); return; }
+      if (!img.naturalWidth || !img.naturalHeight) { URL.revokeObjectURL(url); reject(new Error("This image could not be opened")); return; }
       resolve({ img, url });
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
       reject(new Error(/hei[cf]/i.test(file.type + file.name)
-        ? "iPhone HEIC photo browser me nahi khulti — phone me 'Most Compatible' (JPG) setting se photo lein ya JPG me save karke upload karein"
-        : "Ye image khul nahi payi (file kharab ho sakti hai) — JPG / PNG me save karke dobara try karein"));
+        ? "iPhone HEIC photos can't be opened in the browser — set your camera to 'Most Compatible' (JPG) or save the photo as JPG and upload again"
+        : "This image could not be opened (the file may be damaged) — save it as JPG / PNG and try again"));
     };
     img.src = url;
   });
 }
 
-// Image ko diye gaye ratio (jaise 5:6) wale safed canvas ke beech me rakho — kuch katega nahi.
-// ratio null ho to waisi hi. maxSide tak chhota (bada kabhi nahi).
+// Place the image in the middle of a white canvas with the given ratio (e.g. 5:6) — nothing is cropped.
+// ratio null → unchanged. Scaled down to maxSide (never up).
 function fitSize(iw, ih, ratio) {
   if (!ratio) return [iw, ih];
   const r = ratio[0] / ratio[1];
@@ -92,7 +92,7 @@ function drawScaled(img, maxSide, quality) {
   return c.toDataURL("image/jpeg", quality);
 }
 
-// Main image ka background white hai? (kinaaron ke pixels check)
+// Is the main image's background white? (checks the edge pixels)
 function hasWhiteBorder(img) {
   const n = 48;
   const c = document.createElement("canvas");
@@ -103,7 +103,7 @@ function hasWhiteBorder(img) {
   let white = 0, total = 0;
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
-      if (x > 2 && x < n - 3 && y > 2 && y < n - 3) continue; // sirf border ring
+      if (x > 2 && x < n - 3 && y > 2 && y < n - 3) continue; // only the border ring
       const i = (y * n + x) * 4;
       total++;
       if (d[i] > 232 && d[i + 1] > 232 && d[i + 2] > 232) white++;
@@ -113,8 +113,8 @@ function hasWhiteBorder(img) {
 }
 
 // File → { full (gallery), thumb (cards), w, h, whiteBg, fitted }
-// ratio (jaise [5, 6] kapdon ke liye): photo kisi bhi size ki ho, us ratio me safed
-// background ke saath fit ho jati hai (crop nahi). w / h = fit ke baad ka size.
+// ratio (e.g. [5, 6] for clothing): a photo of any size is fitted to that ratio on a white
+// background (no cropping). w / h = the size after fitting.
 async function processProductImage(file, ratio = null) {
   const { img, url } = await loadImageFromFile(file);
   try {
@@ -134,11 +134,11 @@ async function processProductImage(file, ratio = null) {
 }
 
 // =====================================================================
-// Product video: MP4 / WebM / MOV · 1 GB tak · 5 sec – 2 min · kam se kam 360p
+// Product video: MP4 / WebM / MOV · up to 1 GB · 5 sec – 2 min · at least 360p
 // File waisi hi IndexedDB me (key "video:<listingId>") + ek poster frame (JPEG)
 // =====================================================================
 const PRODUCT_VIDEO = { maxMB: 1024, minSec: 5, maxSec: 120, minSide: 360, goodSide: 720 };
-const BIG_VIDEO = 100 * 1048576; // isse bade video save hone me thoda time lete hain
+const BIG_VIDEO = 100 * 1048576; // bigger videos take a few seconds to save
 
 // 1048576 → "1 MB", 1073741824 → "1 GB"
 function fmtBytes(b) {
@@ -147,11 +147,11 @@ function fmtBytes(b) {
   if (b >= 1048576) return (b / 1048576).toFixed(1).replace(/\.0$/, "") + " MB";
   return Math.max(1, Math.round(b / 1024)) + " KB";
 }
-// Browser / device me itni jagah hai? (bade videos ke liye — IndexedDB quota)
+// Is there enough room in this browser / device? (for big videos — IndexedDB quota)
 async function storageRoomFor(bytes) {
   try {
     if (!navigator.storage || !navigator.storage.estimate) return true;
-    if (navigator.storage.persist) navigator.storage.persist().catch(() => {}); // data apne-aap delete na ho
+    if (navigator.storage.persist) navigator.storage.persist().catch(() => {}); // so the browser doesn't clear it automatically
     const { quota = 0, usage = 0 } = await navigator.storage.estimate();
     return !quota || quota - usage > bytes * 1.1 + 5 * 1048576;
   } catch {
@@ -172,23 +172,23 @@ function videoEvent(v, ok, ms, bad) {
 
 async function processProductVideo(file) {
   const P = PRODUCT_VIDEO;
-  if (!file || !/^video\/(mp4|webm|quicktime)$/.test(file.type)) throw new Error("Sirf MP4, WebM ya MOV video upload karein");
-  if (file.size > P.maxMB * 1048576) throw new Error(`Video ${fmtBytes(P.maxMB * 1048576)} tak ka ho sakta hai (ye ${fmtBytes(file.size)} hai) — chhota / compress karke upload karein`);
-  if (file.size < 1024) throw new Error("Ye video file khaali ya kharab hai — doosri file chunein");
-  if (!(await storageRoomFor(file.size))) throw new Error(`Is browser / device me ${fmtBytes(file.size)} ka video rakhne ki jagah nahi hai — device me jagah khaali karein ya chhota video chunein`);
+  if (!file || !/^video\/(mp4|webm|quicktime)$/.test(file.type)) throw new Error("Please upload an MP4, WebM or MOV video");
+  if (file.size > P.maxMB * 1048576) throw new Error(`Videos can be up to ${fmtBytes(P.maxMB * 1048576)} (this one is ${fmtBytes(file.size)}) — please compress it and try again`);
+  if (file.size < 1024) throw new Error("This video file is empty or damaged — please choose another file");
+  if (!(await storageRoomFor(file.size))) throw new Error(`There isn't enough space in this browser / device for a ${fmtBytes(file.size)} video — free up some space or choose a smaller video`);
   const url = URL.createObjectURL(file);
   const v = document.createElement("video");
   v.muted = true;
   v.playsInline = true;
   v.preload = "auto";
   try {
-    const unplayable = "Ye video browser me chal nahi pa raha — MP4 (H.264) format me save karke upload karein";
+    const unplayable = "This video can't be played in the browser — save it as MP4 (H.264) and upload again";
     const meta = videoEvent(v, "loadedmetadata", 20000, unplayable);
     v.src = url;
     await meta;
     let duration = v.duration;
     if (!Number.isFinite(duration)) {
-      // Kuch WebM files (screen / phone recorder) me length header me nahi hoti — end tak seek karke pata karo
+      // Some WebM files (screen / phone recorders) don't store the length in the header — seek to the end to find it
       const known = new Promise((resolve) => {
         const t = setTimeout(() => resolve(NaN), 8000);
         v.addEventListener("durationchange", function onDc() {
@@ -198,14 +198,14 @@ async function processProductVideo(file) {
       v.currentTime = 1e7;
       duration = await known;
     }
-    if (!Number.isFinite(duration) || duration <= 0) throw new Error("Video ki length pata nahi chal payi — doosri file try karein");
-    if (duration < P.minSec) throw new Error(`Video kam se kam ${P.minSec} second ka ho (ye ${duration.toFixed(1)} sec hai)`);
-    if (duration > P.maxSec + 0.5) throw new Error(`Video ${P.maxSec / 60} minute tak ka ho (ye ${fmtDuration(duration)} hai) — chhota karke upload karein`);
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error("We couldn't read the video's length — please try another file");
+    if (duration < P.minSec) throw new Error(`The video must be at least ${P.minSec} seconds long (this one is ${duration.toFixed(1)} sec)`);
+    if (duration > P.maxSec + 0.5) throw new Error(`The video can be up to ${P.maxSec / 60} minutes (this one is ${fmtDuration(duration)}) — please trim it and upload again`);
     const w = v.videoWidth, h = v.videoHeight;
-    if (!w || !h) throw new Error("Is file me video nahi mila (sirf audio?)");
-    if (Math.min(w, h) < P.minSide) throw new Error(`Video ki quality kam hai (${w}×${h}). Kam se kam ${P.minSide}p, best 720p / 1080p.`);
-    // Poster: ~1 second wala frame (shuru ka black frame nahi)
-    const seek = videoEvent(v, "seeked", 8000, "Video ka preview frame nahi ban paya");
+    if (!w || !h) throw new Error("No video found in this file (audio only?)");
+    if (Math.min(w, h) < P.minSide) throw new Error(`The video quality is too low (${w}×${h}). Use at least ${P.minSide}p — 720p / 1080p is best.`);
+    // Poster: the frame at ~1 second (not the black first frame)
+    const seek = videoEvent(v, "seeked", 8000, "We couldn't create a preview frame for this video");
     v.currentTime = Math.min(1, duration / 3);
     await seek;
     const scale = Math.min(1, 640 / Math.max(w, h));
@@ -227,48 +227,62 @@ async function processProductVideo(file) {
   }
 }
 
-// Product page / store: video IndexedDB se nikaal ke play karne layak URL
+// Product page / store: get a playable URL for the video from IndexedDB
 async function loadProductVideo(listingId) {
   const rec = await MediaDB.get(videoKey(listingId));
   if (!rec || !(rec.blob instanceof Blob)) return null;
   return { url: URL.createObjectURL(rec.blob), poster: safeImg(rec.poster), duration: rec.duration, w: rec.w, h: rec.h };
 }
 
-// Product gallery (product page + Brand Store): images + video thumbnail (▶).
-// Video doosre number par — jaise bade marketplaces me.
+// Product gallery (product page + Brand Store): photos + the product video as a vertical reel.
+// The video is the second item, so shoppers see the main photo first.
 async function mountProductGallery(p, main, thumbs) {
   const [imgs, vid] = await Promise.all([
     p.imageCount > 0 ? MediaDB.get(p.id) : null,
     p.video && p.video.kind === "file" ? loadProductVideo(p.id) : null,
   ]);
   if (!main.isConnected) { if (vid) URL.revokeObjectURL(vid.url); return; }
-  const items = (imgs || []).map((im) => ({ t: "img", full: safeImg(im.full), thumb: safeImg(im.thumb || im.full) })).filter((x) => x.full);
+  let items = (imgs || []).map((im) => ({ t: "img", full: safeImg(im.full), thumb: safeImg(im.thumb || im.full) })).filter((x) => x.full);
+  if (!items.length && safeImg(p.image)) items = [{ t: "img", full: safeImg(p.image), thumb: safeImg(p.image) }];
   const at = Math.min(1, items.length);
-  if (p.video && p.video.kind === "yt") items.splice(at, 0, { t: "yt", id: p.video.ytId, thumb: ytThumbUrl(p.video.ytId) });
+  const v = p.video;
+  if (v && v.kind === "yt") items.splice(at, 0, { t: "yt", id: v.ytId, thumb: ytThumbUrl(v.ytId) });
+  else if (v && v.kind === "src") items.splice(at, 0, { t: "file", url: v.src, thumb: safeImg(v.poster) || safeImg(p.image) });
   else if (vid) items.splice(at, 0, { t: "file", url: vid.url, thumb: vid.poster });
   if (!items.length) return;
   const name = esc(p.name);
+  const reelBtn = typeof openReels === "function" ? `<button type="button" class="reel-open" data-reel-open="1" aria-label="Watch as reel (full screen)">⛶ Watch as reel</button>` : "";
   const show = (i) => {
     const it = items[i];
     main.classList.toggle("is-video", it.t !== "img");
-    main.innerHTML = it.t === "img" ? `<img src="${it.full}" alt="${name}" />`
-      : it.t === "yt" ? `<iframe src="${ytEmbedUrl(it.id)}&autoplay=1&mute=1" title="${name} — video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
-      : `<video src="${it.url}" ${it.thumb ? `poster="${it.thumb}"` : ""} controls playsinline autoplay muted loop aria-label="${name} — video"></video>`;
+    if (it.t === "img") main.innerHTML = `<img src="${it.full}" alt="${name}" />`;
+    else {
+      const bg = it.thumb ? `<span class="reel-bg" style="background-image:url('${esc(it.thumb)}')"></span>` : "";
+      const player = it.t === "yt"
+        ? `<iframe src="${ytEmbedUrl(it.id)}&autoplay=1&mute=1&loop=1&playlist=${encodeURIComponent(it.id)}" title="${name} — video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
+        : `<video src="${esc(it.url)}" ${it.thumb ? `poster="${esc(it.thumb)}"` : ""} controls playsinline autoplay muted loop aria-label="${name} — video"></video>`;
+      main.innerHTML = `${bg}<div class="reel-frame">${player}</div>${reelBtn}`;
+    }
     thumbs.querySelectorAll("button[data-gi]").forEach((b, j) => { b.classList.toggle("active", i === j); b.setAttribute("aria-pressed", String(i === j)); });
   };
-  thumbs.innerHTML = items.map((it, i) => `<button type="button" data-gi="${i}" class="${it.t === "img" ? "" : "g-vid"}" aria-label="${it.t === "img" ? `Image ${i + 1}` : "Product video chalao"}">${it.thumb ? `<img src="${esc(it.thumb)}" alt="" />` : ""}${it.t === "img" ? "" : `<span class="g-play" aria-hidden="true">▶</span>`}</button>`).join("");
+  thumbs.innerHTML = items.map((it, i) => `<button type="button" data-gi="${i}" class="${it.t === "img" ? "" : "g-vid"}" aria-label="${it.t === "img" ? `Photo ${i + 1}` : "Play the product reel"}">${it.thumb ? `<img src="${esc(it.thumb)}" alt="" />` : ""}${it.t === "img" ? "" : `<span class="g-play" aria-hidden="true">▶</span>`}</button>`).join("");
   thumbs.addEventListener("click", (e) => { const b = e.target.closest("button[data-gi]"); if (b) show(Number(b.dataset.gi)); });
+  main.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-reel-open]")) return;
+    main.querySelector("video")?.pause();
+    openReels(reelList(), Math.max(0, reelList().findIndex((r) => String(r.p.id) === String(p.id))));
+  });
   show(0);
 }
 
 // =====================================================================
 // Brand Store: logo (square) + banner (3:1) processing
 // =====================================================================
-// Koi bhi size chalegi — logo / banner apne-aap fit hote hain (kuch zaroori katta nahi)
+// Any size works — the logo / banner is fitted automatically (nothing important is cut off)
 const STORE_LOGO = { out: 256, good: 200 };
 const STORE_BANNER = { minRatio: 2, maxRatio: 5, ratio: 3, outW: 1500, goodW: 1200 };
 
-// Logo: poora logo 256×256 square me fit (crop nahi). Transparent / padding ho to PNG, warna JPEG.
+// Logo: the whole logo fitted into a 256×256 square (no cropping). PNG if transparent / padded, otherwise JPEG.
 async function processStoreLogo(file) {
   const { img, url } = await loadImageFromFile(file);
   try {
@@ -301,9 +315,9 @@ async function processStoreLogo(file) {
   }
 }
 
-// Banner (koi bhi size):
-//  • landscape 2:1 – 5:1 → beech se 3:1 crop (thoda sa) → max 1500×500 JPEG
-//  • square / portrait / bahut lamba → poori image beech me, peeche usi ki blur photo (kuch nahi katega)
+// Banner (any size):
+//  • landscape 2:1 – 5:1 → centred 3:1 crop (slight) → max 1500×500 JPEG
+//  • square / portrait / very wide → the whole image in the middle, on a blurred copy of itself (nothing cut off)
 async function processStoreBanner(file) {
   const { img, url } = await loadImageFromFile(file);
   try {
@@ -317,13 +331,13 @@ async function processStoreBanner(file) {
       ctx.imageSmoothingQuality = "high";
       ctx.fillStyle = "#1e0b3d";
       ctx.fillRect(0, 0, outW, outH);
-      // Peeche: wahi photo, poora banner dhakti hui, blur + thodi dark
+      // Behind: the same photo covering the whole banner, blurred and slightly darkened
       const cover = Math.max(outW / w, outH / h);
       ctx.save();
       ctx.filter = "blur(28px) brightness(0.8)";
       ctx.drawImage(img, (outW - w * cover) / 2, (outH - h * cover) / 2, w * cover, h * cover);
       ctx.restore();
-      // Aage: poori photo, bina kate
+      // In front: the whole photo, uncropped
       const fit = Math.min(outW / w, outH / h);
       ctx.drawImage(img, (outW - w * fit) / 2, (outH - h * fit) / 2, w * fit, h * fit);
       return { id: uid("BNR"), data: c.toDataURL("image/jpeg", 0.85), w, h, cropped: false, fitted: true, lowRes: h < 400 && w < B.goodW };

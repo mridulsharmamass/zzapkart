@@ -1,4 +1,4 @@
-// Cart page: items list (size ke saath), quantity +/-, remove, price summary
+// Cart page: items (with size), quantity +/-, remove, price summary
 const listEl = document.getElementById("cart-list");
 const emptyEl = document.getElementById("cart-empty");
 const summaryEl = document.getElementById("summary");
@@ -7,7 +7,7 @@ const DELIVERY_FREE_ABOVE = 499;
 const DELIVERY_CHARGE = 40;
 
 function renderCart() {
-  // Jo items ab bik nahi rahe (listing hata di / size khatam) unhe cart se hatao
+  // Remove items that can no longer be bought (listing removed / size sold out)
   const cart = getCart();
   const items = cartItemsResolved();
   const validKeys = new Set(items.map((x) => x.key));
@@ -31,7 +31,7 @@ function renderCart() {
         <div class="cart-info">
           <h4>${esc(p.name)}</h4>
           <p class="muted">${variant && variant.size ? `Size: <strong>${esc(variant.size)}</strong> · ` : ""}${esc(p.category)}${p.sellerName ? " · Sold by " + esc(p.sellerName) : ""}</p>
-          ${qty > maxStock ? `<p class="text-danger small">Sirf ${maxStock} stock mein — quantity kam karein</p>` : ""}
+          ${qty > maxStock ? `<p class="text-danger small">Only ${maxStock} in stock — please reduce the quantity</p>` : ""}
           <div class="price-row">
             <span class="price">${formatPrice(p.price * qty)}</span>
             ${p.mrp > p.price ? `<span class="mrp">${formatPrice(p.mrp * qty)}</span>` : ""}
@@ -62,11 +62,11 @@ function renderCart() {
   delEl.classList.toggle("green", !delivery);
   document.getElementById("sum-total").textContent = formatPrice(total);
   document.getElementById("sum-save").textContent =
-    mrp > price ? `Is order par aap ${formatPrice(mrp - price)} bacha rahe ho` : "";
+    mrp > price ? `You save ${formatPrice(mrp - price)} on this order` : "";
   const overStock = items.some((x) => x.qty > x.maxStock);
   const btn = document.getElementById("checkout");
   btn.disabled = overStock;
-  btn.title = overStock ? "Kuch items ka stock kam hai" : "";
+  btn.title = overStock ? "Some items don't have enough stock" : "";
 }
 
 listEl.addEventListener("click", (e) => {
@@ -77,7 +77,7 @@ listEl.addEventListener("click", (e) => {
   if (btn.dataset.act === "inc") {
     const item = resolveCartItem(key, qty);
     if (item && qty >= item.maxStock) {
-      showToast(`Sirf ${item.maxStock} piece stock mein hain`);
+      showToast(`Only ${item.maxStock} in stock`);
       return;
     }
     setQty(key, qty + 1);
@@ -85,7 +85,7 @@ listEl.addEventListener("click", (e) => {
   if (btn.dataset.act === "dec") setQty(key, qty - 1);
   if (btn.dataset.act === "remove") {
     removeFromCart(key);
-    showToast("Item cart se hata diya");
+    showToast("Item removed from your cart");
   }
   renderCart();
 });

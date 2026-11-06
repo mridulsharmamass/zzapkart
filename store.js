@@ -1,7 +1,7 @@
 // =====================================================================
 // Zzapkart data layer (PROTOTYPE)
-// Saara data browser ke localStorage mein rehta hai — koi server nahi.
-// Asli launch ke liye ise ek backend (database + API) se badalna hoga.
+// All data lives in the browser's localStorage — there is no server.
+// A real launch would replace this with a backend (database + API).
 // =====================================================================
 
 const DB = {
@@ -25,6 +25,7 @@ const DB = {
   tickets: "zk_support_tickets",
   chat: "zk_chat_log",
   chatGuest: "zk_chat_guest",
+  demo: "zk_demo_seed",
 };
 
 function dbGet(key, fallback) {
@@ -41,7 +42,7 @@ function dbSet(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
   } catch (e) {
-    alert("Browser storage bhar gaya hai. Kuch images/products delete karke dobara try karein.");
+    alert("Your browser storage is full. Delete some images or products and try again.");
     return false;
   }
 }
@@ -54,8 +55,12 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Image sources we render: uploaded images (data URLs) or our own static files under images/
+const STATIC_IMG_RE = /^images\/[a-z0-9][\w/-]*\.(svg|png|jpe?g|webp)$/i;
 function safeImg(src) {
-  return typeof src === "string" && src.startsWith("data:image/") ? src : "";
+  if (typeof src !== "string") return "";
+  if (src.startsWith("data:image/")) return src;
+  return STATIC_IMG_RE.test(src) && !src.includes("..") ? src : "";
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -116,7 +121,7 @@ function currentSeller() {
 }
 
 // ---------------------------------------------------------------------
-// Notifications (seller + buyer) — "email" ki jagah in-app messages
+// Notifications (seller + buyer) — in-app messages instead of email
 // ---------------------------------------------------------------------
 function notifySeller(sellerId, message) {
   const list = dbGet(DB.sellerNotifs, []);
@@ -136,7 +141,7 @@ function notifyBuyer(orderId, message) {
 }
 
 // ---------------------------------------------------------------------
-// Seller listings (catalog.js ke schema ke hisaab se)
+// Seller listings (schema from catalog.js)
 // Status flow: draft → qc_pending → qc_passed / qc_failed ; archived ; blocked
 // ---------------------------------------------------------------------
 const LISTING_STATUS = {
@@ -153,7 +158,7 @@ const LISTING_STATUS = {
 function normalizeListing(p) {
   if (!p) return p;
   if (!p.status) {
-    // Purane version ke products → legacy listing (live)
+    // Products from the older version → legacy listing (live)
     p = {
       ...p, legacy: true, status: "qc_passed", listingStatus: "active", vertical: p.vertical || null,
       variants: [{ id: "v1", size: "", sku: `LEGACY-${p.id}`, stock: Number(p.stock) || 0 }],
@@ -162,7 +167,7 @@ function normalizeListing(p) {
   }
   p.variants = p.variants || [];
   p.stock = p.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0);
-  // Purana "Video URL" (YouTube) text field → naya video object
+  // Old "Video URL" (YouTube) text field → new video object
   if (p.video === undefined && p.videoUrl) {
     const yt = ytIdFrom(p.videoUrl);
     p.video = yt ? { kind: "yt", ytId: yt } : null;
@@ -171,7 +176,7 @@ function normalizeListing(p) {
 }
 
 // ---------------------------------------------------------------------
-// Product video: upload ki hui file IndexedDB me (key "video:<listingId>"),
+// Product video: an uploaded file in IndexedDB (key "video:<listingId>"),
 // ya YouTube link. listing.video = { kind: "file", duration, w, h, size }
 // | { kind: "yt", ytId } | null
 // ---------------------------------------------------------------------
@@ -198,6 +203,8 @@ function cleanVideoMeta(v) {
   if (!v || typeof v !== "object") return null;
   if (v.kind === "yt") return YT_ID_RE.test(v.ytId || "") ? { kind: "yt", ytId: v.ytId } : null;
   if (v.kind === "file") return { kind: "file", duration: Number(v.duration) || 0, w: Number(v.w) || 0, h: Number(v.h) || 0, size: Number(v.size) || 0 };
+  // Our own static reels (demo catalogue): images/reels/<name>.mp4
+  if (v.kind === "src") return /^images\/reels\/[\w-]+\.(mp4|webm)$/.test(v.src || "") ? { kind: "src", src: v.src, poster: safeImg(v.poster) } : null;
   return null;
 }
 function ytEmbedUrl(id) { return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`; }
@@ -234,7 +241,7 @@ function listingDisplayStatus(L) {
 }
 const isListingLive = (L) => listingDisplayStatus(L) === "live";
 
-// Purane naam (ads / analytics code inhe use karta hai)
+// Older names (still used by the ads / analytics code)
 const allSellerProducts = getListings;
 function productsOfSeller(sellerId) { return listingsOfSeller(sellerId).filter((p) => p.status !== "archived"); }
 const saveSellerProduct = saveListing;
@@ -255,10 +262,10 @@ function isCategoryApproved(sellerId, group) {
 }
 
 // ---------------------------------------------------------------------
-// Storefront: sirf QC-pass + active listings, KYC-approved sellers ki
+// Storefront: only QC-passed, active listings from KYC-approved sellers
 // ---------------------------------------------------------------------
 function storefrontSellerProducts() {
-  // Suspended sellers (super admin) ke products store par nahi dikhte
+  // Products from suspended sellers (super admin) are hidden from the store
   const sellers = new Map(getSellers().filter((s) => s.kyc && s.kyc.status === "approved" && !s.suspended).map((s) => [s.id, s]));
   return getListings()
     .filter((p) => sellers.has(p.sellerId) && p.status === "qc_passed" && p.listingStatus === "active")
@@ -281,9 +288,10 @@ function storefrontSellerProducts() {
         template: v ? v.template : null,
         price: p.price,
         mrp: p.mrp && p.mrp > p.price ? p.mrp : p.price,
-        rating: 0,
+        rating: Math.min(5, Math.max(0, Number(p.rating) || 0)),
+        reviews: Number(p.reviews) || 0,
         emoji: "📦",
-        color: "#f3eefc",
+        color: "#f6f3fb",
         image: p.image,
         imageCount: p.imageCount || 0,
         description: p.description,
@@ -308,9 +316,9 @@ function storefrontSellerProducts() {
 }
 
 // ---------------------------------------------------------------------
-// Brand Store (Premium plan): seller ki apni mini website — store.html?s=<slug>
+// Brand Store (Premium plan): a seller's own online store — store.html?s=<slug>
 // seller.store = { draft, live, published, publishedAt, liveUpdatedAt, updatedAt }
-// draft = editor me jo ban raha hai (auto-save), live = buyers ko jo dikhta hai
+// draft = what's being built in the editor (auto-saved), live = what shoppers see
 // Banner images IndexedDB (media.js) me: key "store-banner:<id>"
 // ---------------------------------------------------------------------
 const STORE_THEMES = {
@@ -321,7 +329,7 @@ const STORE_THEMES = {
   orange: { label: "Sunset Orange", color: "#d84315" },
   black: { label: "Classic Black", color: "#212121" },
 };
-const STORE_RETURNS = { 7: "7 din easy return", 10: "10 din return", 30: "30 din return", 0: "No returns" };
+const STORE_RETURNS = { 7: "7-day easy returns", 10: "10-day returns", 30: "30-day returns", 0: "No returns" };
 const STORE_LIMITS = { banners: 5, collections: 8, featured: 8, perCollection: 24 };
 const STORE_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
 const STORE_RESERVED = ["zzapkart", "admin", "seller", "sellers", "store", "stores", "help", "support", "cart", "checkout", "orders"];
@@ -341,13 +349,13 @@ const STORE_FONTS = {
   friendly: { label: "Nunito — friendly", head: "'Nunito'", body: "'Nunito'", gf: "family=Nunito:wght@400;600;700;800" },
 };
 const STORE_BUTTONS = { rounded: { label: "Rounded", r: "8px" }, pill: { label: "Pill", r: "999px" }, square: { label: "Square", r: "0px" } };
-const STORE_HEADERS = { light: "Light (safed)", dark: "Dark (kaala)", brand: "Theme colour" };
+const STORE_HEADERS = { light: "Light (white)", dark: "Dark", brand: "Theme colour" };
 const STORE_COLS = [3, 4, 5];
 const STORE_SECTIONS = {
   trust: "Trust badges (delivery, returns, payments)",
   collections: "Shop by collection (cards)",
   featured: "Featured products",
-  collrows: "Har collection ki product row",
+  collrows: "A product row for each collection",
   new: "New arrivals",
   story: "Our story (About)",
   news: "Newsletter signup",
@@ -371,7 +379,7 @@ function storeDesign(cfg) {
     sections,
   };
 }
-// Theme colour: preset ya seller ka custom (#rrggbb — sirf valid hex, kyunki ye inline style me jata hai)
+// Theme colour: a preset or the seller's custom colour (#rrggbb — valid hex only, because it goes into an inline style)
 function storeTheme(cfg) {
   const c = cfg && cfg.design && cfg.design.color;
   if (cfg && cfg.theme === "custom" && HEX_RE.test(c || "")) return c.toLowerCase();
@@ -387,8 +395,8 @@ function mixHex(hex, target, t) {
   const a = hexRgb(hex), b = hexRgb(target);
   return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
-// fill = buttons ka rang, ink = fill par text (safed ya kaala — jo padhne me saaf ho),
-// text = safed background par accent text (halka rang ho to apne-aap gehra kiya jata hai)
+// fill = button colour, ink = text on the fill (white or dark — whichever reads better),
+// text = accent text on white (light colours are darkened automatically)
 function storePalette(cfg) {
   const fill = storeTheme(cfg);
   const ink = contrastRatio(fill, "#ffffff") >= contrastRatio(fill, "#14101c") ? "#ffffff" : "#14101c";
@@ -397,7 +405,7 @@ function storePalette(cfg) {
   return { fill, ink, text, light: contrastRatio(fill, "#ffffff") < 3 };
 }
 
-// Store ke CSS variables (store page + builder preview dono me)
+// The store's CSS variables (store page + builder preview)
 function storeCssVars(cfg) {
   const p = storePalette(cfg), ds = storeDesign(cfg), f = STORE_FONTS[ds.font];
   const stack = (fam) => `${fam}, ${/Playfair|Lora/.test(fam) ? "Georgia, 'Times New Roman', serif" : "'Segoe UI', Roboto, Arial, sans-serif"}`;
@@ -421,11 +429,11 @@ function loadStoreFont(key) {
   document.head.appendChild(l);
 }
 
-// ---- Store pages (Privacy Policy, Terms, FAQ…) — seller khud banata hai ----
+// ---- Store pages (Privacy Policy, Terms, FAQ…) — created by the seller ----
 const STORE_PAGE_LIMIT = 10;
 const STORE_PAGE_MAX = 8000;
 function storePageSlug(pg) { return slugify(pg.title || "").slice(0, 40).replace(/-+$/, "") || "page-" + String(pg.id || "").toLowerCase(); }
-// Simple formatting: "## Heading", "### Sub-heading", "- list", "1. list", **bold**, khaali line = naya paragraph
+// Simple formatting: "## Heading", "### Sub-heading", "- list", "1. list", **bold**, empty line = new paragraph
 function storeRichText(src) {
   const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   const out = [];
@@ -452,7 +460,7 @@ function storeRichText(src) {
   flushList();
   return out.join("");
 }
-// Ready-made templates (seller edit kar sakta hai). Phone / email / website nahi — contact Zzapkart ke through.
+// Ready-made templates (the seller can edit them). No phone / email / website — contact goes through Zzapkart.
 const STORE_PAGE_TEMPLATES = {
   privacy: { label: "Privacy Policy", body: (v) => `Last updated: ${v.date}
 
@@ -577,7 +585,7 @@ function storeInitials(name) {
   return String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
-// Store visits (owner ki apni visits aur preview nahi gine jaate)
+// Store visits (the owner's own visits and previews aren't counted)
 function trackStoreVisit(sellerId) {
   const all = dbGet(DB.storeStats, {});
   const st = all[sellerId] || { visits: 0, days: {} };
@@ -595,17 +603,13 @@ function storeStats(sellerId) {
   return { total: st.visits, last7 };
 }
 
-// Platform products (products.js) + seller products ko ek saath catalog mein jodo
-if (typeof PRODUCTS !== "undefined") {
-  PRODUCTS.push(...storefrontSellerProducts());
-}
 
 function inStock(p) {
   return p.stock === undefined || p.stock > 0;
 }
 
 // ---------------------------------------------------------------------
-// Cart keys: "productId" ya "productId:variantId" (size wale products)
+// Cart keys: "productId" or "productId:variantId" (products with sizes)
 // ---------------------------------------------------------------------
 function cartKey(pid, vid) { return vid ? `${pid}:${vid}` : String(pid); }
 function resolveCartItem(key, qty) {
@@ -629,7 +633,7 @@ function cartItemsResolved() {
 // ---------------------------------------------------------------------
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MOBILE_RE = /^[6-9]\d{9}$/;
-const FREE_DELIVERY_MIN = 499; // isse upar delivery free (checkout + Brand Store cart)
+const FREE_DELIVERY_MIN = 499; // free delivery above this (checkout + Brand Store cart)
 const MAX_ADDRESSES = 10;
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa",
@@ -658,13 +662,13 @@ function clearCustomerSession() { localStorage.removeItem(DB.customerSession); }
 function currentCustomer() {
   const s = dbGet(DB.customerSession, null);
   const c = s ? getCustomer(s.customerId) : null;
-  return c && !c.blocked ? c : null; // admin ne block kiya to logged out
+  return c && !c.blocked ? c : null; // blocked by admin → treated as logged out
 }
 function customerOrders(customerId) { return getOrders().filter((o) => o.customerId === customerId); }
 function addressLine(a) {
   return [a.address, a.landmark, a.city, a.state].filter(Boolean).join(", ") + (a.pincode ? " – " + a.pincode : "");
 }
-// Naya address account me jodo (same address dobara na bane). Pehla address default.
+// Add a new address to the account (no duplicates). The first address becomes the default.
 function saveCustomerAddress(customerId, addr) {
   const c = getCustomer(customerId);
   if (!c) return null;
@@ -692,12 +696,12 @@ function subscribeToStore(sellerId, email) {
 }
 
 // ---------------------------------------------------------------------
-// Support tickets: chat assistant ka "Talk to support" → Super Admin reply karta hai,
-// reply customer ko wapas chat me dikhta hai.
+// Support tickets: the chat assistant's "Talk to support" → Super Admin replies,
+// and the reply shows up back in the customer's chat.
 // ticket = { id, customerId, guestId, name, email, orderId, subject, status: "open" | "closed",
 //   messages: [{ from: "customer" | "admin", text, at }], unreadCustomer, unreadAdmin, createdAt, updatedAt }
 // ---------------------------------------------------------------------
-const TICKET_MAX = 1000; // ek message ki max length
+const TICKET_MAX = 1000; // max length of one message
 function getTickets() { return dbGet(DB.tickets, []); }
 function saveTickets(list) { return dbSet(DB.tickets, list.slice(0, 500)); }
 function chatGuestId() {
@@ -705,7 +709,7 @@ function chatGuestId() {
   if (!g) { g = uid("G"); dbSet(DB.chatGuest, g); }
   return g;
 }
-// Is browser ke user ki requests: login ho to uske account ki + is browser se bina login wali
+// This browser's requests: the logged-in account's + ones sent here without logging in
 function myTickets() {
   const c = currentCustomer();
   const g = dbGet(DB.chatGuest, null);
@@ -763,11 +767,11 @@ function productStats(productId) {
 }
 
 // ---------------------------------------------------------------------
-// Orders — har order seller-wise "shipments" mein bat jata hai
-// Har shipment: dispatch-by (procurement SLA), fees aur settlement
+// Orders — each order is split into one "shipment" per seller
+// Each shipment: dispatch-by date (procurement SLA), fees and settlement
 // ---------------------------------------------------------------------
 const round2 = (n) => Math.round(n * 100) / 100;
-const PLATFORM_SELLER = "zzapkart"; // products.js wale items Zzapkart khud bechta hai
+const PLATFORM_SELLER = "zzapkart"; // products.js items are sold by Zzapkart itself
 const DELIVERY_OPTIONS = {
   standard: { label: "Standard Delivery", days: 4 },
   express: { label: "Express Delivery", days: 1, charge: 99 },
@@ -795,7 +799,7 @@ function createOrder({ buyer, items, delivery, deliveryCharge, payment, customer
       sla: L ? Number(L.sla) || 2 : 2,
       fee: L && typeof feeBreakdown === "function" ? feeBreakdown(product.price, TEMPLATES[(getVertical(L.vertical) || {}).template], L.pkg) : null,
     });
-    // Stock kam karo (size-wise)
+    // Reduce stock (per size)
     if (lv) lv.stock = Math.max(0, Number(lv.stock) - qty);
     if (L) L.stock = L.variants.reduce((s, x) => s + (Number(x.stock) || 0), 0);
   });
@@ -824,11 +828,11 @@ function createOrder({ buyer, items, delivery, deliveryCharge, payment, customer
     if (sh.sellerId !== PLATFORM_SELLER) {
       const units = sh.items.reduce((s, x) => s + x.qty, 0);
       notifySeller(sh.sellerId, `🛒 You have a new order! #${orderId} — ${units} item(s), ${formatPrice(sh.amount)}. Dispatch by ${fmtDate(sh.dispatchBy)}.`);
-      // Stock khatam / kam hone par alert
+      // Alert when stock runs out / runs low
       listings.filter((L) => L.sellerId === sh.sellerId && sh.items.some((it) => it.productId === L.id)).forEach((L) => {
         L.variants.forEach((x) => {
-          if (Number(x.stock) === 0) notifySeller(sh.sellerId, `⚠️ Out of stock: ${L.name}${x.size ? " (Size " + x.size + ")" : ""} — stock update karein`);
-          else if (Number(x.stock) <= 3) notifySeller(sh.sellerId, `📉 Low stock: ${L.name}${x.size ? " (Size " + x.size + ")" : ""} — sirf ${x.stock} bache`);
+          if (Number(x.stock) === 0) notifySeller(sh.sellerId, `⚠️ Out of stock: ${L.name}${x.size ? " (Size " + x.size + ")" : ""} — please update stock`);
+          else if (Number(x.stock) <= 3) notifySeller(sh.sellerId, `📉 Low stock: ${L.name}${x.size ? " (Size " + x.size + ")" : ""} — only ${x.stock} left`);
         });
       });
     }
@@ -854,12 +858,12 @@ function updateShipment(orderId, sellerId, status, extra = {}) {
   if (status === "Shipped") {
     notifyBuyer(orderId, `🚚 Your product has been shipped: ${names}` + (sh.trackingId ? ` (Tracking ID: ${sh.trackingId}${sh.courier ? ", " + sh.courier : ""})` : ""));
   } else if (status === "Delivered") {
-    notifyBuyer(orderId, `📦 Delivered: ${names}. Shopping ke liye shukriya!`);
+    notifyBuyer(orderId, `📦 Delivered: ${names}. Thank you for shopping with us!`);
   }
   return true;
 }
 
-// Seller ke liye uske shipments (sirf apna data)
+// A seller's shipments (their own data only)
 function shipmentsOfSeller(sellerId) {
   const out = [];
   getOrders().forEach((o) => {
@@ -868,4 +872,46 @@ function shipmentsOfSeller(sellerId) {
     });
   });
   return out;
+}
+
+// ---------------------------------------------------------------------
+// Demo catalogue: fictional sellers with Brand Stores (demo-data.js), added to this
+// browser once. Admin "Reset everything" clears it and it is added again on next load.
+// ---------------------------------------------------------------------
+function seedDemoData() {
+  if (typeof DEMO_SELLERS === "undefined" || typeof localStorage === "undefined") return;
+  if (localStorage.getItem(DB.demo) === DEMO_VERSION) return;
+  const now = Date.now();
+  const sellers = getSellers();
+  const listings = dbGet(DB.products, []);
+  const approvals = getApprovals();
+  DEMO_SELLERS.forEach(({ seller, store, listings: ls }, i) => {
+    if (!sellers.some((s) => s.id === seller.id)) {
+      const cfg = { ...store, pages: ["returns", "shipping", "privacy"].map((k, j) => ({ id: `PG-${seller.id}-${j}`, ...storePageTemplate(k, store, seller), menu: j === 0, tpl: k })) };
+      sellers.push({
+        ...seller,
+        createdAt: now - (400 + i * 37) * DAY,
+        kyc: { ...seller.kyc, submittedAt: now - (390 + i * 37) * DAY, reviewedAt: now - (389 + i * 37) * DAY },
+        subscription: { plan: "premium", startedAt: now, expiresAt: now + 3650 * DAY, reminded: false },
+        payments: [],
+        store: { draft: JSON.parse(JSON.stringify(cfg)), live: cfg, published: true, publishedAt: now - 300 * DAY, liveUpdatedAt: now, updatedAt: now },
+      });
+    }
+    ls.forEach((L) => {
+      if (!listings.some((x) => x.id === L.id)) listings.push({ ...L, createdAt: now - (L.id % 90) * DAY, updatedAt: now, submittedAt: now - (L.id % 90) * DAY, qcAt: now - (L.id % 90) * DAY });
+    });
+    if (seller.fssai && !approvals.some((a) => a.sellerId === seller.id && a.group === "fssai")) {
+      approvals.push({ id: "AP-" + seller.id, sellerId: seller.id, group: "fssai", status: "approved", licenseNo: seller.fssai, nameOnLicense: seller.shopName, validTill: now + 900 * DAY, at: now - 380 * DAY, reviewedAt: now - 379 * DAY });
+    }
+  });
+  saveSellers(sellers);
+  dbSet(DB.products, listings);
+  saveApprovals(approvals);
+  localStorage.setItem(DB.demo, DEMO_VERSION);
+}
+try { seedDemoData(); } catch (e) { console.error("Demo data", e); }
+
+// Platform products (products.js) + seller products in one catalogue
+if (typeof PRODUCTS !== "undefined") {
+  PRODUCTS.push(...storefrontSellerProducts());
 }

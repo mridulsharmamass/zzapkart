@@ -1,5 +1,5 @@
 // Seller registration + login
-if (currentSeller()) location.replace("seller-dashboard.html"); // pehle se logged in
+if (currentSeller()) location.replace("seller-dashboard.html"); // already logged in
 
 const loginForm = document.getElementById("login-form");
 const registerForm = document.getElementById("register-form");
@@ -34,13 +34,13 @@ registerForm.addEventListener("submit", async (e) => {
   const exists = getSellers().some((s) => s.email === email);
 
   const ok = [
-    setErr(f, "name", v("name").length < 2 ? "Poora naam daalein" : ""),
-    setErr(f, "shopName", v("shopName").length < 2 ? "Shop ka naam daalein" : ""),
-    setErr(f, "email", !/^\S+@\S+\.\S+$/.test(email) ? "Sahi email daalein" : exists ? "Is email se account pehle se hai" : ""),
-    setErr(f, "phone", /^[6-9]\d{9}$/.test(v("phone")) ? "" : "Sahi 10-digit mobile number daalein"),
+    setErr(f, "name", v("name").length < 2 ? "Enter your full name" : ""),
+    setErr(f, "shopName", v("shopName").length < 2 ? "Enter your shop name" : ""),
+    setErr(f, "email", !/^\S+@\S+\.\S+$/.test(email) ? "Enter a valid email" : exists ? "An account with this email already exists" : ""),
+    setErr(f, "phone", /^[6-9]\d{9}$/.test(v("phone")) ? "" : "Enter a valid 10-digit mobile number"),
     setErr(f, "password", f.elements.password.value.length < 8 || !/\d/.test(f.elements.password.value)
-      ? "Kam se kam 8 characters aur 1 number" : ""),
-    setErr(f, "confirm", f.elements.confirm.value !== f.elements.password.value ? "Password match nahi kar raha" : ""),
+      ? "At least 8 characters and 1 number" : ""),
+    setErr(f, "confirm", f.elements.confirm.value !== f.elements.password.value ? "Passwords don't match" : ""),
   ].every(Boolean);
   if (!ok) { f.querySelector(".invalid")?.focus(); return; }
 
@@ -62,7 +62,7 @@ registerForm.addEventListener("submit", async (e) => {
   const list = getSellers();
   list.push(seller);
   if (!saveSellers(list)) return;
-  notifySeller(seller.id, "👋 Welcome to Zzapkart Seller Hub! Dashboard unlock karne ke liye KYC complete karein.");
+  notifySeller(seller.id, "👋 Welcome to Zzapkart Seller Hub! Complete your KYC to unlock the full dashboard.");
   setSession(seller.id);
   location.href = "seller-dashboard.html#kyc";
 });
@@ -76,14 +76,14 @@ loginForm.addEventListener("submit", async (e) => {
   setErr(f, "email", "");
   setErr(f, "password", "");
   if (!email || !password) {
-    if (!email) setErr(f, "email", "Email daalein");
-    if (!password) setErr(f, "password", "Password daalein");
+    if (!email) setErr(f, "email", "Enter your email");
+    if (!password) setErr(f, "password", "Enter your password");
     return;
   }
   const seller = getSellers().find((s) => s.email === email);
   const valid = seller && (await hashPassword(password, seller.salt)) === seller.passwordHash;
   if (!valid) {
-    setErr(f, "password", "Email ya password galat hai");
+    setErr(f, "password", "Incorrect email or password");
     return;
   }
   setSession(seller.id);

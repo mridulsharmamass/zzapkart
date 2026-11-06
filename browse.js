@@ -1,5 +1,5 @@
 // =====================================================================
-// Browse: saari main categories → categories → sub-categories (verticals)
+// Browse: all main categories → categories → sub-categories (verticals)
 // Link: category.html?c=<slug>&sub=<category>&v=<sub-category>
 // =====================================================================
 const brMain = document.getElementById("browse-main");
@@ -42,10 +42,10 @@ function brRender() {
         <div class="br-sub panel">
           <a class="br-sub-title" href="${brUrl(c, t.name)}">${esc(t.name)} ${brCount(items.filter((p) => p.catName === t.name).length)}</a>
           <ul>${vs.map((v) => `<li><a href="${brUrl(c, t.name, v)}">${esc(v)}</a>${brCount(items.filter((p) => p.catName === t.name && p.verticalName === v).length)}</li>`).join("")}</ul>
-        </div>`).join("")}</div>` : `<p class="muted br-none">Is category ke sub-categories jald aa rahe hain.</p>`}
+        </div>`).join("")}</div>` : `<p class="muted br-none">Sub-categories for this category are coming soon.</p>`}
     </section>`;
   }).join("");
-  brMain.innerHTML = sections || `<div class="empty"><div class="empty-emoji">🔍</div><p>"${esc(brInput.value.trim())}" naam ki koi category nahi mili.</p></div>`;
+  brMain.innerHTML = sections || `<div class="empty"><div class="empty-emoji">🔍</div><p>"${esc(brInput.value.trim())}" — no matching category found.</p></div>`;
   brSide.innerHTML = `<strong class="br-side-title">Main categories</strong>` + BR_GROUPS.map(({ c, items }) =>
     `<a href="#b-${c.slug}" class="${brMain.querySelector("#b-" + c.slug) ? "" : "dim"}"><span>${c.emoji}</span>${esc(c.name)}${brCount(items.length)}</a>`).join("");
   return shown;

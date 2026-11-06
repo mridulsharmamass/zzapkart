@@ -6,9 +6,9 @@ function renderQC() {
   if (!box) return;
   const sellers = new Map(getSellers().map((s) => [s.id, s]));
   const pending = getListings().filter((l) => l.status === "qc_pending").sort((a, b) => (a.submittedAt || 0) - (b.submittedAt || 0));
-  if (!pending.length) { box.innerHTML = `<div class="panel"><p class="muted">QC queue khaali hai.</p></div>`; return; }
+  if (!pending.length) { box.innerHTML = `<div class="panel"><p class="muted">The QC queue is empty.</p></div>`; return; }
   box.innerHTML = `
-    <div class="qc-toolbar"><button class="btn" data-qc-pass-all="1">✓ Sab pass karo (${pending.length})</button></div>
+    <div class="qc-toolbar"><button class="btn" data-qc-pass-all="1">✓ Pass all (${pending.length})</button></div>
     ${pending.map((L) => {
       const v = getVertical(L.vertical);
       const tpl = templateOf(v);
@@ -26,15 +26,15 @@ function renderQC() {
         </div>
         <div class="qc-imgs" id="qc-imgs-${L.id}"><span class="muted small">${L.imageCount || 0} image(s)…</span></div>
         ${L.video ? `<div class="qc-video" id="qc-vid-${L.id}">${L.video.kind === "yt"
-          ? `<a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(L.video.ytId)}" target="_blank" rel="noopener">▶ YouTube video dekho</a> <small class="muted">— check: product wahi hai? contact info / watermark nahi?</small>`
-          : `<span class="muted small">🎬 Video load ho raha hai…</span>`}</div>` : `<p class="muted small">🎬 Video: nahi</p>`}
+          ? `<a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(L.video.ytId)}" target="_blank" rel="noopener">▶ Watch the YouTube video</a> <small class="muted">— check: same product? no contact info / watermark?</small>`
+          : `<span class="muted small">🎬 Loading video…</span>`}</div>` : `<p class="muted small">🎬 Video: none</p>`}
         <p class="small">${attrs}</p>
         <p class="small muted">SKUs: ${L.variants.map((x) => esc(`${x.sku}${x.size ? " (" + x.size + ")" : ""}: ${x.stock}`)).join(", ")}</p>
         <p class="small muted">Manufacturer: ${esc(L.manufacturer ? `${L.manufacturer.name}, ${L.manufacturer.pincode}` : "—")} · Origin: ${esc(L.countryOfOrigin || "—")} · Pack ${esc(L.pkg ? `${L.pkg.l}×${L.pkg.b}×${L.pkg.h} cm, ${L.pkg.w} g` : "—")}</p>
         <p class="small">${esc(L.description || "")}</p>
-        <details class="qc-fail-box"><summary>QC fail karna hai? Reason chunein</summary>
+        <details class="qc-fail-box"><summary>Fail QC? Choose the reasons</summary>
           ${QC_REASONS.map((r, i) => `<label class="check"><input type="checkbox" value="${esc(r)}" data-reason="${L.id}" /> ${esc(r)}</label>`).join("")}
-          <input class="reject-reason" id="qc-custom-${L.id}" placeholder="Aur koi reason (optional)" />
+          <input class="reject-reason" id="qc-custom-${L.id}" placeholder="Other reason (optional)" />
           <button class="btn btn-danger" data-qc-fail="${L.id}">✕ QC Fail</button>
         </details>
         <div class="row-actions"><button class="btn" data-qc-pass="${L.id}">✓ QC Pass</button></div>
@@ -46,8 +46,8 @@ function renderQC() {
         const el = document.getElementById("qc-vid-" + L.id);
         if (!el) { if (v) URL.revokeObjectURL(v.url); return; }
         el.innerHTML = v
-          ? `<video controls playsinline preload="metadata" src="${v.url}" ${v.poster ? `poster="${v.poster}"` : ""}></video><small class="muted">🎬 ${fmtDuration(v.duration)} min · ${v.w}×${v.h} — check: product wahi hai? contact info / watermark nahi?</small>`
-          : `<span class="text-danger small">Video file is browser me nahi mili</span>`;
+          ? `<video controls playsinline preload="metadata" src="${v.url}" ${v.poster ? `poster="${v.poster}"` : ""}></video><small class="muted">🎬 ${fmtDuration(v.duration)} min · ${v.w}×${v.h} — check: same product? no contact info / watermark?</small>`
+          : `<span class="text-danger small">Video file not found in this browser</span>`;
       });
     }
     if (!L.imageCount) return;
@@ -76,7 +76,7 @@ function renderApprovalsAdmin() {
         <input class="reject-reason" id="appr-reason-${a.id}" placeholder="Reject reason" />
         <button class="btn btn-danger" data-appr-no="${a.id}">✕ Reject</button>
       </div></section>`;
-  }).join("") : `<div class="panel"><p class="muted">Koi pending category approval nahi.</p></div>`;
+  }).join("") : `<div class="panel"><p class="muted">No pending category approvals.</p></div>`;
 }
 
 function qcDecide(id, pass, reasons) {
@@ -86,7 +86,7 @@ function qcDecide(id, pass, reasons) {
   if (pass) {
     L.status = "qc_passed";
     L.qcReasons = [];
-    notifySeller(L.sellerId, `✅ QC pass: "${L.name}" ${L.listingStatus === "active" ? (L.stock > 0 ? "ab store par live hai" : "pass — stock daalein to live hogi") : "pass — activate karein to live hogi"}.`);
+    notifySeller(L.sellerId, `✅ QC pass: "${L.name}" ${L.listingStatus === "active" ? (L.stock > 0 ? "is now live" : "passed — add stock to go live") : "passed — activate it to go live"}.`);
   } else {
     L.status = "qc_failed";
     L.qcReasons = reasons;
@@ -101,7 +101,7 @@ document.addEventListener("click", (e) => {
   if (t.dataset.qcPass) { qcDecide(Number(t.dataset.qcPass), true); showToast("QC pass ✓"); render(); }
   if (t.dataset.qcPassAll) {
     getListings().filter((l) => l.status === "qc_pending").forEach((l) => qcDecide(l.id, true));
-    showToast("Sab listings QC pass ✓");
+    showToast("All listings passed QC ✓");
     render();
   }
   if (t.dataset.qcFail) {
@@ -109,9 +109,9 @@ document.addEventListener("click", (e) => {
     const reasons = [...document.querySelectorAll(`[data-reason="${id}"]:checked`)].map((c) => c.value);
     const custom = document.getElementById("qc-custom-" + id).value.trim();
     if (custom) reasons.push(custom);
-    if (!reasons.length) { showToast("Kam se kam ek reason chunein"); return; }
+    if (!reasons.length) { showToast("Choose at least one reason"); return; }
     qcDecide(Number(id), false, reasons);
-    showToast("QC fail — seller ko reason bhej diya");
+    showToast("QC failed — the reasons were sent to the seller");
     render();
   }
   if (t.dataset.apprOk || t.dataset.apprNo) {
@@ -121,12 +121,12 @@ document.addEventListener("click", (e) => {
     if (!a) return;
     if (t.dataset.apprNo) {
       const reason = document.getElementById("appr-reason-" + id).value.trim();
-      if (reason.length < 5) { showToast("Reject ka reason likhein"); return; }
+      if (reason.length < 5) { showToast("Write a reason for rejecting"); return; }
       a.status = "rejected"; a.reason = reason;
     } else a.status = "approved";
     a.reviewedAt = Date.now();
     saveApprovals(list);
-    notifySeller(a.sellerId, a.status === "approved" ? `🔓 ${RESTRICTED[a.group].label} category approve ho gayi — ab listing QC ke liye bhej sakte hain.` : `❌ ${RESTRICTED[a.group].label} approval reject: ${a.reason}`);
+    notifySeller(a.sellerId, a.status === "approved" ? `🔓 ${RESTRICTED[a.group].label} category approved — you can now send listings for QC.` : `❌ ${RESTRICTED[a.group].label} approval rejected: ${a.reason}`);
     showToast(a.status === "approved" ? "Category approved ✓" : "Rejected");
     render();
   }

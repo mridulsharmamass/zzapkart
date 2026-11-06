@@ -1,4 +1,4 @@
-// Category page: category.html?c=electronics — har category ka apna page
+// Category page: category.html?c=electronics — one page per category
 const params = new URLSearchParams(location.search);
 const slug = params.get("c");
 const cat = CATEGORIES.find((c) => c.slug === slug);
@@ -9,22 +9,22 @@ const searchInput = document.getElementById("cat-search");
 const sortSelect = document.getElementById("sort");
 
 if (!cat) {
-  // Galat / missing category
-  document.getElementById("cat-title").textContent = "Category nahi mili";
+  // Wrong / missing category
+  document.getElementById("cat-title").textContent = "Category not found";
   document.getElementById("crumb").textContent = "Not found";
   document.querySelector(".toolbar").classList.add("hidden");
   searchInput.disabled = true;
-  document.getElementById("cat-empty-msg").textContent = "Ye category exist nahi karti. Neeche se koi category chuno.";
+  document.getElementById("cat-empty-msg").textContent = "This category doesn't exist. Pick a category below.";
   emptyEl.classList.remove("hidden");
 } else {
-  // Page ko is category ke rang/naam se sajao
+  // Style the page with this category's colours / name
   document.title = `${cat.name} – Zzapkart`;
   document.getElementById("cat-hero").style.background = cat.gradient;
   document.getElementById("crumb").textContent = cat.name;
   document.getElementById("cat-title").textContent = cat.name;
   document.getElementById("cat-tagline").textContent = cat.tagline;
   document.getElementById("cat-emoji").textContent = cat.emoji;
-  searchInput.placeholder = `${cat.name} mein search karo`;
+  searchInput.placeholder = `Search in ${cat.name}`;
 
   const SORTERS = {
     popular: () => 0,
@@ -34,14 +34,14 @@ if (!cat) {
     discount: (a, b) => discount(b) - discount(a),
   };
 
-  // Sponsored products is category ke liye (page load par ek auction)
+  // Sponsored products for this category (one auction per page load)
   const catSlots = runAuction({ placement: "category", category: cat.name }, 2);
   let catSlotsTracked = false;
 
-  // Sub-category chips (Flipkart jaisa: category → sub-category)
+  // Sub-category chips (category → sub-category)
   const subTree = (typeof TAXONOMY !== "undefined" ? TAXONOMY.find((t) => t.name === cat.name) : null);
   const subs = subTree ? subTree.cats.map((c) => c.name) : [];
-  // browse.html se aaye ho to sub-category (?sub=) aur product type (?v=) pehle se chune
+  // Coming from browse.html: preselect the sub-category (?sub=) and product type (?v=)
   let sub = subs.includes(params.get("sub")) ? params.get("sub") : "All";
   let vert = params.get("v") || "";
   if (subs.length) {
@@ -75,7 +75,7 @@ if (!cat) {
       chips.innerHTML = ["All"].concat(subs).map((n) => {
         const c = n === "All" ? all.length : all.filter((p) => p.catName === n).length;
         return `<button class="chip ${sub === n ? "active" : ""}" data-sub="${esc(n)}">${esc(n)} (${c})</button>`;
-      }).join("") + (vert ? `<button class="chip vert-chip" data-clear-v="1" title="Filter hatao">${esc(vert)} ✕</button>` : "");
+      }).join("") + (vert ? `<button class="chip vert-chip" data-clear-v="1" title="Remove filter">${esc(vert)} ✕</button>` : "");
     }
     document.getElementById("crumb").textContent = [cat.name, sub !== "All" ? sub : "", vert].filter(Boolean).join(" › ");
     grid.innerHTML = (showAds ? sponsoredCards(catSlots) : "") +
@@ -83,8 +83,8 @@ if (!cat) {
     if (showAds && !catSlotsTracked) { trackSlotsShown(catSlots); catSlotsTracked = true; }
     emptyEl.classList.toggle("hidden", list.length > 0);
     document.getElementById("cat-empty-msg").textContent = q
-      ? `"${searchInput.value.trim()}" ${cat.name} mein nahi mila.`
-      : "Is category mein abhi koi product nahi hai.";
+      ? `No results for "${searchInput.value.trim()}" in ${cat.name}.`
+      : "There are no products in this category yet.";
     document.getElementById("cat-count").textContent = `${list.length} products`;
   }
 
@@ -95,7 +95,7 @@ if (!cat) {
   render();
 }
 
-// Baaki categories ke links
+// Links to the other categories
 document.getElementById("other-cats").innerHTML = CATEGORIES.filter((c) => c !== cat)
   .map(
     (c) => `

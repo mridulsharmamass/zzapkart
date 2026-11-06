@@ -1,12 +1,12 @@
 // =====================================================================
 // Zzapkart Catalog: category tree, listing form schema, rules, fees
 //
-// Research report (Amazon · Flipkart · Meesho, Nov 2026) ke hisaab se:
-//  - har listing me "common compulsory" details (Section 7)
-//  - category ke hisaab se extra compulsory + good-to-have fields (Section 10–13)
+// Based on our seller policy research (Nov 2026):
+//  - "common compulsory" details for every listing (Section 7)
+//  - extra compulsory + good-to-have fields per category (Section 10–13)
 //  - image rules (Section 8), price / GST / HSN / compliance (Section 9)
-//  - restricted categories ke liye approval (Section 14)
-//  - rejection se bachne ke rules (Section 15)
+//  - approval for restricted categories (Section 14)
+//  - rules that help avoid rejection (Section 15)
 // =====================================================================
 
 // ---------- Shared dropdown values ----------
@@ -35,13 +35,13 @@ const SIZE_SETS = {
   footwear: ["UK 3", "UK 4", "UK 5", "UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11", "UK 12"],
 };
 
-// ---------- Restricted (approval wali) categories — Section 14 ----------
+// ---------- Restricted categories (need approval) — Section 14 ----------
 const RESTRICTED = {
   fssai: { label: "Grocery & Food", license: "FSSAI License", pattern: /^\d{14}$/, hint: "14-digit FSSAI license number" },
   health: { label: "Health & Supplements", license: "FSSAI / AYUSH / Drug License", pattern: /^[A-Za-z0-9/-]{6,25}$/, hint: "License number (6–25 characters)" },
 };
 
-// ---------- Templates: har product type ka form ----------
+// ---------- Templates: the listing form for each product type ----------
 // attr: { k: key, l: label, o: [options] (dropdown) | t: "text" | "number" | "textarea", hint }
 const A = {
   idealFor: { k: "idealFor", l: "Ideal For", o: OPT.idealFor },
@@ -53,7 +53,7 @@ const A = {
   neck: { k: "neck", l: "Neck / Collar", o: OPT.neck },
   occasion: { k: "occasion", l: "Occasion", o: OPT.occasion },
   packOf: { k: "packOf", l: "Pack of", o: OPT.packOf },
-  styleCode: { k: "styleCode", l: "Style Code", t: "text", hint: "Jaise ZZ-CL-RN01 (sab sizes ka ek hi)" },
+  styleCode: { k: "styleCode", l: "Style Code", t: "text", hint: "e.g. ZZ-CL-RN01 (same for all sizes)" },
   modelNumber: { k: "modelNumber", l: "Model Number", t: "text" },
   modelName: { k: "modelName", l: "Model Name", t: "text" },
   fabricCare: { k: "fabricCare", l: "Fabric Care", o: OPT.fabricCare },
@@ -66,7 +66,7 @@ const A = {
 
 const TEMPLATES = {
   apparel_top: {
-    label: "Topwear", commission: 12, gst: [5, 18], gstHint: "Apparel: ₹2,500 tak 5%, usse upar 18% (final rate CA se confirm karein)",
+    label: "Topwear", commission: 12, gst: [5, 18], gstHint: "Apparel: 5% up to ₹2,500, 18% above (confirm the final rate with your CA)",
     hsn: ["61091000", "61099090", "61051010", "62052000", "61102000", "62019390", "62044990"],
     generic: ["Tshirts", "Shirts", "Topwear", "Sweatshirts", "Jackets", "Dresses"],
     images: { min: 1, rec: 6, ratio: [5, 6] }, sizes: "apparel",
@@ -82,7 +82,7 @@ const TEMPLATES = {
     ],
   },
   apparel_bottom: {
-    label: "Bottomwear", commission: 12, gst: [5, 18], gstHint: "Apparel: ₹2,500 tak 5%, usse upar 18% (CA se confirm karein)",
+    label: "Bottomwear", commission: 12, gst: [5, 18], gstHint: "Apparel: 5% up to ₹2,500, 18% above (confirm with your CA)",
     hsn: ["62034200", "62046200", "61034200", "61046200", "62034990"],
     generic: ["Bottom Wear", "Jeans", "Trousers", "Track Pants", "Shorts", "Leggings"],
     images: { min: 1, rec: 5, ratio: [5, 6] }, sizes: "bottom",
@@ -101,7 +101,7 @@ const TEMPLATES = {
     ],
   },
   ethnic: {
-    label: "Ethnic Wear", commission: 12, gst: [5, 18], gstHint: "Apparel: ₹2,500 tak 5%, usse upar 18% (CA se confirm karein)",
+    label: "Ethnic Wear", commission: 12, gst: [5, 18], gstHint: "Apparel: 5% up to ₹2,500, 18% above (confirm with your CA)",
     hsn: ["62114290", "62043990", "52085290", "54075290", "61149090"],
     generic: ["Ethnic Wear", "Kurta", "Saree", "Lehenga", "Dupatta"],
     images: { min: 1, rec: 6, ratio: [5, 6] }, sizes: "ethnic",
@@ -118,7 +118,7 @@ const TEMPLATES = {
       A.fabricCare],
   },
   innerwear: {
-    label: "Innerwear & Sleepwear", commission: 13, gst: [5, 18], gstHint: "Apparel: ₹2,500 tak 5%, usse upar 18% (CA se confirm karein)",
+    label: "Innerwear & Sleepwear", commission: 13, gst: [5, 18], gstHint: "Apparel: 5% up to ₹2,500, 18% above (confirm with your CA)",
     hsn: ["61071100", "61091000", "62121000", "61083100", "61072100"],
     generic: ["Undergarment", "Innerwear", "Sleepwear"],
     images: { min: 1, rec: 4, ratio: [5, 6] }, sizes: "apparel",
@@ -133,7 +133,7 @@ const TEMPLATES = {
       A.fabricCare],
   },
   footwear: {
-    label: "Footwear", commission: 13, gst: [5, 18], gstHint: "Footwear: ₹2,500 tak 5%, usse upar 18% (CA se confirm karein)",
+    label: "Footwear", commission: 13, gst: [5, 18], gstHint: "Footwear: 5% up to ₹2,500, 18% above (confirm with your CA)",
     hsn: ["64041190", "64029990", "64035119", "64051000", "64022000"],
     generic: ["Footwear", "Shoes", "Sandals", "Slippers"],
     images: { min: 1, rec: 6, ratio: [5, 6] }, sizes: "footwear",
@@ -153,7 +153,7 @@ const TEMPLATES = {
       { k: "weightG", l: "Weight per shoe (g)", t: "number" }],
   },
   bags: {
-    label: "Bags & Wallets", commission: 10, gst: [18, 5], gstHint: "Leather / synthetic bags zyadatar 18% (CA se confirm karein)",
+    label: "Bags & Wallets", commission: 10, gst: [18, 5], gstHint: "Leather / synthetic bags are mostly 18% (confirm with your CA)",
     hsn: ["42029200", "42022210", "42023120", "42021290"],
     generic: ["Bags", "Wallets", "Luggage"],
     images: { min: 1, rec: 6, ratio: [5, 6] }, sizes: null,
@@ -170,7 +170,7 @@ const TEMPLATES = {
       A.dimensions],
   },
   watches: {
-    label: "Watches", commission: 10, gst: [18], gstHint: "Watches: 18% (CA se confirm karein)",
+    label: "Watches", commission: 10, gst: [18], gstHint: "Watches: 18% (confirm with your CA)",
     hsn: ["91021100", "91021200", "91021900"], generic: ["Watches"],
     images: { min: 1, rec: 6, ratio: [5, 6] }, sizes: null,
     req: [A.idealFor,
@@ -187,7 +187,7 @@ const TEMPLATES = {
       { k: "caseDiameter", l: "Case Diameter (mm)", t: "number" }, A.occasion],
   },
   jewellery: {
-    label: "Fashion Jewellery", commission: 12, gst: [3], gstHint: "Imitation / fashion jewellery (HSN 7117): 3% (CA se confirm karein)",
+    label: "Fashion Jewellery", commission: 12, gst: [3], gstHint: "Imitation / fashion jewellery (HSN 7117): 3% (confirm with your CA)",
     hsn: ["71171910", "71171920", "71179010", "71131190"], generic: ["Jewellery", "Fashion Jewellery"],
     images: { min: 1, rec: 5, ratio: [5, 6] }, sizes: null,
     req: [A.idealFor,
@@ -203,7 +203,7 @@ const TEMPLATES = {
       { k: "weightG", l: "Net Weight (g)", t: "number" }],
   },
   fashion_acc: {
-    label: "Fashion Accessories", commission: 12, gst: [18, 5], gstHint: "Item ke hisaab se (CA se confirm karein)",
+    label: "Fashion Accessories", commission: 12, gst: [18, 5], gstHint: "Depends on the item (confirm with your CA)",
     hsn: ["90041000", "42033000", "65050090", "61151030", "62171010"], generic: ["Accessories"],
     images: { min: 1, rec: 5, ratio: [5, 6] }, sizes: null,
     req: [A.idealFor, A.color,
@@ -216,7 +216,7 @@ const TEMPLATES = {
       { k: "closure", l: "Closure / Buckle", o: ["N/A", "Pin Buckle", "Auto-lock", "Snapback", "Velcro"] }],
   },
   electronics: {
-    label: "Electronics", commission: 7, gst: [18], gstHint: "Electronics: zyadatar 18% (CA se confirm karein)",
+    label: "Electronics", commission: 7, gst: [18], gstHint: "Electronics: mostly 18% (confirm with your CA)",
     hsn: ["85183000", "85182200", "85176290", "85176100", "84716060", "84718000", "90189099", "84231000"],
     generic: ["Electronics", "Headphones", "Speakers", "Smart Wearables", "Computer Accessories", "Health Device"],
     images: { min: 1, rec: 4, ratio: null }, sizes: null,
@@ -235,7 +235,7 @@ const TEMPLATES = {
       { k: "notCovered", l: "Not Covered in Warranty", t: "text", hint: "Physical / water damage" }],
   },
   mobile_acc: {
-    label: "Mobile Accessories", commission: 10, gst: [18], gstHint: "18% (CA se confirm karein)",
+    label: "Mobile Accessories", commission: 10, gst: [18], gstHint: "18% (confirm with your CA)",
     hsn: ["39269099", "85044030", "85444299", "85076000", "70071900"], generic: ["Mobile Accessories"],
     images: { min: 1, rec: 4, ratio: null }, sizes: null,
     req: [
@@ -268,7 +268,7 @@ const TEMPLATES = {
       { k: "subGenre", l: "Sub Genre", t: "text" }],
   },
   stationery: {
-    label: "Stationery", commission: 8, gst: [0, 5, 18], gstHint: "Item ke hisaab se (notebooks / pens alag) — CA se confirm karein",
+    label: "Stationery", commission: 8, gst: [0, 5, 18], gstHint: "Depends on the item (notebooks / pens differ) — confirm with your CA",
     hsn: ["48202000", "96081019", "96091000", "48201010", "95030090"], generic: ["Stationery"],
     images: { min: 1, rec: 4, ratio: null }, sizes: null,
     req: [
@@ -283,7 +283,7 @@ const TEMPLATES = {
       { k: "inkColor", l: "Ink Color", o: ["N/A", "Blue", "Black", "Red", "Green", "Multicolor"] }],
   },
   beauty: {
-    label: "Beauty & Personal Care", commission: 8, gst: [5, 18], gstHint: "Product ke hisaab se 5% ya 18% — CA se confirm karein",
+    label: "Beauty & Personal Care", commission: 8, gst: [5, 18], gstHint: "5% or 18% depending on the product — confirm with your CA",
     hsn: ["33049910", "33049990", "33051090", "33030010", "33079090", "34013019", "33059011"],
     generic: ["Personal Care", "Cosmetics", "Hair Care", "Skin Care", "Fragrance"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
@@ -304,7 +304,7 @@ const TEMPLATES = {
       { k: "usage", l: "How to Use", t: "textarea" }],
   },
   grocery: {
-    label: "Grocery & Food", commission: 5, gst: [0, 5, 18], gstHint: "Food item ke hisaab se 0% / 5% / 18% — CA se confirm karein",
+    label: "Grocery & Food", commission: 5, gst: [0, 5, 18], gstHint: "0% / 5% / 18% depending on the food item — confirm with your CA",
     hsn: ["09024020", "09012190", "09109100", "08013200", "19059090", "20019000", "11010000", "10063020", "04090000"],
     generic: ["Grocery", "Tea", "Coffee", "Spices", "Snacks", "Dry Fruits", "Staples"],
     images: { min: 1, rec: 6, ratio: null }, sizes: null, restricted: "fssai",
@@ -322,7 +322,7 @@ const TEMPLATES = {
       { k: "flavour", l: "Flavour", t: "text" }],
   },
   health: {
-    label: "Health & Supplements", commission: 7, gst: [5, 18], gstHint: "Product ke hisaab se — CA se confirm karein",
+    label: "Health & Supplements", commission: 7, gst: [5, 18], gstHint: "Depends on the product — confirm with your CA",
     hsn: ["21069099", "30049011", "21061000", "30039011"], generic: ["Health Supplement", "Ayurvedic Medicine", "Nutrition"],
     images: { min: 1, rec: 6, ratio: null }, sizes: null, restricted: "health",
     req: [
@@ -340,7 +340,7 @@ const TEMPLATES = {
       { k: "flavour", l: "Flavour", t: "text" }],
   },
   home_kitchen: {
-    label: "Kitchen & Dining", commission: 9, gst: [5, 18], gstHint: "Material / item ke hisaab se — CA se confirm karein",
+    label: "Kitchen & Dining", commission: 9, gst: [5, 18], gstHint: "Depends on the material / item — confirm with your CA",
     hsn: ["73239390", "76151030", "39241090", "69120010", "70134900", "82159900", "96170019"], generic: ["Kitchen & Dining", "Cookware", "Kitchen Storage"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
     req: [
@@ -356,7 +356,7 @@ const TEMPLATES = {
       { k: "bpaFree", l: "BPA Free", o: OPT.yesNo }, A.warrantyMonths, A.dimensions],
   },
   home_furnishing: {
-    label: "Home Furnishing", commission: 9, gst: [5, 18], gstHint: "Textile: ₹2,500 tak 5%, usse upar 18% (CA se confirm karein)",
+    label: "Home Furnishing", commission: 9, gst: [5, 18], gstHint: "Textile: 5% up to ₹2,500, 18% above (confirm with your CA)",
     hsn: ["63022100", "63039200", "63049260", "63026000", "57050049", "63014000"], generic: ["Home Furnishing", "Bed Linen", "Curtains", "Towels"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
     req: [
@@ -372,7 +372,7 @@ const TEMPLATES = {
       { k: "roomType", l: "Room Type", o: ["Bedroom", "Living Room", "Kids Room", "Kitchen", "Bathroom"] }],
   },
   home_decor: {
-    label: "Home Decor", commission: 10, gst: [5, 18], gstHint: "Item ke hisaab se — CA se confirm karein",
+    label: "Home Decor", commission: 10, gst: [5, 18], gstHint: "Depends on the item — confirm with your CA",
     hsn: ["91052100", "44201000", "83062990", "94051000", "67029090", "70139900", "44140000"], generic: ["Home Decor"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
     req: [
@@ -385,7 +385,7 @@ const TEMPLATES = {
       { k: "mountType", l: "Mount Type", o: ["N/A", "Wall Mount", "Tabletop", "Hanging", "Floor Standing"] }],
   },
   furniture: {
-    label: "Furniture", commission: 10, gst: [18], gstHint: "Furniture: 18% (CA se confirm karein)",
+    label: "Furniture", commission: 10, gst: [18], gstHint: "Furniture: 18% (confirm with your CA)",
     hsn: ["94013000", "94036000", "94038900", "94017100", "94042990"], generic: ["Furniture"],
     images: { min: 1, rec: 6, ratio: null }, sizes: null,
     req: [
@@ -401,7 +401,7 @@ const TEMPLATES = {
       { k: "care", l: "Care Instructions", t: "text" }],
   },
   toys: {
-    label: "Toys & Games", commission: 9, gst: [5, 18], gstHint: "Toys: product ke hisaab se — CA se confirm karein",
+    label: "Toys & Games", commission: 9, gst: [5, 18], gstHint: "Toys: depends on the product — confirm with your CA",
     hsn: ["95030010", "95030030", "95030090", "95049090"], generic: ["Toys"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
     req: [
@@ -410,7 +410,7 @@ const TEMPLATES = {
       { k: "material", l: "Material", o: ["Plastic", "Polyester / Plush", "Wood", "Cardboard", "Metal", "Fabric", "Foam"] },
       { k: "batteryOperated", l: "Battery Operated", o: OPT.yesNo },
       A.color,
-      { k: "bisNumber", l: "BIS License (CM/L) No.", t: "text", hint: "CM/L-1234567890 (toys ke liye BIS zaroori)" },
+      { k: "bisNumber", l: "BIS License (CM/L) No.", t: "text", hint: "CM/L-1234567890 (BIS is mandatory for toys)" },
       A.packOf],
     good: [
       { k: "maxAge", l: "Maximum Age", t: "text" },
@@ -419,7 +419,7 @@ const TEMPLATES = {
       { k: "salesPackage", l: "Items Included", t: "text" }],
   },
   baby_care: {
-    label: "Baby Care", commission: 8, gst: [5, 18], gstHint: "Product ke hisaab se — CA se confirm karein",
+    label: "Baby Care", commission: 8, gst: [5, 18], gstHint: "Depends on the product — confirm with your CA",
     hsn: ["96190010", "34011190", "39241090", "33049990"], generic: ["Baby Care"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
     req: [
@@ -436,7 +436,7 @@ const TEMPLATES = {
       { k: "dermaTested", l: "Dermatologically Tested", o: OPT.yesNo }],
   },
   sports: {
-    label: "Sports & Fitness", commission: 9, gst: [5, 18], gstHint: "Sports goods: product ke hisaab se — CA se confirm karein",
+    label: "Sports & Fitness", commission: 9, gst: [5, 18], gstHint: "Sports goods: depends on the product — confirm with your CA",
     hsn: ["95069990", "95066210", "95069110", "95065190", "95063900", "87120010"], generic: ["Sports Equipment", "Fitness"],
     images: { min: 1, rec: 5, ratio: null }, sizes: null,
     req: [
@@ -455,7 +455,7 @@ const TEMPLATES = {
 };
 
 // ---------- Category tree: super category → category → verticals ----------
-// Super category ka naam storefront CATEGORIES (products.js) se match karta hai
+// Super category names match the storefront CATEGORIES (products.js)
 const TAXONOMY = [
   { name: "Fashion", cats: [
     { name: "Men Top Wear", t: "apparel_top", ideal: "Men", v: ["T-Shirts", "Shirts", "Polos", "Sweatshirts & Hoodies", "Jackets"] },
@@ -546,7 +546,7 @@ function searchVerticals(q) {
 }
 
 // =====================================================================
-// Fees — Zzapkart demo fee schedule (Section 9: "settlement amount se profit nikalein")
+// Fees — Zzapkart demo fee schedule (Section 9: "work out profit from the settlement amount")
 // =====================================================================
 const FEE_RULES = {
   fixed: [[300, 10], [500, 15], [1000, 25], [Infinity, 40]], // price slab → closing fee
@@ -583,8 +583,8 @@ const PINCODE_RE = /^[1-9]\d{5}$/;
 const HSN_RE = /^\d{4}(\d{2}){0,2}$/;
 
 // ---------------------------------------------------------------------
-// HSN directory: listing form me code ke saath uska matlab dikhane aur
-// "HSN dhoondho" ke liye. Sirf madad ke liye — final code CA / GST portal se.
+// HSN directory: shows what a code means in the listing form and powers
+// "Find an HSN code". A guide only — confirm the final code with a CA / the GST portal.
 // ---------------------------------------------------------------------
 const HSN_HEADINGS = {
   "0409": "Natural honey", "0801": "Coconuts, cashew & brazil nuts", "0901": "Coffee", "0902": "Tea", "0910": "Ginger, turmeric & other spices / masala mixes",
@@ -701,109 +701,109 @@ function validateListing(L, ctx = {}) {
   const W = (path, msg) => warnings.push({ path, msg });
   const v = getVertical(L.vertical);
   const tpl = templateOf(v);
-  if (!v) { E("vertical", "Category / vertical chunein"); return { errors, warnings }; }
+  if (!v) { E("vertical", "Choose a category / vertical"); return { errors, warnings }; }
 
   // --- Product details ---
   const title = String(L.name || "").trim();
-  if (title.length < 10) E("name", "Product name kam se kam 10 characters");
+  if (title.length < 10) E("name", "Product name must be at least 10 characters");
   else if (title.length > 150) E("name", "Product name max 150 characters");
-  if (TITLE_BANNED.test(title)) E("name", "Name me price / offer words (₹, % off, free, sale, best) nahi likhein");
+  if (TITLE_BANNED.test(title)) E("name", "Don't put price / offer words (₹, % off, free, sale, best) in the name");
   const wordsInTitle = title.toLowerCase().match(/[a-z]{4,}/g) || [];
   const repeated = wordsInTitle.find((w, i) => wordsInTitle.filter((x) => x === w).length >= 3);
-  if (repeated) E("name", `Keyword stuffing: "${repeated}" baar-baar likha hai`);
-  if (title && title === title.toUpperCase() && /[A-Z]{4}/.test(title)) W("name", "Poora naam CAPITAL letters me na likhein");
-  if (TITLE_UNITS.test(title) && !["grocery", "beauty", "health", "baby_care"].includes(v.template)) W("name", "Naam me weight / size na daalein — wo attributes me bharein");
-  if (blank(L.brand)) E("brand", "Brand daalein (apna brand nahi hai to 'Generic')");
+  if (repeated) E("name", `Keyword stuffing: "${repeated}" is repeated`);
+  if (title && title === title.toUpperCase() && /[A-Z]{4}/.test(title)) W("name", "Don't write the whole name in CAPITAL letters");
+  if (TITLE_UNITS.test(title) && !["grocery", "beauty", "health", "baby_care"].includes(v.template)) W("name", "Don't put weight / size in the name — use the attributes instead");
+  if (blank(L.brand)) E("brand", "Enter the brand (use 'Generic' if you don't have one)");
   else if (String(L.brand).length > 50) E("brand", "Brand max 50 characters");
   const desc = String(L.description || "").trim();
-  if (desc.length < 30) E("description", "Description kam se kam 30 characters");
+  if (desc.length < 30) E("description", "Description must be at least 30 characters");
   if (desc.length > 2000) E("description", "Description max 2000 characters");
-  if (CONTACT_RE.test(desc) || CONTACT_RE.test(title)) E("description", "Phone, email ya website link allowed nahi");
+  if (CONTACT_RE.test(desc) || CONTACT_RE.test(title)) E("description", "Phone numbers, emails and website links aren't allowed");
 
   // --- Category attributes ---
   tpl.req.forEach((a) => {
     const val = L.attrs && L.attrs[a.k];
-    if (blank(val)) E(`attrs.${a.k}`, `${a.l} compulsory hai`);
-    else if (a.o && !a.o.includes(val)) E(`attrs.${a.k}`, `${a.l}: list me se value chunein`);
-    else if (a.t === "number" && !(Number(val) > 0)) E(`attrs.${a.k}`, `${a.l}: sahi number daalein`);
+    if (blank(val)) E(`attrs.${a.k}`, `${a.l} is required`);
+    else if (a.o && !a.o.includes(val)) E(`attrs.${a.k}`, `${a.l}: choose a value from the list`);
+    else if (a.t === "number" && !(Number(val) > 0)) E(`attrs.${a.k}`, `${a.l}: enter a valid number`);
   });
-  if (v.template === "books" && L.attrs && !blank(L.attrs.isbn) && !isbn13Valid(L.attrs.isbn)) E("attrs.isbn", "ISBN-13 galat hai (checksum match nahi hua)");
-  if (v.template === "grocery" && L.attrs && !blank(L.attrs.fssaiNumber) && !/^\d{14}$/.test(String(L.attrs.fssaiNumber))) E("attrs.fssaiNumber", "FSSAI number 14 digits ka hota hai");
+  if (v.template === "books" && L.attrs && !blank(L.attrs.isbn) && !isbn13Valid(L.attrs.isbn)) E("attrs.isbn", "Invalid ISBN-13 (checksum doesn't match)");
+  if (v.template === "grocery" && L.attrs && !blank(L.attrs.fssaiNumber) && !/^\d{14}$/.test(String(L.attrs.fssaiNumber))) E("attrs.fssaiNumber", "The FSSAI number has 14 digits");
   if (v.template === "toys" && L.attrs && !blank(L.attrs.bisNumber) && !/^CM\/L-?\s?\d{6,10}$/i.test(String(L.attrs.bisNumber).trim())) E("attrs.bisNumber", "Format: CM/L-1234567890");
 
   // --- Variants / inventory ---
   const sizes = sizesOf(v);
   const vars = L.variants || [];
-  if (!vars.length) E("variants", sizes ? "Kam se kam ek size chunein" : "SKU aur stock daalein");
+  if (!vars.length) E("variants", sizes ? "Select at least one size" : "Enter the SKU and stock");
   const seen = new Set();
   vars.forEach((x, i) => {
-    if (sizes && blank(x.size)) E(`variants.${i}.size`, "Size chunein");
+    if (sizes && blank(x.size)) E(`variants.${i}.size`, "Select a size");
     if (!SKU_RE.test(String(x.sku || ""))) E(`variants.${i}.sku`, "SKU: 3–40 letters/numbers/-/_");
-    else if (seen.has(x.sku.toUpperCase()) || (ctx.otherSkus && ctx.otherSkus.has(x.sku.toUpperCase()))) E(`variants.${i}.sku`, "Ye SKU pehle se use ho chuka hai");
+    else if (seen.has(x.sku.toUpperCase()) || (ctx.otherSkus && ctx.otherSkus.has(x.sku.toUpperCase()))) E(`variants.${i}.sku`, "This SKU is already in use");
     seen.add(String(x.sku || "").toUpperCase());
     if (!(Number.isInteger(Number(x.stock)) && Number(x.stock) >= 0 && Number(x.stock) <= 100000)) E(`variants.${i}.stock`, "Stock 0–100000");
   });
-  if (vars.length && vars.every((x) => Number(x.stock) === 0)) W("variants", "Sab sizes ka stock 0 hai — listing 'Out of stock' dikhegi");
+  if (vars.length && vars.every((x) => Number(x.stock) === 0)) W("variants", "All sizes have 0 stock — the listing will show 'Out of stock'");
   if (sizes && tpl.sizeChart && vars.length) {
     const missing = vars.some((x) => tpl.sizeChart.some((f) => !(Number(L.sizeChart && L.sizeChart[x.size] && L.sizeChart[x.size][f.k]) > 0)));
-    if (missing) E("sizeChart", "Har size ka size chart (measurements) bharein");
+    if (missing) E("sizeChart", "Fill in the size chart (measurements) for every size");
   }
 
   // --- Price & tax ---
   const mrp = Number(L.mrp), price = Number(L.price);
   if (!(Number.isInteger(mrp) && mrp >= 1 && mrp <= 500000)) E("mrp", "MRP positive whole number (₹1–5,00,000)");
-  if (!(price >= 1)) E("price", "Selling price daalein");
-  else if (mrp && price > mrp) E("price", "Selling price MRP se zyada nahi ho sakta");
-  else if (mrp && price < mrp * 0.2) W("price", "80% se zyada discount — fake MRP lag sakta hai, QC reject ho sakta hai");
-  if (blank(L.gst)) E("gst", "GST rate chunein");
-  else if (!tpl.gst.includes(Number(L.gst))) W("gst", `Is category ke liye aam taur par ${tpl.gst.join("% / ")}% — dobara check karein`);
-  if (!HSN_RE.test(String(L.hsn || ""))) E("hsn", "HSN code 4, 6 ya 8 digits ka");
+  if (!(price >= 1)) E("price", "Enter the selling price");
+  else if (mrp && price > mrp) E("price", "Selling price can't be higher than the MRP");
+  else if (mrp && price < mrp * 0.2) W("price", "More than 80% off — this may look like a fake MRP and fail QC");
+  if (blank(L.gst)) E("gst", "Choose the GST rate");
+  else if (!tpl.gst.includes(Number(L.gst))) W("gst", `This category is usually ${tpl.gst.join("% / ")}% — please double-check`);
+  if (!HSN_RE.test(String(L.hsn || ""))) E("hsn", "HSN code must have 4, 6 or 8 digits");
 
   // --- Images (Section 8) ---
   const imgs = L.images || [];
-  if (imgs.length < tpl.images.min) E("images", `Kam se kam ${tpl.images.min} image compulsory`);
-  else if (imgs.length < tpl.images.rec) W("images", `${tpl.images.rec} images recommended (abhi ${imgs.length})`);
+  if (imgs.length < tpl.images.min) E("images", `At least ${tpl.images.min} image(s) required`);
+  else if (imgs.length < tpl.images.rec) W("images", `${tpl.images.rec} images recommended (you have ${imgs.length})`);
   imgs.forEach((im, i) => {
     const longSide = Math.max(im.w, im.h);
-    // Koi bhi size chalegi — chhoti / alag ratio wali photo sirf suggestion (submit nahi rukta).
-    // Nayi upload apne-aap ratio me fit hoti hai (media.js processProductImage).
-    if (im.w && longSide < 1000) W(`images.${i}`, `Image ${i + 1}: ${im.w}×${im.h} — zoom ke liye 1000px+ behtar`);
+    // Any size works — small / odd-ratio photos are only a suggestion (they don't block submit).
+    // New uploads are fitted to the ratio automatically (media.js processProductImage).
+    if (im.w && longSide < 1000) W(`images.${i}`, `Image ${i + 1}: ${im.w}×${im.h} — 1000px+ is better for zoom`);
     if (tpl.images.ratio && im.w && im.h) {
       const [rw, rh] = tpl.images.ratio;
-      if (Math.abs(im.w / im.h - rw / rh) > 0.03) W(`images.${i}`, `Image ${i + 1}: ${rw}:${rh} ratio behtar (abhi ${im.w}×${im.h}) — dobara upload karein to apne-aap fit ho jayegi`);
+      if (Math.abs(im.w / im.h - rw / rh) > 0.03) W(`images.${i}`, `Image ${i + 1}: ${rw}:${rh} is better (now ${im.w}×${im.h}) — upload it again and it will be fitted automatically`);
     }
   });
-  if (imgs[0] && imgs[0].whiteBg === false) W("images.0", "Main image ka background white rakhein, sirf product (koi text / logo / props nahi)");
+  if (imgs[0] && imgs[0].whiteBg === false) W("images.0", "Use a white background for the main image — product only (no text / logo / props)");
 
   // --- Shipping ---
   const pkg = L.pkg || {};
   ["l", "b", "h"].forEach((d) => { if (!(Number(pkg[d]) > 0 && Number(pkg[d]) <= 200)) E(`pkg.${d}`, "Package dimension (cm) 0–200"); });
-  if (!(Number(pkg.w) > 0 && Number(pkg.w) <= 50000)) E("pkg.w", "Package weight (g) daalein");
-  if (["l", "b", "h"].some((d) => Number(pkg[d]) > 0 && Number(pkg[d]) < 2)) W("pkg.l", "Dimensions galat lag rahe (jaise 10×1×1) — galat value se shipping fee galat lagegi");
-  if (Number(pkg.w) > 0 && Number(pkg.w) < 30) W("pkg.w", "Weight bahut kam lag raha hai — packaging ke saath weight daalein");
-  if (!OPT.sla.includes(String(L.sla))) E("sla", "Dispatch time (1–7 din) chunein");
+  if (!(Number(pkg.w) > 0 && Number(pkg.w) <= 50000)) E("pkg.w", "Enter the package weight (g)");
+  if (["l", "b", "h"].some((d) => Number(pkg[d]) > 0 && Number(pkg[d]) < 2)) W("pkg.l", "These dimensions look wrong (e.g. 10×1×1) — wrong values lead to wrong shipping fees");
+  if (Number(pkg.w) > 0 && Number(pkg.w) < 30) W("pkg.w", "This weight looks too low — include the packaging");
+  if (!OPT.sla.includes(String(L.sla))) E("sla", "Choose a dispatch time (1–7 days)");
 
   // --- Compliance (Legal Metrology) ---
-  if (blank(L.countryOfOrigin)) E("countryOfOrigin", "Country of origin chunein");
-  if (blank(L.genericName)) E("genericName", "Generic name chunein");
-  if (!(Number.isInteger(Number(L.netQty)) && Number(L.netQty) >= 1)) E("netQty", "Net quantity (pieces) daalein");
+  if (blank(L.countryOfOrigin)) E("countryOfOrigin", "Choose the country of origin");
+  if (blank(L.genericName)) E("genericName", "Choose the generic name");
+  if (!(Number.isInteger(Number(L.netQty)) && Number(L.netQty) >= 1)) E("netQty", "Enter the net quantity (pieces)");
   ["manufacturer", "packer", "importer"].forEach((p) => {
     const d = L[p] || {};
-    if (blank(d.name) || String(d.name).trim().length < 3) E(`${p}.name`, "Naam daalein");
-    if (blank(d.address) || String(d.address).trim().length < 10) E(`${p}.address`, "Poora address daalein");
+    if (blank(d.name) || String(d.name).trim().length < 3) E(`${p}.name`, "Enter a name");
+    if (blank(d.address) || String(d.address).trim().length < 10) E(`${p}.address`, "Enter the full address");
     if (!PINCODE_RE.test(String(d.pincode || ""))) E(`${p}.pincode`, "6-digit pincode");
   });
 
   // --- Account level ---
   if (ctx.forSubmit) {
-    if (tpl.restricted && !ctx.approvalOk) E("approval", `${RESTRICTED[tpl.restricted].label} me bechne ke liye category approval chahiye`);
-    if (ctx.limitReached) E("plan", "Plan ki listing limit poori ho gayi — subscription upgrade karein");
+    if (tpl.restricted && !ctx.approvalOk) E("approval", `You need category approval to sell in ${RESTRICTED[tpl.restricted].label}`);
+    if (ctx.limitReached) E("plan", "You've reached your plan's listing limit — please upgrade your subscription");
   }
   return { errors, warnings };
 }
 
 // =====================================================================
-// Listing quality score (Flipkart "Listing quality", Amazon "Enhance listings")
+// Listing quality score
 // =====================================================================
 function listingQuality(L) {
   const v = getVertical(L.vertical);
@@ -832,14 +832,14 @@ function listingQuality(L) {
   return { score, label, reqDone, reqTotal: req.length, goodDone, goodTotal: goodItems.length, missingGood: goodItems.filter((g) => !g.ok).map((g) => g.label), imgCount, imgRec: tpl.images.rec };
 }
 
-// Admin QC ke common rejection reasons (Section 15)
+// Common QC rejection reasons (Section 15)
 const QC_REASONS = [
-  "Main image me text / watermark / logo / price hai",
-  "Image blur, pixelated ya stretched hai",
-  "Product galat category / vertical me hai",
-  "Title me keyword stuffing ya promotional words",
-  "MRP / price galat ya fake discount",
-  "HSN / GST product se match nahi karta",
-  "Manufacturer / packer details adhoore",
-  "Description aur images match nahi karte",
+  "Main image has text / watermark / logo / price",
+  "Image is blurry, pixelated or stretched",
+  "Product is in the wrong category / vertical",
+  "Title has keyword stuffing or promotional words",
+  "Incorrect MRP / price or fake discount",
+  "HSN / GST doesn't match the product",
+  "Manufacturer / packer details are incomplete",
+  "Description and images don't match",
 ];

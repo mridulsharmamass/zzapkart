@@ -1,5 +1,5 @@
 // =====================================================================
-// Seller Dashboard — har seller sirf apna data dekh aur badal sakta hai
+// Seller Dashboard — each seller can only see and change their own data
 // =====================================================================
 let me = currentSeller();
 if (!me) {
@@ -43,9 +43,9 @@ modal.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-// Image file (koi bhi size, media.js ke loadImageFromFile se) → chhota JPEG data URL (browser storage bachane ke liye)
+// Image file (any size, via media.js loadImageFromFile) → small JPEG data URL (saves browser storage)
 function readImage(file, max = 700) {
-  if (!file) return Promise.reject(new Error("File chunein"));
+  if (!file) return Promise.reject(new Error("Choose a file"));
   return loadImageFromFile(file).then(({ img, url }) => {
     try {
       const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
@@ -92,15 +92,15 @@ function activateSubscription(planId, mode) {
   if (sub.expiresAt <= Date.now()) {
     if (me.autoRenew && !sub.cancelled) {
       activateSubscription(sub.plan, "auto-renew");
-      notifySeller(me.id, `🔁 ${PLANS[sub.plan].name} plan auto-renew ho gaya (${formatPrice(PLANS[sub.plan].price)}, demo payment).`);
+      notifySeller(me.id, `🔁 ${PLANS[sub.plan].name} plan auto-renewed (${formatPrice(PLANS[sub.plan].price)}, demo payment).`);
     } else if (!sub.expiredNotified) {
       updateSeller(me.id, { subscription: { ...sub, expiredNotified: true } });
-      notifySeller(me.id, `⚠️ Aapka ${PLANS[sub.plan].name} plan expire ho gaya. Ab aap Free plan par ho.`);
+      notifySeller(me.id, `⚠️ Your ${PLANS[sub.plan].name} plan has expired. You're now on the Free plan.`);
       refreshMe();
     }
   } else if (left <= 5 && !sub.reminded) {
     updateSeller(me.id, { subscription: { ...sub, reminded: true } });
-    notifySeller(me.id, `⏰ Reminder: ${PLANS[sub.plan].name} plan ${left} din mein expire hoga. ${me.autoRenew ? "Auto-renew ON hai." : "Renew karna na bhoolein."}`);
+    notifySeller(me.id, `⏰ Reminder: ${PLANS[sub.plan].name} plan expires in ${left} day(s). ${me.autoRenew ? "Auto-renew is ON." : "Don't forget to renew."}`);
     refreshMe();
   }
 })();
@@ -160,13 +160,13 @@ function renderNav() {
 function renderBanner() {
   const b = [];
   const st = me.kyc.status;
-  if (st === "not_submitted") b.push(`<div class="alert warn">🪪 Dashboard unlock karne ke liye <a href="#kyc">KYC complete karein</a>.</div>`);
-  if (st === "pending") b.push(`<div class="alert info">⏳ Aapka KYC admin review mein hai. Approve hote hi poora dashboard khul jayega.</div>`);
-  if (st === "rejected") b.push(`<div class="alert error">❌ KYC reject hua: ${esc(me.kyc.reason || "")} — <a href="#kyc">dobara submit karein</a>.</div>`);
-  if (me.suspended) b.push(`<div class="alert error">⛔ Aapka seller account Zzapkart ne suspend kiya hai: <strong>${esc(me.suspended.reason || "")}</strong>. Tab tak aapke products aur Brand Store buyers ko nahi dikhenge. Support se contact karein.</div>`);
+  if (st === "not_submitted") b.push(`<div class="alert warn">🪪 <a href="#kyc">Complete your KYC</a> to unlock the full dashboard.</div>`);
+  if (st === "pending") b.push(`<div class="alert info">⏳ Your KYC is being reviewed. The full dashboard unlocks as soon as it's approved.</div>`);
+  if (st === "rejected") b.push(`<div class="alert error">❌ KYC rejected: ${esc(me.kyc.reason || "")} — <a href="#kyc">please submit again</a>.</div>`);
+  if (me.suspended) b.push(`<div class="alert error">⛔ Zzapkart has suspended your seller account: <strong>${esc(me.suspended.reason || "")}</strong>. Until then your products and Brand Store are hidden from shoppers. Please contact support.</div>`);
   const sub = me.subscription;
   if (isApproved() && sub && sub.expiresAt > Date.now() && daysLeft(sub.expiresAt) <= 5) {
-    b.push(`<div class="alert warn">⏰ Aapka <strong>${PLANS[sub.plan].name}</strong> plan ${daysLeft(sub.expiresAt)} din mein expire hoga (${fmtDate(sub.expiresAt)}). Auto-renew: <strong>${me.autoRenew ? "ON" : "OFF"}</strong> · <a href="#subscription">Manage</a></div>`);
+    b.push(`<div class="alert warn">⏰ Your <strong>${PLANS[sub.plan].name}</strong> plan expires in ${daysLeft(sub.expiresAt)} day(s) (${fmtDate(sub.expiresAt)}). Auto-renew: <strong>${me.autoRenew ? "ON" : "OFF"}</strong> · <a href="#subscription">Manage</a></div>`);
   }
   document.getElementById("banner").innerHTML = b.join("");
 }
@@ -182,9 +182,9 @@ function render() {
     content.innerHTML = `
       <div class="panel locked-view">
         <div class="empty-emoji">🔒</div>
-        <h2>${sec.label} abhi locked hai</h2>
-        <p class="muted">KYC verify hone ke baad ye section khulega.</p>
-        <a href="#kyc" class="btn">KYC Status dekho</a>
+        <h2>${sec.label} is locked</h2>
+        <p class="muted">This section unlocks once your KYC is verified.</p>
+        <a href="#kyc" class="btn">Check KYC status</a>
       </div>`;
     return;
   }
@@ -199,7 +199,7 @@ window.addEventListener("hashchange", render);
 const VIEWS = {};
 
 // ---------------------------------------------------------------------
-// Overview: to-do list (Meesho / Flipkart jaisa) + account health
+// Overview: to-do list + account health
 // ---------------------------------------------------------------------
 const shipFees = (sh) => (typeof sh.fees === "number" ? sh.fees : 0);
 const shipNet = (sh) => (typeof sh.settlement === "number" ? sh.settlement : sh.amount);
@@ -239,44 +239,44 @@ VIEWS.overview = () => {
   const apprIssues = Object.keys(RESTRICTED).map((g) => approvalFor(me.id, g)).filter((a) => a && a.status !== "approved");
 
   const todos = [
-    [placed.length, "Orders dispatch karne hain", "#orders", "🛒"],
-    [h.breaching, "Orders ki dispatch-by date nikal gayi — turant ship karein", "#orders", "⏰"],
-    [by("qc_failed").length, "Listings me QC error — fix karke dobara bhejein", "#listings/qc_failed", "❌"],
-    [by("draft").length, "Draft listings complete karein", "#listings/progress", "📝"],
-    [by("out_of_stock").length, "Out of stock listings (search me nahi dikhti)", "#listings/oos", "📦"],
-    [lowStock, "Sizes ka stock 5 ya kam", "#listings/live", "📉"],
-    [enhance, "Listings enhance karein (quality 75% se kam)", "#listings/enhance", "✨"],
-    [bankStatus() === "verified" ? 0 : 1, "Bank penny-drop verification pending — iske bina payout nahi", "#profile", "🏦"],
-    [prof.gstin ? 0 : 1, "GSTIN add karein", "#profile", "🧾"],
-    [sellerDefaults().has ? 0 : 1, "Default manufacturer / packer / importer details save karein", "#profile", "🏭"],
+    [placed.length, "Orders to dispatch", "#orders", "🛒"],
+    [h.breaching, "Orders past their dispatch-by date — ship them now", "#orders", "⏰"],
+    [by("qc_failed").length, "Listings with QC errors — fix and resubmit", "#listings/qc_failed", "❌"],
+    [by("draft").length, "Complete your draft listings", "#listings/progress", "📝"],
+    [by("out_of_stock").length, "Out-of-stock listings (hidden from search)", "#listings/oos", "📦"],
+    [lowStock, "Sizes with 5 or fewer in stock", "#listings/live", "📉"],
+    [enhance, "Improve listings (quality below 75%)", "#listings/enhance", "✨"],
+    [bankStatus() === "verified" ? 0 : 1, "Verify your bank account — payouts need it", "#profile", "🏦"],
+    [prof.gstin ? 0 : 1, "Add your GSTIN", "#profile", "🧾"],
+    [sellerDefaults().has ? 0 : 1, "Save default manufacturer / packer / importer details", "#profile", "🏭"],
     [apprIssues.length, "Category approval pending / rejected", "#approvals", "🔒"],
-    [by("qc_pending").length, "Listings QC review me hain", "#listings/progress", "🧪"],
-    [p.brandStore && !(me.store && me.store.published) ? 1 : 0, "Premium: apna Brand Store banao aur publish karo", "#store", "🏬"],
+    [by("qc_pending").length, "Listings in QC review", "#listings/progress", "🧪"],
+    [p.brandStore && !(me.store && me.store.published) ? 1 : 0, "Premium: build and publish your Brand Store", "#store", "🏬"],
   ].filter(([n]) => n > 0);
 
   content.innerHTML = `
     <h1 class="dash-title">Namaste, ${esc(me.name.split(" ")[0])} 👋</h1>
     <div class="stat-grid">
-      ${tile("Net Earnings", formatPrice(Math.round(earned)), "Delivered orders, fees ke baad")}
+      ${tile("Net Earnings", formatPrice(Math.round(earned)), "Delivered orders, after fees")}
       ${tile("Pending Amount", formatPrice(Math.round(pending)), "Placed + Shipped (net)")}
-      ${tile("Orders", ships.length, placed.length ? `<a href="#orders">${placed.length} dispatch karne hain</a>` : "Sab process ho gaye")}
+      ${tile("Orders", ships.length, placed.length ? `<a href="#orders">${placed.length} to dispatch</a>` : "All processed")}
       ${tile("Live Listings", `${live.length} / ${ls.filter((l) => l.status !== "archived").length}`, `<a href="#listings">Manage</a> · limit ${p.productLimit === Infinity ? "∞" : p.productLimit}`)}
-      ${tile("Plan", p.name, sub && sub.expiresAt > Date.now() ? "Expires " + fmtDate(sub.expiresAt) : `<a href="#subscription">Upgrade karo</a>`)}
-      ${tile("Ad Credits", formatPrice(me.adCredits || 0), `<a href="#ads">Ads chalao</a>`)}
+      ${tile("Plan", p.name, sub && sub.expiresAt > Date.now() ? "Expires " + fmtDate(sub.expiresAt) : `<a href="#subscription">Upgrade</a>`)}
+      ${tile("Ad Credits", formatPrice(me.adCredits || 0), `<a href="#ads">Run ads</a>`)}
     </div>
 
     <div class="dash-cols">
       <section class="panel">
-        <div class="panel-head"><h2>To-do</h2><span class="muted small">${todos.length} kaam</span></div>
+        <div class="panel-head"><h2>To-do</h2><span class="muted small">${todos.length} task(s)</span></div>
         ${todos.length ? `<ul class="todo-list">${todos.map(([n, label, href, icon]) => `
           <li><a href="${href}"><span class="todo-icon">${icon}</span><span class="todo-label">${esc(label)}</span><span class="todo-count">${n}</span></a></li>`).join("")}</ul>`
-          : `<p class="muted">Sab kaam ho gaya 🎉</p>`}
+          : `<p class="muted">You're all caught up 🎉</p>`}
       </section>
       <section class="panel">
         <div class="panel-head"><h2>Account health</h2><span class="status-pill ${h.atRisk ? "s-rejected" : "s-approved"}">${h.atRisk ? "At risk" : "Healthy"}</span></div>
         <table class="table health-table"><tbody>
           <tr><td>Late dispatch rate <span class="muted small">(target &lt; 4%)</span></td><td class="num ${h.lateRate > 4 ? "text-danger" : "green"}">${h.lateRate.toFixed(1)}%</td></tr>
-          <tr><td>Orders dispatch-by ke baad bhi pending</td><td class="num ${h.breaching ? "text-danger" : "green"}">${h.breaching}</td></tr>
+          <tr><td>Orders pending past dispatch-by</td><td class="num ${h.breaching ? "text-danger" : "green"}">${h.breaching}</td></tr>
           <tr><td>QC rejection rate</td><td class="num ${h.qcRejRate > 20 ? "text-warn" : ""}">${h.qcRejRate.toFixed(0)}%</td></tr>
           <tr><td>Average listing quality</td><td class="num ${h.avgQuality < 75 ? "text-warn" : "green"}">${h.avgQuality}%</td></tr>
           <tr><td>Bank account</td><td class="num">${bankStatus() === "verified" ? `<span class="green">Verified</span>` : `<a href="#profile" class="text-danger">Not verified</a>`}</td></tr>
@@ -292,12 +292,12 @@ VIEWS.overview = () => {
           <tbody>${ships.slice(0, 5).map(({ order: o, shipment: sh }) => `
             <tr><td>#${esc(o.id)}<div class="muted">${fmtDate(o.createdAt)}</div></td>
             <td>${esc(o.buyer.name)}</td><td>${formatPrice(sh.amount)}</td><td>${pill(sh.status)}</td></tr>`).join("")}
-          </tbody></table>` : `<p class="muted">Abhi koi order nahi. Listing banao aur QC pass karwao!</p>`}
+          </tbody></table>` : `<p class="muted">No orders yet. Create a listing and get it through QC!</p>`}
       </section>
       <section class="panel">
         <div class="panel-head"><h2>Notifications</h2><a href="#notifications" class="link">All →</a></div>
         ${sellerNotifications(me.id).slice(0, 5).map((n) => `
-          <div class="notif ${n.read ? "" : "unread"}"><div>${esc(n.message)}</div><small class="muted">${fmtDateTime(n.at)}</small></div>`).join("") || `<p class="muted">Koi notification nahi.</p>`}
+          <div class="notif ${n.read ? "" : "unread"}"><div>${esc(n.message)}</div><small class="muted">${fmtDateTime(n.at)}</small></div>`).join("") || `<p class="muted">No notifications.</p>`}
       </section>
     </div>`;
 };
@@ -314,7 +314,7 @@ VIEWS.store = () => viewStore();
 // Orders
 // ---------------------------------------------------------------------
 let orderFilter = "all";
-const COURIERS = ["Delhivery", "Blue Dart", "DTDC", "Ekart", "India Post", "Self Delivery"];
+const COURIERS = ["Delhivery", "Blue Dart", "DTDC", "Xpressbees", "India Post", "Self Delivery"];
 
 VIEWS.orders = () => {
   const ships = myShipments();
@@ -356,13 +356,13 @@ VIEWS.orders = () => {
         ${sh.status === "Placed" ? `
           <form class="ship-form" data-order="${esc(o.id)}">
             <select name="courier" aria-label="Courier">${COURIERS.map((c) => `<option>${c}</option>`).join("")}</select>
-            <input name="tracking" placeholder="Tracking ID (Self Delivery ke liye optional)" maxlength="40" />
+            <input name="tracking" placeholder="Tracking ID (optional for self delivery)" maxlength="40" />
             <button class="btn" type="submit">📦 Mark as Shipped</button>
           </form>` : ""}
         ${sh.status === "Shipped" ? `<button class="btn" data-deliver="${esc(o.id)}">✅ Mark as Delivered</button>` : ""}
-        ${sh.status === "Delivered" ? `<p class="green">✓ Delivered ${fmtDate(sh.deliveredAt)} · Payout: ${bankStatus() === "verified" ? fmtDate(payoutDate(sh)) : "on hold (bank verify karein)"}</p>` : ""}
+        ${sh.status === "Delivered" ? `<p class="green">✓ Delivered ${fmtDate(sh.deliveredAt)} · Payout: ${bankStatus() === "verified" ? fmtDate(payoutDate(sh)) : "on hold (verify your bank account)"}</p>` : ""}
       </section>`;
-    }).join("") : `<div class="panel empty"><div class="empty-emoji">🛒</div><p>Is filter mein koi order nahi.</p></div>`}`;
+    }).join("") : `<div class="panel empty"><div class="empty-emoji">🛒</div><p>No orders match this filter.</p></div>`}`;
 
   content.querySelectorAll("[data-filter]").forEach((b) =>
     b.addEventListener("click", () => { orderFilter = b.dataset.filter; render(); }));
@@ -373,24 +373,24 @@ VIEWS.orders = () => {
     const tracking = f.elements.tracking.value.trim();
     if (courier !== "Self Delivery" && tracking.length < 4) {
       f.elements.tracking.classList.add("invalid");
-      showToast("Courier ke liye Tracking ID daalein");
+      showToast("Enter the courier's tracking ID");
       return;
     }
     updateShipment(f.dataset.order, me.id, "Shipped", { courier, trackingId: tracking });
-    showToast("Order shipped — buyer ko notification chala gaya ✓");
+    showToast("Order shipped — the buyer has been notified ✓");
     render();
   }));
 
   content.querySelectorAll("[data-deliver]").forEach((b) => b.addEventListener("click", () => {
     updateShipment(b.dataset.deliver, me.id, "Delivered");
-    notifySeller(me.id, `✅ Order #${b.dataset.deliver} delivered. ${bankStatus() === "verified" ? `Payout ${plan().payoutDays} din mein schedule hua.` : "Payout on hold — bank verify karein."}`);
+    notifySeller(me.id, `✅ Order #${b.dataset.deliver} delivered. ${bankStatus() === "verified" ? `Payout scheduled in ${plan().payoutDays} day(s).` : "Payout on hold — verify your bank account."}`);
     showToast("Order delivered ✓");
     render();
   }));
 };
 
 // ---------------------------------------------------------------------
-// Payments: gross → fees → net settlement, bank verify ke bina hold
+// Payments: gross → fees → net settlement; on hold until the bank account is verified
 // ---------------------------------------------------------------------
 VIEWS.earnings = () => {
   const ships = myShipments();
@@ -406,16 +406,16 @@ VIEWS.earnings = () => {
 
   content.innerHTML = `
     <h1 class="dash-title">Payments</h1>
-    ${bankOk ? "" : `<div class="alert error">🏦 Bank account verified nahi hai — sab payouts <strong>on hold</strong> hain. <a href="#profile">Penny-drop verification karein</a>.</div>`}
+    ${bankOk ? "" : `<div class="alert error">🏦 Your bank account isn't verified — all payouts are <strong>on hold</strong>. <a href="#profile">Verify your bank account</a>.</div>`}
     <div class="stat-grid">
       ${tile("Gross Sales", money2(sum(delivered, (sh) => sh.amount)), `${delivered.length} delivered order(s)`)}
       ${tile("Fees (incl. GST)", money2(sum(delivered, shipFees)), "Commission + fixed + shipping + collection")}
       ${tile("Net Earned", money2(sum(delivered, shipNet)), "Settlement amount")}
       ${tile("Paid Out", money2(sum(paid, shipNet)), "Bank account me")}
       ${tile("Upcoming", money2(sum(scheduled, shipNet)), `${scheduled.length} scheduled`)}
-      ${tile("On Hold", money2(sum(hold, shipNet)), hold.length ? "Bank verify karein" : "—")}
+      ${tile("On Hold", money2(sum(hold, shipNet)), hold.length ? "Verify your bank" : "—")}
     </div>
-    <div class="alert info">💳 Payout policy (${plan().name} plan): delivery ke <strong>${plan().payoutDays} din</strong> baad settlement amount aapke verified bank account me. In-progress orders ka net: <strong>${money2(sum(inProgress, shipNet))}</strong>.</div>
+    <div class="alert info">💳 Payout policy (${plan().name} plan): the settlement amount reaches your verified bank account <strong>${plan().payoutDays} day(s)</strong> after delivery. Net from orders in progress: <strong>${money2(sum(inProgress, shipNet))}</strong>.</div>
     <section class="panel">
       <h2>Order-wise settlements</h2>
       ${delivered.length ? `<div class="table-wrap"><table class="table">
@@ -427,7 +427,7 @@ VIEWS.earnings = () => {
           <td>${st === "hold" ? "—" : fmtDate(payoutDate(sh))}</td>
           <td>${st === "paid" ? pill("Paid") : st === "scheduled" ? pill("Scheduled") : `<span class="status-pill s-rejected">On hold</span>`}</td></tr>`;
         }).join("")}
-        </tbody></table></div>` : `<p class="muted">Abhi koi delivered order nahi. Order deliver hote hi settlement yahan dikhega.</p>`}
+        </tbody></table></div>` : `<p class="muted">No delivered orders yet. Settlements appear here once orders are delivered.</p>`}
     </section>`;
 };
 
@@ -574,7 +574,7 @@ VIEWS.analytics = () => {
           <div class="rank-row">
             <div class="rank-label"><span>${i + 1}. ${esc(t.name)}</span><span class="muted">${t.units} sold · ${formatPrice(t.revenue)}</span></div>
             <div class="rank-track"><div class="rank-bar" style="width:${(t.units / topMax) * 100}%"></div></div>
-          </div>`).join("") : `<p class="muted">Abhi koi sale nahi.</p>`}
+          </div>`).join("") : `<p class="muted">No sales yet.</p>`}
       </section>
 
       <section class="panel ${plan().detailedReports ? "" : "gated"}">
@@ -590,8 +590,8 @@ VIEWS.analytics = () => {
             <thead><tr><th>Product</th><th>Views</th><th>Cart</th><th>Sold</th><th>Abandoned</th></tr></thead>
             <tbody>${behaviour.map((b) => `<tr><td>${esc(b.name)}</td><td>${b.views}</td><td>${b.carts}</td><td>${b.sold}</td><td>${b.abandoned}</td></tr>`).join("")}</tbody>
           </table></div>` : ""}
-          <p class="muted">Views = store par product kitni baar dikha. Abandoned = cart mein daala par khareeda nahi.</p>`
-        : `<div class="gate-msg">🔒 Detailed reports (views, clicks, abandoned cart) <strong>Advanced</strong> aur <strong>Premium</strong> plan mein milte hain.<br><a href="#subscription" class="btn">Upgrade karo</a></div>`}
+          <p class="muted">Views = how often the product was shown. Abandoned = added to cart but not bought.</p>`
+        : `<div class="gate-msg">🔒 Detailed reports (views, clicks, abandoned cart) are included in the <strong>Advanced</strong> and <strong>Premium</strong> plans.<br><a href="#subscription" class="btn">Upgrade</a></div>`}
       </section>
     </div>`;
 
@@ -622,9 +622,9 @@ VIEWS.analytics = () => {
 // Subscription
 // ---------------------------------------------------------------------
 const PLAN_FEATURES = {
-  basic: ["10 product listings", "Payout delivery ke 7 din baad", "Basic sales reports", "Standard visibility"],
-  advanced: ["50 product listings", "Payout 3 din mein", "Detailed reports + customer behaviour", "₹500 free ad credits / month"],
-  premium: ["Unlimited products", "Next-day payout", "🏬 Apna Brand Store — logo, banners, collections, store link", "★ Featured badge + homepage/top placement", "Detailed reports + customer behaviour", "₹2,000 free ad credits / month"],
+  basic: ["10 product listings", "Payout 7 days after delivery", "Basic sales reports", "Standard visibility"],
+  advanced: ["50 product listings", "Payout in 3 days", "Detailed reports + customer behaviour", "₹500 free ad credits / month"],
+  premium: ["Unlimited products", "Next-day payout", "🏬 Your own Brand Store — logo, banners, collections, pages and design", "★ Featured badge + homepage/top placement", "Detailed reports + customer behaviour", "₹2,000 free ad credits / month"],
 };
 
 VIEWS.subscription = () => {
@@ -640,9 +640,9 @@ VIEWS.subscription = () => {
         <span class="muted">Current plan</span>
         <h2 class="plan-name">${PLANS[cur].name}</h2>
         ${active
-          ? `<p>Expires on <strong>${fmtDate(sub.expiresAt)}</strong> (${daysLeft(sub.expiresAt)} din baaki)</p>`
-          : sub ? `<p class="text-danger">${PLANS[sub.plan].name} plan ${fmtDate(sub.expiresAt)} ko expire ho gaya.</p>`
-          : `<p class="muted">Free plan: ${PLANS.free.productLimit} products, payout ${PLANS.free.payoutDays} din.</p>`}
+          ? `<p>Expires on <strong>${fmtDate(sub.expiresAt)}</strong> (${daysLeft(sub.expiresAt)} day(s) left)</p>`
+          : sub ? `<p class="text-danger">${PLANS[sub.plan].name} plan expired on ${fmtDate(sub.expiresAt)}.</p>`
+          : `<p class="muted">Free plan: ${PLANS.free.productLimit} products, payout in ${PLANS.free.payoutDays} days.</p>`}
         <p class="muted">Ad credits balance: ${formatPrice(me.adCredits || 0)}</p>
       </div>
       <label class="switch">
@@ -655,7 +655,7 @@ VIEWS.subscription = () => {
       ${PLAN_ORDER.map((id, i) => {
         const p = PLANS[id];
         let action;
-        if (id === cur) action = `<button class="btn" data-plan="${id}" data-mode="renew">Renew (+30 din)</button>`;
+        if (id === cur) action = `<button class="btn" data-plan="${id}" data-mode="renew">Renew (+30 days)</button>`;
         else if (i > curIdx) action = `<button class="btn" data-plan="${id}" data-mode="upgrade">${cur === "free" ? "Choose" : "Upgrade"}</button>`;
         else action = `<button class="btn btn-outline" data-plan="${id}" data-mode="downgrade">Downgrade</button>`;
         return `
@@ -674,7 +674,7 @@ VIEWS.subscription = () => {
       <h2>Payment History</h2>
       ${(me.payments || []).length ? `<table class="table"><thead><tr><th>Date</th><th>Plan</th><th>Type</th><th>Amount</th></tr></thead>
         <tbody>${me.payments.map((p) => `<tr><td>${fmtDate(p.at)}</td><td>${PLANS[p.plan].name}</td><td>${esc(p.type)}</td><td>${formatPrice(p.amount)}</td></tr>`).join("")}</tbody></table>`
-        : `<p class="muted">Abhi koi payment nahi.</p>`}
+        : `<p class="muted">No payments yet.</p>`}
     </section>`;
 
   document.getElementById("auto-renew").addEventListener("change", (e) => {
@@ -687,19 +687,19 @@ VIEWS.subscription = () => {
     const id = b.dataset.plan, mode = b.dataset.mode, p = PLANS[id];
     const count = productsOfSeller(me.id).length;
     if (mode === "downgrade" && count > p.productLimit) {
-      showToast(`${p.name} mein ${p.productLimit} products ki limit hai. Pehle ${count - p.productLimit} product(s) delete karein.`);
+      showToast(`The ${p.name} plan allows ${p.productLimit} products. Delete ${count - p.productLimit} product(s) first.`);
       return;
     }
     openModal(`
       <form id="pay-form" class="checkout-form">
         <div class="modal-head"><h2>${mode === "renew" ? "Renew" : mode === "upgrade" ? "Activate" : "Switch to"} ${p.name}</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
         <p>Amount: <strong>${formatPrice(p.price)}</strong> for ${SUBSCRIPTION_DAYS} days</p>
-        ${mode !== "renew" ? `<p class="muted">Naya plan abhi se shuru hoga.</p>` : `<p class="muted">Current expiry ke baad 30 din jud jayenge.</p>`}
+        ${mode !== "renew" ? `<p class="muted">The new plan starts right away.</p>` : `<p class="muted">30 days will be added after your current expiry.</p>`}
         <div class="pay-options">
           <label class="pay-opt selected"><input type="radio" name="m" value="upi" checked /><span>📲 UPI</span></label>
           <label class="pay-opt"><input type="radio" name="m" value="card" /><span>💳 Card</span></label>
         </div>
-        <p class="demo-note">⚠️ Demo payment — koi paisa nahi katega.</p>
+        <p class="demo-note">⚠️ Demo payment — you won't be charged.</p>
         <div class="modal-actions">
           <button type="button" class="btn btn-outline" data-close>Cancel</button>
           <button type="submit" class="btn">Pay ${formatPrice(p.price)}</button>
@@ -710,7 +710,7 @@ VIEWS.subscription = () => {
     pf.addEventListener("submit", (e) => {
       e.preventDefault();
       activateSubscription(id, mode);
-      notifySeller(me.id, `⭐ ${p.name} plan active! Valid till ${fmtDate(me.subscription.expiresAt)}.${p.adCredits ? ` ${formatPrice(p.adCredits)} ad credits add hue.` : ""}`);
+      notifySeller(me.id, `⭐ ${p.name} plan active! Valid till ${fmtDate(me.subscription.expiresAt)}.${p.adCredits ? ` ${formatPrice(p.adCredits)} ad credits added.` : ""}`);
       closeModal();
       showToast(`${p.name} plan active ✓`);
       render();
@@ -761,9 +761,9 @@ VIEWS.kyc = () => {
       ${stepper}
       <section class="panel">
         <h2>⏳ Review pending</h2>
-        <p>Aapke documents submit ho gaye hain (${fmtDateTime(k.submittedAt)}). Admin verify karte hi aapko notification milega.</p>
+        <p>Your documents were submitted (${fmtDateTime(k.submittedAt)}). You'll get a notification as soon as they're verified.</p>
         <p class="muted">${DOC_TYPES[k.docType].label}: ${esc(mask(k.docNumber))} · Address proof: ${esc(k.addressProofType)}</p>
-        <p class="demo-note">Demo: approve karne ke liye <a href="admin.html" class="link" target="_blank">Admin panel</a> kholo, phir yahan refresh karo.</p>
+        <p class="demo-note">Demo: open the <a href="admin.html" class="link" target="_blank">Admin panel</a> to approve, then refresh this page.</p>
       </section>`;
     return;
   }
@@ -771,9 +771,9 @@ VIEWS.kyc = () => {
   content.innerHTML = `
     <h1 class="dash-title">KYC Verification</h1>
     ${stepper}
-    ${k.status === "rejected" ? `<div class="alert error">❌ Pichhla KYC reject hua: <strong>${esc(k.reason)}</strong>. Sahi documents ke saath dobara submit karein.</div>` : ""}
+    ${k.status === "rejected" ? `<div class="alert error">❌ Your last KYC was rejected: <strong>${esc(k.reason)}</strong>. Please submit again with the correct documents.</div>` : ""}
     <form id="kyc-form" class="panel checkout-form" novalidate>
-      <p class="muted">Platform ko safe rakhne ke liye har seller ka KYC zaroori hai. Documents sirf verification ke liye use hote hain.</p>
+      <p class="muted">Every seller completes KYC to keep the platform safe. Your documents are used only for verification.</p>
       <div class="form-grid">
         <label>ID Document Type
           <select name="docType">${Object.entries(DOC_TYPES).map(([id, d]) => `<option value="${id}">${d.label}</option>`).join("")}</select>
@@ -814,8 +814,8 @@ VIEWS.kyc = () => {
     const docType = f.elements.docType.value;
     const docNumber = f.elements.docNumber.value.trim().replace(/\s/g, "").toUpperCase();
     let idImage = "", addrImage = "";
-    const ok1 = setErr("docNumber", DOC_TYPES[docType].test(docNumber) ? "" : `Sahi ${DOC_TYPES[docType].label} number daalein (${DOC_TYPES[docType].hint})`);
-    const ok2 = setErr("address", f.elements.address.value.trim().length < 15 ? "Poora address daalein" : "");
+    const ok1 = setErr("docNumber", DOC_TYPES[docType].test(docNumber) ? "" : `Enter a valid ${DOC_TYPES[docType].label} number (${DOC_TYPES[docType].hint})`);
+    const ok2 = setErr("address", f.elements.address.value.trim().length < 15 ? "Enter your full address" : "");
     let ok3 = true, ok4 = true;
     try { idImage = await readImage(f.elements.idFile.files[0], 900); setErr("idFile", ""); } catch (err) { ok3 = setErr("idFile", err.message); }
     try { addrImage = await readImage(f.elements.addrFile.files[0], 900); setErr("addrFile", ""); } catch (err) { ok4 = setErr("addrFile", err.message); }
@@ -834,7 +834,7 @@ VIEWS.kyc = () => {
       },
     });
     if (!saved) return;
-    notifySeller(me.id, "📄 KYC documents submit ho gaye. Admin review ka intezaar karein.");
+    notifySeller(me.id, "📄 KYC documents submitted. We'll notify you once they're reviewed.");
     showToast("KYC submitted ✓");
     render();
   });
@@ -848,16 +848,16 @@ VIEWS.notifications = () => {
   content.innerHTML = `
     <h1 class="dash-title">Notifications</h1>
     <section class="panel">
-      ${list.map((n) => `<div class="notif ${n.read ? "" : "unread"}"><div>${esc(n.message)}</div><small class="muted">${fmtDateTime(n.at)}</small></div>`).join("") || `<p class="muted">Koi notification nahi.</p>`}
+      ${list.map((n) => `<div class="notif ${n.read ? "" : "unread"}"><div>${esc(n.message)}</div><small class="muted">${fmtDateTime(n.at)}</small></div>`).join("") || `<p class="muted">No notifications.</p>`}
     </section>`;
   markSellerNotifsRead(me.id);
   setTimeout(renderNav, 0);
 };
 
-// Doosre tab mein data badle (jaise admin ne KYC approve kiya) to refresh
+// Refresh when data changes in another tab (e.g. admin approved the KYC)
 window.addEventListener("storage", (e) => {
   if (!e.key || !e.key.startsWith("zk_") || !modal.classList.contains("hidden")) return;
-  if (e.key === DB.storeStats || e.key === DB.stats) return; // buyer visits / views — editor ko mat chhedo
+  if (e.key === DB.storeStats || e.key === DB.stats) return; // buyer visits / views — don't disturb the editor
   if (currentSection() === "store" && e.key !== DB.sellers && e.key !== DB.products) return;
   render();
 });

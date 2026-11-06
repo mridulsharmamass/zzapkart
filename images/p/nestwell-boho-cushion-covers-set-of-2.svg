@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fef3c7"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7af37"/><stop offset="1" stop-color="#d88b0a"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <path d="M96 132 l-16 -16" stroke="#7c2d12" stroke-width="7" stroke-linecap="round"/><path d="M304 132 l16 -16" stroke="#7c2d12" stroke-width="7" stroke-linecap="round"/><path d="M96 368 l-16 16" stroke="#7c2d12" stroke-width="7" stroke-linecap="round"/><path d="M304 368 l16 16" stroke="#7c2d12" stroke-width="7" stroke-linecap="round"/>
+    <path d="M100 140 Q200 120 300 140 Q322 250 300 360 Q200 380 100 360 Q78 250 100 140 Z" fill="url(#g)"/>
+    <path d="M88 192 Q200 176 312 192 L312 206 Q200 190 88 206 Z M88 298 Q200 314 312 298 L312 312 Q200 328 88 312 Z" fill="#7c2d12" opacity=".9"/>
+    <path d="M200 206 L246 250 L200 294 L154 250 Z" fill="#7c2d12"/>
+    <path d="M200 228 L222 250 L200 272 L178 250 Z" fill="#fff" opacity=".85"/>
+    <path d="M120 150 Q200 136 280 150" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".25"/>
+</svg>

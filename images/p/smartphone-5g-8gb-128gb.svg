@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e0e7ff"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#655cd4"/><stop offset="1" stop-color="#3b31b2"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <rect x="128" y="66" width="144" height="300" rx="28" fill="#1f2937"/>
+    <rect x="136" y="74" width="128" height="284" rx="22" fill="url(#g)"/>
+    <circle cx="170" cy="150" r="46" fill="#f472b6" opacity=".55"/><circle cx="236" cy="250" r="60" fill="#fff" opacity=".18"/>
+    <rect x="182" y="84" width="36" height="10" rx="5" fill="#111827"/>
+    <text x="200" y="210" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#fff" text-anchor="middle">10:09</text>
+    <rect x="160" y="320" width="80" height="6" rx="3" fill="#fff" opacity=".7"/>
+    <rect x="128" y="372" width="144" height="34" rx="12" fill="#e5e7eb" opacity=".0"/>
+</svg>

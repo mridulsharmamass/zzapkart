@@ -1,9 +1,9 @@
 // =====================================================================
-// Brand Store — seller ki apni e-commerce website (Shopify / WooCommerce jaisi)
+// Brand Store — a seller's own online store inside Zzapkart
 //   store.html?s=<slug>    → published store (Premium seller)
-//   store.html?preview=1   → logged-in seller ka draft (editor ka Preview)
+//   store.html?preview=1   → the logged-in seller's draft (Preview from the editor)
 // Pages (hash): #home  #shop  #c/<collection>  #p/<product>  #about  #search/<q>
-// Cart, checkout aur order history Zzapkart ki hi hain (ek cart, ek account).
+// Cart, checkout and order history are shared with Zzapkart (one cart, one account).
 // =====================================================================
 const shRoot = document.getElementById("shop");
 const shParams = new URLSearchParams(location.search);
@@ -29,9 +29,9 @@ const SH_ICON = {
 const SH_SORTS = {
   featured: "Featured", new: "Newest", "price-asc": "Price: Low to High", "price-desc": "Price: High to Low", discount: "Biggest discount",
 };
-const SH_PRICES = { "": "Any price", "0-499": "₹499 se kam", "500-999": "₹500 – ₹999", "1000-1999": "₹1,000 – ₹1,999", "2000-": "₹2,000 aur upar" };
+const SH_PRICES = { "": "Any price", "0-499": "Under ₹499", "500-999": "₹500 – ₹999", "1000-1999": "₹1,000 – ₹1,999", "2000-": "₹2,000 and above" };
 
-// Store data (renderStore me bharte hain)
+// Store data (filled in by renderStore)
 let shItems = [], shById = new Map(), shFeatured = [], shColls = [], shNewest = [], shNewIds = new Set();
 let shDesign = null, shPages = [];
 let shCar = null;
@@ -44,8 +44,8 @@ function shUnavailable() {
     <header class="sh-mini-head"><a href="index.html"><img src="images/logo-full.png" alt="Zzapkart" /></a></header>
     <main class="sh-wrap"><div class="empty sh-missing">
       <div class="empty-emoji">🏬</div>
-      <h1>${shSeller ? "Ye store abhi available nahi hai" : "Store nahi mila"}</h1>
-      <p>${shSeller ? "Seller ne store abhi band kiya hua hai. Thodi der baad dobara dekhein." : "Link check karein ya Zzapkart par product search karein."}</p>
+      <h1>${shSeller ? "This store isn't available right now" : "Store not found"}</h1>
+      <p>${shSeller ? "The seller has closed this store for now. Please check back later." : "Check the link, or search for products on Zzapkart."}</p>
       <a href="index.html" class="btn">Zzapkart Home</a>
     </div></main>`;
 }
@@ -64,7 +64,7 @@ const shPageLink = (pg, cls = "") => `<a href="#page/${esc(pg.slug)}" ${cls ? `c
 
 function renderStore() {
   const cfg = shCfg;
-  // Seller ka design: rang, font, buttons, grid (CSS variables body par — .shop-body ka default override)
+  // The seller's design: colour, font, buttons, grid (CSS variables on body — overrides the .shop-body default)
   shDesign = storeDesign(cfg);
   applyStoreVars(document.body, cfg);
   document.body.classList.add("sh-head-" + shDesign.header);
@@ -87,14 +87,14 @@ function renderStore() {
   const customer = currentCustomer();
   shRoot.innerHTML = `
     <a class="sh-skip" href="#sh-view">Skip to content</a>
-    ${shPreview ? `<div class="sh-preview">👁 <strong>Preview</strong> — ye aapka draft hai. Buyers ko ${shSeller.store.published ? "abhi published version" : "store publish hone ke baad"} dikhega. <a href="seller-dashboard.html#store">← Editor par wapas</a></div>` : ""}
-    <div class="sh-powered"><div class="sh-wrap"><span>🛍️ <strong>${esc(cfg.name)}</strong> ka official store · Zzapkart par safe payments &amp; easy returns</span><a href="index.html">Zzapkart par aur shopping →</a></div></div>
+    ${shPreview ? `<div class="sh-preview">👁 <strong>Preview</strong> — this is your draft. Shoppers see ${shSeller.store.published ? "the published version" : "the store once you publish it"}. <a href="seller-dashboard.html#store">← Back to the editor</a></div>` : ""}
+    <div class="sh-powered"><div class="sh-wrap"><span>🛍️ Official <strong>${esc(cfg.name)}</strong> store · Safe payments &amp; easy returns with Zzapkart</span><a href="index.html">Shop more on Zzapkart →</a></div></div>
     ${shDesign.announceOn ? `<div class="sh-announce"><div class="sh-wrap">${shDesign.announce.trim()
       ? esc(shDesign.announce.trim())
-      : `🚚 ₹${FREE_DELIVERY_MIN}+ par FREE delivery <i>·</i> ↩️ ${esc(shReturns())} <i>·</i> 💵 Cash on Delivery available`}</div></div>` : ""}
+      : `🚚 FREE delivery over ₹${FREE_DELIVERY_MIN} <i>·</i> ↩️ ${esc(shReturns())} <i>·</i> 💵 Cash on Delivery available`}</div></div>` : ""}
     <header class="sh-header" id="sh-header">
       <div class="sh-wrap sh-header-in">
-        <button type="button" class="sh-icon sh-menu-btn" id="sh-menu-btn" aria-label="Menu kholo" aria-controls="sh-menu" aria-expanded="false">${SH_ICON.menu}</button>
+        <button type="button" class="sh-icon sh-menu-btn" id="sh-menu-btn" aria-label="Open menu" aria-controls="sh-menu" aria-expanded="false">${SH_ICON.menu}</button>
         <a href="#home" class="sh-brand">${shLogo()}<span class="sh-brand-name">${esc(cfg.name)}</span></a>
         <nav class="sh-nav" aria-label="Store menu">
           <a href="#home" data-nav="home">Home</a>
@@ -109,14 +109,14 @@ function renderStore() {
         <div class="sh-actions">
           <button type="button" class="sh-icon" id="sh-search-btn" aria-label="Search" aria-controls="sh-searchbar" aria-expanded="false">${SH_ICON.search}</button>
           <a class="sh-icon" href="${customer ? "account.html" : "account.html?next=" + encodeURIComponent("store.html" + location.search)}" aria-label="${customer ? "My account" : "Login"}" title="${customer ? "Hi, " + esc(customer.name.split(" ")[0]) : "Login / Sign up"}">${SH_ICON.user}</a>
-          <button type="button" class="sh-icon sh-cart-btn" id="sh-cart-btn" aria-label="Cart kholo" aria-controls="sh-cart">${SH_ICON.bag}<span class="sh-cart-count" id="cart-count">0</span></button>
+          <button type="button" class="sh-icon sh-cart-btn" id="sh-cart-btn" aria-label="Open cart" aria-controls="sh-cart">${SH_ICON.bag}<span class="sh-cart-count" id="cart-count">0</span></button>
         </div>
       </div>
       <div class="sh-searchbar hidden" id="sh-searchbar">
         <form class="sh-wrap sh-search-form" id="sh-search-form" role="search">
           <input type="search" name="q" placeholder="Search in ${esc(cfg.name)}" aria-label="Search in ${esc(cfg.name)}" autocomplete="off" />
           <button type="submit" class="btn sh-btn">Search</button>
-          <button type="button" class="sh-icon" id="sh-search-close" aria-label="Search band karo">${SH_ICON.close}</button>
+          <button type="button" class="sh-icon" id="sh-search-close" aria-label="Close search">${SH_ICON.close}</button>
         </form>
         <div class="sh-wrap sh-suggest" id="sh-suggest"></div>
       </div>
@@ -130,7 +130,7 @@ function renderStore() {
           <p>${esc(cfg.tagline || (cfg.about || "").slice(0, 120) || "Official brand store on Zzapkart")}</p></div>
         <div><h4>Shop</h4><a href="#shop">All products</a>${shColls.map((c) => `<a href="#c/${esc(c.id)}">${esc(c.name)}</a>`).join("")}</div>
         <div><h4>Help &amp; policies</h4>${shPages.length ? shPages.map((pg) => shPageLink(pg)).join("") : `<a href="#about">Shipping &amp; delivery</a><a href="#about">Returns — ${esc(shReturns())}</a>`}<a href="account.html#orders">Track your order</a><a href="account.html">My account</a></div>
-        <div><h4>Newsletter</h4><p>Naye products aur offers sabse pehle.</p>
+        <div><h4>Newsletter</h4><p>Be the first to hear about new products and offers.</p>
           <form class="sh-news-form" data-news="1" novalidate><input type="email" name="email" placeholder="Email address" aria-label="Email address" autocomplete="email" /><button type="submit" class="btn sh-btn">Subscribe</button></form></div>
       </div>
       <div class="sh-wrap sh-foot-bottom">
@@ -142,7 +142,7 @@ function renderStore() {
     <div class="sh-overlay hidden" id="sh-overlay"></div>
     <aside class="sh-drawer sh-cart-drawer" id="sh-cart" role="dialog" aria-modal="true" aria-label="Shopping cart" aria-hidden="true"></aside>
     <aside class="sh-drawer sh-menu-drawer" id="sh-menu" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
-      <div class="sh-drawer-head"><strong>${esc(cfg.name)}</strong><button type="button" class="sh-icon" data-close="1" aria-label="Menu band karo">${SH_ICON.close}</button></div>
+      <div class="sh-drawer-head"><strong>${esc(cfg.name)}</strong><button type="button" class="sh-icon" data-close="1" aria-label="Close menu">${SH_ICON.close}</button></div>
       <nav class="sh-menu-links">
         <a href="#home">Home</a><a href="#shop">Shop all</a>
         ${shColls.map((c) => `<a href="#c/${esc(c.id)}" class="sub">${esc(c.name)}</a>`).join("")}
@@ -167,7 +167,7 @@ function shCard(p) {
   return `<div class="sh-card">
     <div class="sh-card-media">
       <a href="#p/${p.id}" class="sh-card-img" style="background:${esc(p.color)}" tabindex="-1" aria-hidden="true">${productThumb(p)}</a>
-      <div class="sh-badges">${out ? `<span class="sh-badge sold">Sold out</span>` : off ? `<span class="sh-badge sale">-${off}%</span>` : ""}${!out && shNewIds.has(p.id) ? `<span class="sh-badge new">New</span>` : ""}${p.video ? `<span class="sh-badge vid" title="Is product ka video hai">▶ Video</span>` : ""}</div>
+      <div class="sh-badges">${out ? `<span class="sh-badge sold">Sold out</span>` : off ? `<span class="sh-badge sale">-${off}%</span>` : ""}${!out && shNewIds.has(p.id) ? `<span class="sh-badge new">New</span>` : ""}${p.video ? `<span class="sh-badge vid">▶ Video</span>` : ""}</div>
       ${out ? "" : `<button type="button" class="sh-quick" data-quick="${p.id}">${p.hasSizes ? "Choose size" : "+ Quick add"}</button>`}
     </div>
     <div class="sh-card-body">
@@ -222,14 +222,14 @@ function shHero() {
         const tag = href ? "a" : "div";
         const text = b.headline || b.sub || (href && b.cta);
         return `<${tag} class="bs-slide tone-${b.tone === "dark" ? "dark" : "light"} ${i === 0 ? "active" : ""}" ${href ? `href="${esc(href)}"` : ""} data-i="${i}">
-          <img data-banner-img="${esc(b.id)}" alt="${esc(b.headline || shCfg.name + " banner")}" />
+          <img data-banner-img="${esc(b.id)}" ${safeImg(b.src) ? `src="${safeImg(b.src)}"` : ""} alt="${esc(b.headline || shCfg.name + " banner")}" />
           ${text ? `<div class="bs-slide-text">${b.headline ? `<h2>${esc(b.headline)}</h2>` : ""}${b.sub ? `<p>${esc(b.sub)}</p>` : ""}${href && b.cta ? `<span class="bs-cta">${esc(b.cta)}</span>` : ""}</div>` : ""}
         </${tag}>`;
       }).join("")}
     </div>
     ${bs.length > 1 ? `
-      <button type="button" class="bs-arrow prev" aria-label="Pichhla banner">‹</button>
-      <button type="button" class="bs-arrow next" aria-label="Agla banner">›</button>
+      <button type="button" class="bs-arrow prev" aria-label="Previous banner">‹</button>
+      <button type="button" class="bs-arrow next" aria-label="Next banner">›</button>
       <div class="bs-dots">${bs.map((_, i) => `<button type="button" class="${i === 0 ? "active" : ""}" data-dot="${i}" aria-label="Banner ${i + 1}"></button>`).join("")}</div>` : ""}
   </div></section>`;
 }
@@ -245,7 +245,7 @@ function shStartHero() {
 }
 const shTrust = () => `
   <section class="sh-trust sh-wrap" aria-label="Store promises">
-    <div><span>🚚</span><strong>Fast dispatch</strong><small>${shAvgSla()} din me ship</small></div>
+    <div><span>🚚</span><strong>Fast dispatch</strong><small>Ships in ${shAvgSla()} day(s)</small></div>
     <div><span>↩️</span><strong>${esc(shReturns())}</strong><small>Return policy</small></div>
     <div><span>💳</span><strong>Secure payments</strong><small>UPI · Cards · COD</small></div>
     <div><span>✅</span><strong>Verified seller</strong><small>KYC by Zzapkart</small></div>
@@ -259,8 +259,8 @@ function shCollCard(c) {
 }
 const shNewsBand = () => `
   <section class="sh-news"><div class="sh-wrap sh-news-in">
-    <div><h2>Offers sabse pehle paao</h2><p>New drops, sale aur exclusive deals — seedha aapke inbox me.</p></div>
-    <form class="sh-news-form" data-news="1" novalidate><input type="email" name="email" placeholder="Apna email daalein" aria-label="Email address" autocomplete="email" /><button type="submit" class="btn sh-btn-dark">Subscribe</button></form>
+    <div><h2>Get offers first</h2><p>New drops, sales and exclusive deals — straight to your inbox.</p></div>
+    <form class="sh-news-form" data-news="1" novalidate><input type="email" name="email" placeholder="Enter your email" aria-label="Email address" autocomplete="email" /><button type="submit" class="btn sh-btn-dark">Subscribe</button></form>
   </div></section>`;
 
 // ---------------------------------------------------------------------
@@ -271,7 +271,7 @@ const shView = () => document.getElementById("sh-view");
 function shHome() {
   document.title = `${shCfg.name} – Official Store`;
   const fresh = shNewest.filter(inStock);
-  const per = Math.max(4, shDesign.cols); // ek row bhar ke
+  const per = Math.max(4, shDesign.cols); // fill a whole row
   const html = [shHero()];
   const blocks = {
     trust: () => html.push(shTrust()),
@@ -288,11 +288,11 @@ function shHome() {
   };
   const on = shDesign.sections.filter((s) => s.on);
   on.forEach((s) => blocks[s.k]());
-  // Koi product section dikh hi nahi raha (chhupaya / khaali) — banner ke theek neeche products dikhao
+  // No product section visible (hidden / empty) — show products right below the banner
   const shows = { featured: shFeatured.length > 0, collrows: shColls.length > 0, new: fresh.length > 0 };
   if (!on.some((s) => shows[s.k])) {
     html.splice(1, 0, shItems.length ? shSection("Products", shItems, per * 2, "#shop")
-      : `<section class="sh-wrap">${shEmpty("Is store me abhi koi product live nahi hai. Jaldi wapas aayein!", false)}</section>`);
+      : `<section class="sh-wrap">${shEmpty("There are no products in this store yet. Check back soon!", false)}</section>`);
   }
   shView().innerHTML = html.join("");
   shStartHero();
@@ -306,7 +306,7 @@ function shPage(pg) {
     ${shCrumbs(`<span>${esc(pg.title)}</span>`)}
     <h1>${esc(pg.title)}</h1>
     <article class="sh-rich">${storeRichText(pg.body)}</article>
-    ${others.length ? `<nav class="sh-doc-more" aria-label="Aur pages"><h2>More from ${esc(shCfg.name)}</h2>${others.map((x) => shPageLink(x, "sh-link")).join("")}<a href="#about" class="sh-link">About</a></nav>` : ""}
+    ${others.length ? `<nav class="sh-doc-more" aria-label="More pages"><h2>More from ${esc(shCfg.name)}</h2>${others.map((x) => shPageLink(x, "sh-link")).join("")}<a href="#about" class="sh-link">About</a></nav>` : ""}
   </div>`;
 }
 
@@ -328,11 +328,11 @@ function shShop() {
         <div class="sh-filter-head"><strong>Filters</strong>${active ? `<button type="button" class="link-btn" data-fclear="1">Clear all</button>` : ""}</div>
         ${cats.length > 1 ? `<fieldset><legend>Category</legend>${cats.map((c) => `<label class="check"><input type="checkbox" data-fcat="${esc(c)}" ${shFilter.cats.has(c) ? "checked" : ""} /> ${esc(c)} <small>(${shItems.filter((p) => shCatOf(p) === c).length})</small></label>`).join("")}</fieldset>` : ""}
         <fieldset><legend>Price</legend>${Object.entries(SH_PRICES).map(([k, l]) => `<label class="check"><input type="radio" name="sh-price" data-fprice="${k}" ${shFilter.price === k ? "checked" : ""} /> ${l}</label>`).join("")}</fieldset>
-        <fieldset><legend>Availability</legend><label class="check"><input type="checkbox" data-fstock="1" ${shFilter.stock ? "checked" : ""} /> Sirf in-stock</label></fieldset>
+        <fieldset><legend>Availability</legend><label class="check"><input type="checkbox" data-fstock="1" ${shFilter.stock ? "checked" : ""} /> In stock only</label></fieldset>
       </aside>
       <div class="sh-results">
         <div class="sh-toolbar"><button type="button" class="btn btn-outline btn-sm sh-filter-toggle" data-ftoggle="1" aria-controls="sh-filters">⚙ Filters${active ? ` (${active})` : ""}</button>${shSortSelect()}</div>
-        ${list.length ? shGrid(list) : shEmpty("Is filter me koi product nahi.", false)}
+        ${list.length ? shGrid(list) : shEmpty("No products match these filters.", false)}
       </div>
     </div>
   </div>`;
@@ -358,8 +358,8 @@ function shSearch(q) {
   shView().innerHTML = `
   <div class="sh-wrap sh-page">
     ${shCrumbs("<span>Search</span>")}
-    <div class="sh-page-head"><h1>"${esc(q)}"</h1><p class="muted">${list.length} result(s) in ${esc(shCfg.name)} · <a class="sh-link" href="index.html?q=${encodeURIComponent(q)}">Poore Zzapkart me search karo →</a></p></div>
-    ${list.length ? shGrid(list) : shEmpty("Is store me ye product nahi mila.")}
+    <div class="sh-page-head"><h1>"${esc(q)}"</h1><p class="muted">${list.length} result(s) in ${esc(shCfg.name)} · <a class="sh-link" href="index.html?q=${encodeURIComponent(q)}">Search all of Zzapkart →</a></p></div>
+    ${list.length ? shGrid(list) : shEmpty("We couldn't find that in this store.")}
   </div>`;
 }
 
@@ -368,17 +368,17 @@ function shAbout() {
   shView().innerHTML = `
   <div class="sh-about-hero"><div class="sh-wrap">${shLogo("hero")}<div><h1>About ${esc(shCfg.name)}</h1>${shCfg.tagline ? `<p>${esc(shCfg.tagline)}</p>` : ""}</div></div></div>
   <div class="sh-wrap sh-page sh-about">
-    ${shCfg.about ? `<p class="sh-about-text">${esc(shCfg.about)}</p>` : `<p class="muted">Seller ne abhi store ke baare me kuch nahi likha.</p>`}
+    ${shCfg.about ? `<p class="sh-about-text">${esc(shCfg.about)}</p>` : `<p class="muted">The seller hasn't added a store description yet.</p>`}
     <h2>Store policies</h2>
     <div class="sh-policy">
-      <div id="shipping"><span>🚚</span><strong>Shipping &amp; delivery</strong><p>Orders ${shAvgSla()} din me dispatch hote hain. ₹${FREE_DELIVERY_MIN}+ ke order par delivery FREE, warna ₹40. Express delivery checkout par.</p></div>
-      <div><span>↩️</span><strong>${esc(shReturns())}</strong><p>${Number(shCfg.returnDays) ? `Delivery ke ${Number(shCfg.returnDays)} din ke andar return request My Orders se.` : "Is store ke products return nahi hote — sirf damaged / galat item par replacement."}</p></div>
-      <div><span>💳</span><strong>Payments</strong><p>UPI, cards aur Cash on Delivery — saare payments Zzapkart checkout se, safe aur secure.</p></div>
-      <div><span>✅</span><strong>Verified seller</strong><p>Sold by ${esc(shSeller.shopName)} · KYC Zzapkart se verified · Zzapkart par ${fmtDate(shSeller.createdAt || Date.now())} se.</p></div>
+      <div id="shipping"><span>🚚</span><strong>Shipping &amp; delivery</strong><p>Orders are dispatched within ${shAvgSla()} day(s). Delivery is FREE on orders of ₹${FREE_DELIVERY_MIN}+, otherwise ₹40. Express delivery is available at checkout.</p></div>
+      <div><span>↩️</span><strong>${esc(shReturns())}</strong><p>${Number(shCfg.returnDays) ? `Request a return from My Orders within ${Number(shCfg.returnDays)} days of delivery.` : "Products from this store can't be returned — damaged or wrong items are replaced."}</p></div>
+      <div><span>💳</span><strong>Payments</strong><p>UPI, cards and cash on delivery — every payment goes through Zzapkart's secure checkout.</p></div>
+      <div><span>✅</span><strong>Verified seller</strong><p>Sold by ${esc(shSeller.shopName)} · KYC verified by Zzapkart · Selling on Zzapkart since ${fmtDate(shSeller.createdAt || Date.now())}.</p></div>
     </div>
     ${shPages.length ? `<h2>Policies &amp; info</h2><div class="sh-doc-links">${shPages.map((pg) => shPageLink(pg, "sh-link")).join("")}</div>` : ""}
     <h2>Contact</h2>
-    <p>Order se judi madad ke liye <a class="sh-link" href="account.html#orders">My Orders</a> me apna order kholein — Zzapkart support aapki madad karega.</p>
+    <p>For help with an order, open it in <a class="sh-link" href="account.html#orders">My Orders</a> — Zzapkart support will help you.</p>
   </div>`;
 }
 
@@ -414,21 +414,21 @@ function shProduct(p) {
         ${p.brand ? `<span class="sh-vendor">${esc(p.brand)}</span>` : ""}
         <h1>${esc(p.name)}</h1>
         <div class="sh-price big"><span class="now">${formatPrice(p.price)}</span>${off ? `<s>${formatPrice(p.mrp)}</s><span class="sh-badge sale">-${off}%</span>` : ""}</div>
-        <p class="muted small">Inclusive of all taxes · delivery checkout par</p>
+        <p class="muted small">Inclusive of all taxes · delivery calculated at checkout</p>
         ${sized ? `<div class="sh-opt"><div class="sh-opt-head"><strong>Size</strong>${hasChart ? `<button type="button" class="link-btn" id="sh-chart-btn">📏 Size chart</button>` : ""}</div>
           <div class="sh-sizes" id="sh-sizes">${p.variants.map((v) => `<button type="button" class="sh-size" data-vid="${esc(v.id)}" ${v.stock > 0 ? "" : "disabled"} aria-pressed="false" title="${v.stock > 0 ? esc(v.size) : "Out of stock"}">${esc(v.size)}</button>`).join("")}</div></div>` : ""}
-        <div class="sh-opt"><strong>Quantity</strong><div class="sh-qty"><button type="button" data-q="-1" aria-label="Quantity kam karo">−</button><span id="sh-qty-val" aria-live="polite">1</span><button type="button" data-q="1" aria-label="Quantity badhao">+</button></div></div>
+        <div class="sh-opt"><strong>Quantity</strong><div class="sh-qty"><button type="button" data-q="-1" aria-label="Decrease quantity">−</button><span id="sh-qty-val" aria-live="polite">1</span><button type="button" data-q="1" aria-label="Increase quantity">+</button></div></div>
         <p class="sh-stock" id="sh-stock"></p>
         <div class="sh-buy"><button type="button" class="btn sh-btn" id="sh-add">Add to cart</button><button type="button" class="btn sh-btn-dark" id="sh-buynow">Buy it now</button></div>
         <ul class="sh-perks">
-          <li>🚚 ${p.sla || 2} din me dispatch · delivery by <strong>${deliver}</strong></li>
+          <li>🚚 Dispatched in ${p.sla || 2} day(s) · delivery by <strong>${deliver}</strong></li>
           <li>↩️ ${esc(shReturns())}</li><li>💵 Cash on Delivery available</li><li>🔒 Secure checkout by Zzapkart</li>
         </ul>
         <details class="sh-acc" open><summary>Description</summary>
           <p>${esc(p.description || "—")}</p>
           ${(p.features || []).filter(Boolean).length ? `<ul>${p.features.filter(Boolean).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}</details>
         ${specs.length ? `<details class="sh-acc"><summary>Specifications</summary><table class="table spec-table"><tbody>${specs.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</tbody></table></details>` : ""}
-        <details class="sh-acc"><summary>Shipping &amp; returns</summary><p>${p.sla || 2} din me dispatch. ₹${FREE_DELIVERY_MIN}+ par FREE delivery. ${esc(shReturns())}.</p></details>
+        <details class="sh-acc"><summary>Shipping &amp; returns</summary><p>Dispatched in ${p.sla || 2} day(s). FREE delivery over ₹${FREE_DELIVERY_MIN}. ${esc(shReturns())}.</p></details>
         ${p.manufacturer ? `<details class="sh-acc"><summary>Manufacturer info</summary><p><strong>Manufacturer:</strong> ${party(p.manufacturer)}</p><p><strong>Packer:</strong> ${party(p.packer)}</p><p><strong>Importer:</strong> ${party(p.importer)}</p></details>` : ""}
       </div>
     </div>
@@ -442,9 +442,9 @@ function shProduct(p) {
     const total = p.stock === undefined ? Infinity : p.stock;
     const base = variant ? variant.stock : total;
     if (total === 0) { stockEl.className = "sh-stock out"; stockEl.textContent = "Sold out"; }
-    else if (sized && !variant) { stockEl.className = "sh-stock"; stockEl.textContent = "Size chunein"; }
-    else if (base <= 5) { stockEl.className = "sh-stock low"; stockEl.textContent = `Sirf ${base} bache hain — jaldi karo!`; }
-    else { stockEl.className = "sh-stock ok"; stockEl.textContent = "● In stock, ship hone ko taiyaar"; }
+    else if (sized && !variant) { stockEl.className = "sh-stock"; stockEl.textContent = "Select a size"; }
+    else if (base <= 5) { stockEl.className = "sh-stock low"; stockEl.textContent = `Only ${base} left — hurry!`; }
+    else { stockEl.className = "sh-stock ok"; stockEl.textContent = "● In stock and ready to ship"; }
     const dis = total === 0 || (variant && variant.stock === 0);
     document.getElementById("sh-add").disabled = dis;
     document.getElementById("sh-buynow").disabled = dis;
@@ -455,7 +455,7 @@ function shProduct(p) {
   const sizes = document.getElementById("sh-sizes");
   const needSize = () => {
     if (!sized || variant) return false;
-    showToast("Pehle size chunein");
+    showToast("Please select a size first");
     sizes.classList.add("shake");
     setTimeout(() => sizes.classList.remove("shake"), 500);
     return true;
@@ -487,7 +487,7 @@ function shProduct(p) {
 }
 
 // ---------------------------------------------------------------------
-// Cart (drawer) — Zzapkart ka hi cart
+// Cart (drawer) — the same Zzapkart cart
 // ---------------------------------------------------------------------
 function shKey(p, variant) {
   if (variant) return cartKey(p.id, variant.id);
@@ -497,11 +497,11 @@ function shAdd(p, variant, qty, openDrawer = true) {
   const key = shKey(p, variant);
   const r = resolveCartItem(key, 0);
   const room = r ? r.maxStock - (getCart()[key] || 0) : 0;
-  if (room <= 0) { showToast(`Sirf ${r ? r.maxStock : 0} piece stock me hain — cart me pehle se hain`); return false; }
+  if (room <= 0) { showToast(`Only ${r ? r.maxStock : 0} in stock — they're already in your cart`); return false; }
   const n = Math.min(qty, room);
   for (let i = 0; i < n; i++) addToCart(key);
   trackCartAdd(p.id);
-  showToast(`${p.name}${variant && variant.size ? " (" + variant.size + ")" : ""} cart me add ho gaya ✓${n < qty ? ` · sirf ${n} stock me` : ""}`);
+  showToast(`${p.name}${variant && variant.size ? " (" + variant.size + ")" : ""} added to your cart ✓${n < qty ? ` · only ${n} in stock` : ""}`);
   if (openDrawer) shOpen("sh-cart");
   return true;
 }
@@ -512,9 +512,9 @@ function shRenderCart() {
   const subtotal = items.reduce((s, x) => s + x.product.price * x.qty, 0);
   const left = FREE_DELIVERY_MIN - subtotal;
   box.innerHTML = `
-    <div class="sh-drawer-head"><h2>Your cart <span>(${count})</span></h2><button type="button" class="sh-icon" data-close="1" aria-label="Cart band karo">${SH_ICON.close}</button></div>
+    <div class="sh-drawer-head"><h2>Your cart <span>(${count})</span></h2><button type="button" class="sh-icon" data-close="1" aria-label="Close cart">${SH_ICON.close}</button></div>
     ${items.length ? `
-      <div class="sh-ship-bar"><p>${left > 0 ? `₹${left.toLocaleString("en-IN")} aur add karo — <strong>FREE delivery</strong> unlock` : "🎉 Aapko <strong>FREE delivery</strong> mil rahi hai"}</p>
+      <div class="sh-ship-bar"><p>${left > 0 ? `Add ₹${left.toLocaleString("en-IN")} more to unlock <strong>FREE delivery</strong>` : "🎉 You've unlocked <strong>FREE delivery</strong>"}</p>
         <div class="sh-ship-track"><span style="width:${Math.min(100, Math.round((subtotal / FREE_DELIVERY_MIN) * 100))}%"></span></div></div>
       <div class="sh-cart-items">${items.map((x) => {
         const mine = x.product.sellerId === shSeller.id;
@@ -523,18 +523,18 @@ function shRenderCart() {
           <div class="sh-cart-info">
             <a href="${mine ? "#p/" + x.product.id : productUrl(x.product)}">${esc(x.product.name)}</a>
             <small>${x.variant && x.variant.size ? "Size " + esc(x.variant.size) + " · " : ""}${formatPrice(x.product.price)}${mine ? "" : " · Zzapkart"}</small>
-            <div class="sh-qty small"><button type="button" data-cq="-1" data-key="${esc(x.key)}" aria-label="Kam karo">−</button><span>${x.qty}</span><button type="button" data-cq="1" data-key="${esc(x.key)}" ${x.qty >= x.maxStock ? "disabled" : ""} aria-label="Badhao">+</button></div>
+            <div class="sh-qty small"><button type="button" data-cq="-1" data-key="${esc(x.key)}" aria-label="Decrease">−</button><span>${x.qty}</span><button type="button" data-cq="1" data-key="${esc(x.key)}" ${x.qty >= x.maxStock ? "disabled" : ""} aria-label="Increase">+</button></div>
           </div>
           <div class="sh-cart-end"><strong>${formatPrice(x.product.price * x.qty)}</strong><button type="button" class="link-btn" data-crm="${esc(x.key)}">Remove</button></div>
         </div>`;
       }).join("")}</div>
       <div class="sh-drawer-foot">
         <div class="sh-subtotal"><span>Subtotal</span><strong>${formatPrice(subtotal)}</strong></div>
-        <p class="muted small">Taxes included. Delivery checkout par calculate hogi.</p>
+        <p class="muted small">Taxes included. Delivery is calculated at checkout.</p>
         <a class="btn sh-btn sh-block" href="checkout.html">Checkout →</a>
         <a class="btn btn-outline sh-block" href="cart.html">View cart</a>
       </div>`
-    : `<div class="sh-cart-empty"><div class="empty-emoji">🛍️</div><p>Aapka cart khaali hai.</p><a href="#shop" class="btn sh-btn" data-close="1">Shopping shuru karo</a></div>`}`;
+    : `<div class="sh-cart-empty"><div class="empty-emoji">🛍️</div><p>Your cart is empty.</p><a href="#shop" class="btn sh-btn" data-close="1">Start shopping</a></div>`}`;
 }
 
 // ---------------------------------------------------------------------
@@ -612,7 +612,7 @@ function shWire() {
       return shRenderCart();
     }
     const rm = t.closest("[data-crm]");
-    if (rm) { removeFromCart(rm.dataset.crm); showToast("Cart se hata diya"); return shRenderCart(); }
+    if (rm) { removeFromCart(rm.dataset.crm); showToast("Removed from your cart"); return shRenderCart(); }
     if (t.closest("[data-fclear]")) { shFilter = { cats: new Set(), price: "", stock: false, sort: shFilter.sort }; return shShop(); }
     if (t.closest("[data-ftoggle]")) return document.getElementById("sh-filters").classList.toggle("open");
   });
@@ -629,8 +629,8 @@ function shWire() {
       const hits = q ? shItems.filter((p) => `${p.name} ${p.brand || ""} ${p.verticalName || ""}`.toLowerCase().includes(q)).slice(0, 5) : [];
       document.getElementById("sh-suggest").innerHTML = q ? (hits.length
         ? hits.map((p) => `<a class="sh-sug" href="#p/${p.id}"><span class="sh-sug-img" style="background:${esc(p.color)}">${productThumb(p)}</span><span>${esc(p.name)}</span><strong>${formatPrice(p.price)}</strong></a>`).join("") +
-          `<a class="sh-sug-all" href="#search/${encodeURIComponent(e.target.value.trim())}">"${esc(e.target.value.trim())}" ke saare results →</a>`
-        : `<p class="muted">Koi product nahi mila.</p>`) : "";
+          `<a class="sh-sug-all" href="#search/${encodeURIComponent(e.target.value.trim())}">"${esc(e.target.value.trim())}" — see all results →</a>`
+        : `<p class="muted">No products found.</p>`) : "";
     }
   });
   shRoot.addEventListener("submit", (e) => {
@@ -645,9 +645,9 @@ function shWire() {
     if (f.dataset.news) {
       e.preventDefault();
       const email = f.elements.email.value.trim();
-      if (!EMAIL_RE.test(email)) { showToast("Sahi email daalein"); f.elements.email.focus(); return; }
-      if (shPreview) { showToast("Preview me subscription save nahi hota"); return; }
-      showToast(subscribeToStore(shSeller.id, email) ? "Subscribe ho gaye ✓ — offers sabse pehle milenge" : "Ye email pehle se subscribed hai");
+      if (!EMAIL_RE.test(email)) { showToast("Enter a valid email"); f.elements.email.focus(); return; }
+      if (shPreview) { showToast("Subscriptions aren't saved in preview"); return; }
+      showToast(subscribeToStore(shSeller.id, email) ? "You're subscribed ✓ — you'll hear about offers first" : "This email is already subscribed");
       f.reset();
     }
   });
@@ -664,7 +664,7 @@ function shWire() {
 }
 
 // ---------------------------------------------------------------------
-// Saare const / function upar define ho chuke — ab store banao
+// Every const / function above is defined — now build the store
 function shStart() {
   if (!shCfg) shUnavailable();
   else renderStore();

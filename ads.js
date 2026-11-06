@@ -1,12 +1,12 @@
 // =====================================================================
-// Zzapkart Ads engine (PROTOTYPE — data localStorage mein)
+// Zzapkart Ads engine (PROTOTYPE — data in localStorage)
 //
 // Campaign types:
 //   SP = Sponsored Products  → search results, category, product pages, home
 //   SB = Sponsored Brands    → shop banner (headline + 3 products) top of search
 //
-// Har ad slot ek chhota "auction" jeetkar milta hai: sabse zyada bid jeetti hai,
-// aur click par advertiser second-price deta hai (agle bid se ₹1 zyada, apni bid tak).
+// Each ad slot is won in a small "auction": the highest bid wins,
+// and on a click the advertiser pays second price (₹1 above the next bid, up to their own bid).
 // =====================================================================
 
 const ADS_KEY = "zk_ad_campaigns_v2";
@@ -16,8 +16,8 @@ const AD_SLOTS_KEY = "zk_ad_slots";
 const AD_MIN_BID = 1;
 const AD_MAX_BID = 100;
 const AD_MIN_DAILY_BUDGET = 50;
-const ATTRIBUTION_DAYS = 7;          // click ke 7 din andar order = ad sale
-const INVALID_CLICK_WINDOW = 30 * 60 * 1000; // 30 min mein same ad par dobara click free
+const ATTRIBUTION_DAYS = 7;          // order within 7 days of a click = ad sale
+const INVALID_CLICK_WINDOW = 30 * 60 * 1000; // repeat clicks on the same ad within 30 min are free
 
 const PLACEMENTS = {
   top: "Top of search",
@@ -72,7 +72,7 @@ function derived(s) {
   };
 }
 
-// Campaign ke har level par stats ek saath badhao
+// Add stats at every level of a campaign at once
 function bumpCampaign(c, ctx, delta) {
   const day = dayKey();
   c.daily = c.daily || {};
@@ -113,7 +113,7 @@ function spentToday(c) {
 }
 
 // ---------------------------------------------------------------------
-// Status (Amazon-style delivery status)
+// Campaign status
 // ---------------------------------------------------------------------
 function campaignStatus(c) {
   const now = Date.now();
@@ -147,7 +147,7 @@ function keywordMatches(kwText, match, query) {
   if (!kw || !q) return false;
   if (match === "exact") return kw === q || words(kw).map(stem).join(" ") === words(q).map(stem).join(" ");
   if (match === "phrase") return (" " + words(q).map(stem).join(" ") + " ").includes(" " + words(kw).map(stem).join(" ") + " ");
-  // broad: keyword ke saare words query mein kisi bhi order mein
+  // broad: all the keyword's words appear in the query, in any order
   const qs = new Set(words(q).map(stem));
   return words(kw).map(stem).every((w) => qs.has(w));
 }
@@ -156,7 +156,7 @@ function isNegated(c, query) {
   return (c.negatives || []).some((n) => keywordMatches(n.text, n.match === "exact" ? "exact" : "phrase", query));
 }
 
-// Auto targeting: query product ke naam/category/description se related hai?
+// Auto targeting: is the query related to the product's name / category / description?
 function autoRelevant(product, query) {
   const qw = words(query).map(stem).filter((w) => w.length > 1);
   if (!qw.length) return false;
@@ -164,7 +164,7 @@ function autoRelevant(product, query) {
   return qw.some((w) => text.has(w));
 }
 
-// Suggested bid: jitne zyada advertisers same keyword/category par, utni zyada
+// Suggested bid: the more advertisers on the same keyword / category, the higher it is
 function suggestedBid(keywordOrCategory) {
   const comp = getCampaigns().filter((c) => c.state === "enabled" &&
     ((c.keywords || []).some((k) => keywordMatches(k.text, "broad", keywordOrCategory)) ||
@@ -191,7 +191,7 @@ function runAuction(ctx, slots = 2, type = "SP") {
 
     c.productIds.forEach((pid) => {
       if ((c.pausedProducts || []).includes(pid)) return;
-      if (pid === ctx.productId) return; // product page par wahi product nahi
+      if (pid === ctx.productId) return; // don't advertise the product you're already viewing
       const product = PRODUCTS.find((p) => p.id === pid);
       if (!product || !inStock(product)) return;
 
@@ -211,13 +211,13 @@ function runAuction(ctx, slots = 2, type = "SP") {
         bid = c.defaultBid;
       }
       if (bid <= 0) return;
-      bid = Math.min(bid, remaining); // budget se zyada bid nahi
+      bid = Math.min(bid, remaining); // never bid more than the remaining budget
       if (bid < AD_MIN_BID) return;
       bids.push({ campaign: c, product, bid, kwId });
     });
   });
 
-  // Ek product ek hi baar (sabse oonchi bid)
+  // Each product only once (its highest bid)
   const best = new Map();
   bids.sort((a, b) => b.bid - a.bid || Math.random() - 0.5).forEach((b) => {
     if (!best.has(b.product.id)) best.set(b.product.id, b);
@@ -271,7 +271,7 @@ function recordAdImpression(slot) {
   updateCampaign(slot.cid, (c) => bumpCampaign(c, slot, { imp: 1 }));
 }
 
-// Click: sirf valid click par charge (30 min mein dobara click free)
+// Click: charge only valid clicks (repeat clicks within 30 min are free)
 function recordAdClick(slotId) {
   const slot = dbGet(AD_SLOTS_KEY, {})[slotId];
   if (!slot) return false;
@@ -279,11 +279,11 @@ function recordAdClick(slotId) {
   const now = Date.now();
   const recent = clicks.find((k) => k.cid === slot.cid && k.pid === slot.pid && now - k.at < INVALID_CLICK_WINDOW);
 
-  // Attribution ke liye click yaad rakho (dobara click ho to time update)
+  // Remember the click for attribution (update the time on a repeat click)
   const fresh = clicks.filter((k) => now - k.at < ATTRIBUTION_DAYS * DAY && !(k.cid === slot.cid && k.pid === slot.pid));
   fresh.unshift({ cid: slot.cid, pid: slot.pid, kwId: slot.kwId, placement: slot.placement, query: slot.query, at: now });
   dbSet(AD_CLICKS_KEY, fresh.slice(0, 200));
-  if (recent) return false; // invalid / duplicate click — charge nahi
+  if (recent) return false; // invalid / duplicate click — not charged
 
   let charged = 0;
   updateCampaign(slot.cid, (c) => {
@@ -294,7 +294,7 @@ function recordAdClick(slotId) {
   return true;
 }
 
-// Spend pehle ad credits se, baaki seller ke monthly ad bill mein (demo)
+// Spend comes from ad credits first, the rest goes on the seller's monthly ad bill (demo)
 function chargeAdvertiser(sellerId, amount) {
   const s = getSeller(sellerId);
   if (!s) return;
@@ -305,7 +305,7 @@ function chargeAdvertiser(sellerId, amount) {
   updateSeller(sellerId, { adCredits: Math.round(((s.adCredits || 0) - fromCredits) * 100) / 100, adBill: bill });
 }
 
-// Order hone par: 7 din ke andar ad click wale product ki sale campaign ko credit
+// After an order: credit the campaign with sales of products clicked within 7 days
 function adsAttributeOrder(items) {
   const clicks = dbGet(AD_CLICKS_KEY, []);
   const now = Date.now();

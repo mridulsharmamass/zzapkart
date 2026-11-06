@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fef3c7"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a8f88"/><stop offset="1" stop-color="#0d6861"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <circle cx="200" cy="250" r="134" fill="#0b554f"/><circle cx="200" cy="250" r="122" fill="url(#g)"/>
+    <circle cx="200" cy="250" r="104" fill="#fff"/>
+    <line x1="200" y1="168" x2="200" y2="152" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/><line x1="245" y1="172.05771365940052" x2="249" y2="165.129510429125" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="277.9422863405995" y1="205" x2="284.87048957087495" y2="201" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="282" y1="250" x2="298" y2="250" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/><line x1="277.9422863405995" y1="295" x2="284.870489570875" y2="299" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="245" y1="327.9422863405995" x2="249" y2="334.870489570875" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="200" y1="332" x2="200" y2="348" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/><line x1="155.00000000000003" y1="327.9422863405995" x2="151.00000000000003" y2="334.870489570875" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="122.05771365940053" y1="295.00000000000006" x2="115.12951042912503" y2="299.00000000000006" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="118" y1="250.00000000000003" x2="102" y2="250.00000000000003" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/><line x1="122.05771365940052" y1="205" x2="115.12951042912502" y2="201" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/><line x1="154.99999999999994" y1="172.05771365940055" x2="150.99999999999994" y2="165.12951042912505" stroke="#1f2937" stroke-width="3" stroke-linecap="round"/>
+    <line x1="200" y1="250" x2="200" y2="186" stroke="#1f2937" stroke-width="8" stroke-linecap="round"/>
+    <line x1="200" y1="250" x2="252" y2="262" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/>
+    <line x1="200" y1="250" x2="166" y2="318" stroke="#f97316" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="200" cy="250" r="9" fill="#f97316"/>
+</svg>

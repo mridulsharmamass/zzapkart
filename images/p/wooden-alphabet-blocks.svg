@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="78%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffedd5"/></radialGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7af37"/><stop offset="1" stop-color="#d88b0a"/></linearGradient>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect width="400" height="500" fill="url(#bg)"/>
+<ellipse cx="200" cy="436" rx="128" ry="16" fill="#1e0b3d" opacity=".14" filter="url(#blur)"/>
+
+    <rect x="96" y="290" width="100" height="100" rx="12" fill="#f59e0b"/>
+    <path d="M96 302 Q96 290 108 290 L184 290 Q196 290 196 302 L196 308 L96 308 Z" fill="#fff" opacity=".25"/>
+    <rect x="112" y="306" width="68" height="68" rx="10" fill="#fff" opacity=".9"/>
+    <text x="146" y="358" font-family="Arial, sans-serif" font-size="46" font-weight="900" fill="#f59e0b" text-anchor="middle">A</text>
+    <rect x="204" y="290" width="100" height="100" rx="12" fill="#3b82f6"/>
+    <path d="M204 302 Q204 290 216 290 L292 290 Q304 290 304 302 L304 308 L204 308 Z" fill="#fff" opacity=".25"/>
+    <rect x="220" y="306" width="68" height="68" rx="10" fill="#fff" opacity=".9"/>
+    <text x="254" y="358" font-family="Arial, sans-serif" font-size="46" font-weight="900" fill="#3b82f6" text-anchor="middle">B</text>
+    <rect x="150" y="182" width="100" height="100" rx="12" fill="#22c55e"/>
+    <path d="M150 194 Q150 182 162 182 L238 182 Q250 182 250 194 L250 200 L150 200 Z" fill="#fff" opacity=".25"/>
+    <rect x="166" y="198" width="68" height="68" rx="10" fill="#fff" opacity=".9"/>
+    <text x="200" y="250" font-family="Arial, sans-serif" font-size="46" font-weight="900" fill="#22c55e" text-anchor="middle">C</text>
+</svg>

@@ -1,7 +1,7 @@
 // =====================================================================
 // Seller Listings — My Listings, Add/Edit Listing, Bulk Upload,
 // Category Approvals, Listing Guidelines
-// (seller.js ke helpers use karta hai: me, content, render, tile, openModal...)
+// (uses seller.js helpers: me, content, render, tile, openModal...)
 // Routes: #listings[/tab]  #add-listing  #add-listing/v/<vertical>  #add-listing/edit/<id>
 //         #bulk  #approvals  #guidelines
 // =====================================================================
@@ -22,7 +22,7 @@ const statusPill = (L) => {
   return `<span class="status-pill ${s.cls}">${s.label}</span>`;
 };
 const qualityBar = (score) => `<div class="q-bar" title="Listing quality ${score}%"><div style="width:${score}%" class="${score >= 75 ? "good" : score >= 50 ? "avg" : "poor"}"></div></div><small>${score}%</small>`;
-const verticalPath = (v) => (v ? `${v.superCat} › ${v.cat} › ${v.name}` : "Category nahi chuni (purani listing)");
+const verticalPath = (v) => (v ? `${v.superCat} › ${v.cat} › ${v.name}` : "No category chosen (older listing)");
 
 function sellerDefaults() {
   const d = (me.profile && me.profile.defaults) || {};
@@ -81,7 +81,7 @@ function viewListings() {
     <div class="dash-head">
       <div>
         <h1 class="dash-title">My Listings</h1>
-        <p class="muted">${used} / ${p.productLimit === Infinity ? "Unlimited" : p.productLimit} listings (${p.name} plan) · Price aur stock ka badlav turant live hota hai, baaki badlav QC ke baad.</p>
+        <p class="muted">${used} / ${p.productLimit === Infinity ? "Unlimited" : p.productLimit} listings (${p.name} plan) · Price and stock changes go live instantly; other changes after QC.</p>
       </div>
       <div class="ads-head-actions">
         <button class="btn btn-outline" id="export-csv">⬇ Export CSV</button>
@@ -91,7 +91,7 @@ function viewListings() {
     </div>
     <div class="filter-tabs">${LISTING_TABS.map(([k, l]) =>
       `<a class="chip ${tab === k ? "active" : ""}" href="#listings/${k}">${l} (${all.filter((L) => tabFilter(k, L)).length})</a>`).join("")}</div>
-    <div class="table-toolbar"><input type="search" id="listing-search" placeholder="Title, brand ya SKU se dhoondo" value="${esc(listingSearch)}" /></div>
+    <div class="table-toolbar"><input type="search" id="listing-search" placeholder="Search by title, brand or SKU" value="${esc(listingSearch)}" /></div>
     ${rows.length ? `<div class="table-wrap"><table class="table listing-table">
       <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Quality</th><th>Status</th><th></th></tr></thead>
       <tbody>${rows.map((L) => {
@@ -105,7 +105,7 @@ function viewListings() {
             <div class="muted small">${esc(verticalPath(v))}</div>
             <div class="muted small">SKU: ${L.variants.map((x) => esc(x.sku || "—")).slice(0, 3).join(", ")}${L.variants.length > 3 ? ` +${L.variants.length - 3}` : ""}</div></div></div></td>
           <td class="num">${L.price ? formatPrice(L.price) : "—"}${L.mrp > L.price ? `<div class="mrp">${formatPrice(L.mrp)}</div>` : ""}
-            ${L.price ? `<div class="muted small" title="Fees katne ke baad">You get ${money2(fee.settlement)}</div>` : ""}</td>
+            ${L.price ? `<div class="muted small" title="After fees">You get ${money2(fee.settlement)}</div>` : ""}</td>
           <td>${L.variants.map((x) => `<span class="stock-chip ${Number(x.stock) === 0 ? "zero" : Number(x.stock) <= 5 ? "low" : ""}">${x.size ? esc(x.size) + ": " : ""}${Number(x.stock) || 0}</span>`).join(" ")}</td>
           <td class="q-cell">${qualityBar(quality)}</td>
           <td>${statusPill(L)}${ds === "qc_failed" && L.qcReasons && L.qcReasons.length ? `<div class="qc-reasons">${L.qcReasons.map((r) => `• ${esc(r)}`).join("<br>")}</div>` : ""}</td>
@@ -116,7 +116,7 @@ function viewListings() {
             ${ds === "archived" ? `<button class="btn-sm btn-outline" data-restore="${L.id}">Restore</button>` : ds === "draft" ? `<button class="btn-sm btn-danger" data-del="${L.id}">Delete</button>` : `<button class="icon-btn" data-archive="${L.id}" title="Archive">🗄</button>`}
           </td></tr>`;
       }).join("")}</tbody></table></div>` : `
-      <div class="panel empty"><div class="empty-emoji">📦</div><p>${all.length ? "Is tab me koi listing nahi." : "Abhi koi listing nahi. Pehli listing banao!"}</p>
+      <div class="panel empty"><div class="empty-emoji">📦</div><p>${all.length ? "No listings in this tab." : "No listings yet. Create your first one!"}</p>
       <a href="#add-listing" class="btn">+ Add Listing</a></div>`}`;
 
   const s = document.getElementById("listing-search");
@@ -131,12 +131,12 @@ function viewListings() {
     if (!L || L.sellerId !== me.id) return;
     L.listingStatus = L.listingStatus === "active" ? "inactive" : "active";
     saveListing(L);
-    showToast(L.listingStatus === "active" ? "Listing active — store par dikhegi" : "Listing inactive — store se hat gayi");
+    showToast(L.listingStatus === "active" ? "Listing active — it's visible in the store" : "Listing inactive — hidden from the store");
     render();
   }));
   content.querySelectorAll("[data-archive]").forEach((b) => b.addEventListener("click", () => {
     const L = getListing(Number(b.dataset.archive));
-    if (!L || L.sellerId !== me.id || !confirm(`"${L.name}" archive karna hai? Store se hat jayegi.`)) return;
+    if (!L || L.sellerId !== me.id || !confirm(`Archive "${L.name}"? It will be removed from the store.`)) return;
     L.prevStatus = L.status; L.status = "archived";
     saveListing(L);
     render();
@@ -150,14 +150,14 @@ function viewListings() {
   }));
   content.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
     const L = getListing(Number(b.dataset.del));
-    if (!L || L.sellerId !== me.id || !confirm("Draft delete karna hai?")) return;
+    if (!L || L.sellerId !== me.id || !confirm("Delete this draft?")) return;
     deleteListing(me.id, L.id);
     render();
   }));
   content.querySelectorAll("[data-quick]").forEach((b) => b.addEventListener("click", () => quickEdit(Number(b.dataset.quick))));
 };
 
-// Price / stock ka turant badlav (QC ki zaroorat nahi)
+// Instant price / stock changes (no QC needed)
 function quickEdit(id) {
   const L = getListing(id);
   if (!L || L.sellerId !== me.id) return;
@@ -182,15 +182,15 @@ function quickEdit(id) {
     const stocks = L.variants.map((_, i) => Number(f.elements["stock" + i].value));
     let err = "";
     if (!(Number.isInteger(mrp) && mrp >= 1)) err = "MRP positive whole number";
-    else if (!(price >= 1 && price <= mrp)) err = "Selling price 1 se MRP ke beech";
-    else if (stocks.some((s) => !(Number.isInteger(s) && s >= 0))) err = "Stock 0 ya usse zyada (whole number)";
+    else if (!(price >= 1 && price <= mrp)) err = "Selling price must be between 1 and the MRP";
+    else if (stocks.some((s) => !(Number.isInteger(s) && s >= 0))) err = "Stock must be 0 or more (whole number)";
     document.getElementById("quick-err").textContent = err;
     if (err) return;
     L.mrp = mrp; L.price = price;
     L.variants.forEach((x, i) => (x.stock = stocks[i]));
     saveListing(L);
     closeModal();
-    showToast("Price / stock update ho gaya ✓");
+    showToast("Price / stock updated ✓");
     render();
   });
 }
@@ -218,7 +218,7 @@ function exportListingsCsv(list) {
     L.variants.forEach((x) => lines.push([L.id, LISTING_STATUS[listingDisplayStatus(L)].label, L.name, L.brand, verticalPath(v), x.sku, x.size, x.stock, L.mrp, L.price, fee.settlement, L.quality ?? listingQuality(L).score].map(csvCell).join(",")));
   });
   downloadText(`zzapkart-listings-${dayKey()}.csv`, lines.join("\r\n"));
-  showToast("Listings CSV download ho gaya");
+  showToast("Listings CSV downloaded");
 }
 
 // =====================================================================
@@ -275,7 +275,7 @@ function viewAddListing() {
     const id = Number(parts[2]);
     if (!LF || LF.mode !== "edit" || LF.data.id !== id) {
       const L = getListing(id);
-      if (!L || L.sellerId !== me.id) { content.innerHTML = `<div class="panel empty"><p>Listing nahi mili.</p><a href="#listings" class="btn">My Listings</a></div>`; return; }
+      if (!L || L.sellerId !== me.id) { content.innerHTML = `<div class="panel empty"><p>Listing not found.</p><a href="#listings" class="btn">My Listings</a></div>`; return; }
       const data = clone(L);
       data.features = (data.features || []).concat(["", "", "", "", ""]).slice(0, 5);
       data.attrs = data.attrs || {};
@@ -331,10 +331,10 @@ function pickerSummary(v) {
       <li><span>GST</span><strong>${tpl.gst.map((g) => g + "%").join(" / ")}</strong></li>
       <li><span>HSN (suggested)</span><strong>${esc(tpl.hsn[0])}</strong></li>
       <li><span>Images</span><strong>min ${r.min}${r.ratio ? ` · ${r.ratio[0]}:${r.ratio[1]}` : ""}</strong></li>
-      <li><span>Sizes</span><strong>${sizes ? esc(`${sizes[0]} – ${sizes[sizes.length - 1]}`) : "Nahi (single SKU)"}</strong></li>
+      <li><span>Sizes</span><strong>${sizes ? esc(`${sizes[0]} – ${sizes[sizes.length - 1]}`) : "None (single SKU)"}</strong></li>
     </ul>
-    ${lock ? `<div class="alert warn">🔒 Is category ke liye <strong>${esc(RESTRICTED[tpl.restricted].label)}</strong> approval chahiye. Draft bana sakte ho — QC ke liye bhejne se pehle <a href="#approvals">approval lein</a>.</div>` : ""}
-    <button type="button" class="btn" data-v="${v.id}">Continue → product details bharein</button>
+    ${lock ? `<div class="alert warn">🔒 This category needs <strong>${esc(RESTRICTED[tpl.restricted].label)}</strong> approval. You can save a draft — <a href="#approvals">get approval</a> before sending it for QC.</div>` : ""}
+    <button type="button" class="btn" data-v="${v.id}">Continue → add product details</button>
   </div>`;
 }
 
@@ -347,25 +347,25 @@ function renderPicker(forLegacy) {
   const locked = (x) => TEMPLATES[x.template].restricted && !isCategoryApproved(me.id, TEMPLATES[x.template].restricted);
   content.innerHTML = `<div id="picker-root">
     <p class="breadcrumb-dark"><a href="#listings">My Listings</a> › Add Listing</p>
-    <h1 class="dash-title">${forLegacy ? "Is listing ki category chunein" : "Kya bechna hai? Category chunein"}</h1>
-    <p class="muted">Main category → category → sub category chunein. Isi se aage ka form (fields, size chart, image rules, GST / HSN) badalta hai. Galat category = QC reject ya kam visibility.</p>
+    <h1 class="dash-title">${forLegacy ? "Choose a category for this listing" : "What are you selling? Choose a category"}</h1>
+    <p class="muted">Choose main category → category → sub category. This decides the rest of the form (fields, size chart, image rules, GST / HSN). The wrong category means QC rejection or lower visibility.</p>
     <section class="panel">
-      <h2><span class="step-no">1</span> Category chunein</h2>
+      <h2><span class="step-no">1</span> Choose a category</h2>
       <div class="cascade">
         <label>Main category
-          <select id="pk-sup"><option value="">— Main category chunein —</option>${TAXONOMY.map((t) => opt(t.name, t.name, sup ? sup.name : "")).join("")}</select></label>
+          <select id="pk-sup"><option value="">— Choose main category —</option>${TAXONOMY.map((t) => opt(t.name, t.name, sup ? sup.name : "")).join("")}</select></label>
         <span class="cascade-arrow" aria-hidden="true">›</span>
         <label>Category
-          <select id="pk-cat" ${sup ? "" : "disabled"}><option value="">${sup ? "— Category chunein —" : "Pehle main category chunein"}</option>${sup ? sup.cats.map((c) => opt(c.name, c.name, pickerCat)).join("") : ""}</select></label>
+          <select id="pk-cat" ${sup ? "" : "disabled"}><option value="">${sup ? "— Choose category —" : "Choose a main category first"}</option>${sup ? sup.cats.map((c) => opt(c.name, c.name, pickerCat)).join("") : ""}</select></label>
         <span class="cascade-arrow" aria-hidden="true">›</span>
         <label>Sub category
-          <select id="pk-v" ${cat ? "" : "disabled"}><option value="">${cat ? "— Sub category chunein —" : "Pehle category chunein"}</option>${verts.map((x) => opt(x.id, x.name + (locked(x) ? " 🔒" : ""), pickerV)).join("")}</select></label>
+          <select id="pk-v" ${cat ? "" : "disabled"}><option value="">${cat ? "— Choose sub category —" : "Choose a category first"}</option>${verts.map((x) => opt(x.id, x.name + (locked(x) ? " 🔒" : ""), pickerV)).join("")}</select></label>
       </div>
-      <div id="pk-info">${v ? pickerSummary(v) : `<p class="muted pk-hint">${!sup ? "1️⃣ Main category chunein (jaise Fashion)" : !cat ? "2️⃣ Ab category chunein (jaise Men Top Wear)" : "3️⃣ Ab sub category chunein (jaise T-Shirts)"}</p>`}</div>
+      <div id="pk-info">${v ? pickerSummary(v) : `<p class="muted pk-hint">${!sup ? "1️⃣ Choose a main category (e.g. Fashion)" : !cat ? "2️⃣ Now choose a category (e.g. Men Top Wear)" : "3️⃣ Now choose a sub category (e.g. T-Shirts)"}</p>`}</div>
     </section>
     <section class="panel">
-      <h2>Ya seedha search karein</h2>
-      <input type="search" id="vsearch" class="v-search" placeholder="Search karein: T-Shirts, Jeans, Earbuds, Face Wash, Tea..." autocomplete="off" />
+      <h2>Or search directly</h2>
+      <input type="search" id="vsearch" class="v-search" placeholder="Search: T-Shirts, Jeans, Earbuds, Face Wash, Tea..." autocomplete="off" />
       <div id="vresults" class="v-results"></div>
     </section></div>`;
   const pick = (id) => {
@@ -405,7 +405,7 @@ function renderPicker(forLegacy) {
     const res = searchVerticals(vs.value);
     document.getElementById("vresults").innerHTML = vs.value.trim()
       ? (res.length ? res.map((x) => `<button class="v-result" data-v="${x.id}"><strong>${esc(x.name)}</strong><span class="muted small">${esc(x.superCat)} › ${esc(x.cat)}</span>${TEMPLATES[x.template].restricted ? `<span class="lock-tag">Approval</span>` : ""}</button>`).join("")
-        : `<p class="muted">Kuch nahi mila — upar dropdown se chunein.</p>`)
+        : `<p class="muted">Nothing found — choose from the dropdowns above.</p>`)
       : "";
   });
 }
@@ -433,30 +433,30 @@ function fSelect(path, label, options, opts = {}) {
 function fTextarea(path, label, opts = {}) {
   return fieldWrap(path, label, `<textarea data-f="${path}" rows="${opts.rows || 3}" maxlength="${opts.max || 2000}" placeholder="${esc(opts.ph || "")}">${esc(getPath(LF.data, path) ?? "")}</textarea>`, opts);
 }
-// HSN: suggested codes (code + matlab) + "doosra code" + HSN finder
+// HSN: suggested codes (code + meaning) + "other code" + HSN finder
 function hsnHint(code) {
   const c = String(code || "").trim();
-  if (!c) return 'Code likhein ya neeche "HSN code dhoondho" se chunein';
+  if (!c) return 'Type a code or use "Find an HSN code" below';
   const d = hsnDesc(c);
-  return d ? "📘 " + esc(d) : "Ye code hamari list me nahi — GST portal se confirm karein";
+  return d ? "📘 " + esc(d) : "This code isn't in our list — confirm it on the GST portal";
 }
 function hsnFieldHtml(tpl) {
   const cur = String(LF.data.hsn ?? "");
   const listed = tpl.hsn.includes(cur);
   return `<label class="fld hsn-fld">HSN Code <span class="req">*</span>
-    <select data-act="hsn-pick" aria-label="HSN code chunein">
+    <select data-act="hsn-pick" aria-label="Choose an HSN code">
       ${tpl.hsn.map((h) => `<option value="${h}" ${h === cur ? "selected" : ""}>${h} — ${esc(hsnDesc(h))}</option>`).join("")}
-      <option value="__other" ${listed ? "" : "selected"}>Doosra HSN code (khud likhein)</option>
+      <option value="__other" ${listed ? "" : "selected"}>Another HSN code (type it in)</option>
     </select>
-    <input data-f="hsn" type="text" inputmode="numeric" maxlength="8" class="hsn-custom ${listed ? "hidden" : ""}" value="${esc(cur)}" placeholder="4, 6 ya 8 digit HSN code" aria-label="HSN code" />
+    <input data-f="hsn" type="text" inputmode="numeric" maxlength="8" class="hsn-custom ${listed ? "hidden" : ""}" value="${esc(cur)}" placeholder="4, 6 or 8 digit HSN code" aria-label="HSN code" />
     <small class="hint" id="hsn-desc">${hsnHint(cur)}</small>
     <small class="err" data-err="hsn"></small></label>`;
 }
 function hsnFinderHtml() {
-  return `<details class="hsn-finder"><summary>🔎 HSN code nahi pata? Yahan dhoondho</summary>
-    <input type="search" id="hsn-q" placeholder="Product ya code likhein — jaise cotton t-shirt, earphones, 6109" autocomplete="off" aria-label="HSN search" />
+  return `<details class="hsn-finder"><summary>🔎 Don't know the HSN code? Find it here</summary>
+    <input type="search" id="hsn-q" placeholder="Type a product or code — e.g. cotton t-shirt, earphones, 6109" autocomplete="off" aria-label="HSN search" />
     <div id="hsn-results" class="hsn-results"></div>
-    <p class="small muted">Description sirf madad ke liye hai. Final HSN apne CA ya <a href="https://services.gst.gov.in/services/searchhsnsac" target="_blank" rel="noopener">GST portal (HSN search)</a> se confirm karein.</p>
+    <p class="small muted">Descriptions are a guide only. Confirm the final HSN with your CA or the <a href="https://services.gst.gov.in/services/searchhsnsac" target="_blank" rel="noopener">GST portal (HSN search)</a>.</p>
   </details>`;
 }
 function renderHsnResults(q) {
@@ -465,7 +465,7 @@ function renderHsnResults(q) {
   const res = searchHsn(q);
   box.innerHTML = !q.trim() ? "" : res.length
     ? res.map((x) => `<button type="button" class="hsn-hit" data-act="hsn-use" data-code="${x.code}"><strong>${x.code}</strong><span>${esc(x.desc)}</span></button>`).join("")
-    : `<p class="muted small">Kuch nahi mila — doosra shabd try karein.</p>`;
+    : `<p class="muted small">Nothing found — try another word.</p>`;
 }
 function setHsn(code) {
   const root = document.getElementById("lf-root");
@@ -495,11 +495,11 @@ function renderListingForm() {
     <p class="breadcrumb-dark"><a href="#listings">My Listings</a> › <a href="#add-listing">Add Listing</a> › ${esc(verticalPath(v))}</p>
     <div class="dash-head">
       <h1 class="dash-title">${LF.mode === "edit" ? "Edit listing" : "New listing"}: ${esc(v.name)}</h1>
-      ${LF.mode === "new" ? `<a href="#add-listing" class="btn-sm btn-outline">Category badlo</a>` : ""}
+      ${LF.mode === "new" ? `<a href="#add-listing" class="btn-sm btn-outline">Change category</a>` : ""}
     </div>
-    ${d.status === "qc_failed" && d.qcReasons && d.qcReasons.length ? `<div class="alert error"><strong>QC error — ye theek karke dobara bhejein:</strong><br>${d.qcReasons.map((r) => "• " + esc(r)).join("<br>")}</div>` : ""}
-    ${isLive ? `<div class="alert info">Ye listing live hai. Price / stock ke liye <a href="#listings">My Listings → Price / Stock</a> use karein (turant update). Yahan se content badlenge to listing dobara QC me jayegi.</div>` : ""}
-    ${restrictedLocked ? `<div class="alert warn">🔒 <strong>${esc(RESTRICTED[tpl.restricted].label)}</strong> restricted category hai — ${esc(RESTRICTED[tpl.restricted].license)} se <a href="#approvals">category approval</a> lena hoga. Tab tak draft save kar sakte hain.</div>` : ""}
+    ${d.status === "qc_failed" && d.qcReasons && d.qcReasons.length ? `<div class="alert error"><strong>QC errors — fix these and resubmit:</strong><br>${d.qcReasons.map((r) => "• " + esc(r)).join("<br>")}</div>` : ""}
+    ${isLive ? `<div class="alert info">This listing is live. Use <a href="#listings">My Listings → Price / Stock</a> for price and stock (updates instantly). Changing content here sends the listing back to QC.</div>` : ""}
+    ${restrictedLocked ? `<div class="alert warn">🔒 <strong>${esc(RESTRICTED[tpl.restricted].label)}</strong> is a restricted category — you need <a href="#approvals">category approval</a> with your ${esc(RESTRICTED[tpl.restricted].license)}. You can save a draft until then.</div>` : ""}
     <div id="lf-errors"></div>
     <div class="wizard lf-wrap checkout-form" id="lf-root">
       <div class="wizard-main">
@@ -525,11 +525,11 @@ function renderSection(id) {
   if (id === "details") {
     html = `<div class="form-grid">
       ${fInput("name", "Product Name", { req: true, full: true, max: 150, ph: "Brand + Gender + Product + Fabric + Fit + Colour",
-        hint: `Pattern: <em>Brand + Gender + Product + Fabric + Fit + Colour</em>. Price / offer words (₹, % off, free, sale) mat likhein. <span id="name-count">${String(d.name || "").length}</span>/150` })}
-      ${fInput("brand", "Brand", { req: true, max: 50, ph: "ZZAPKART", hint: "Apna brand nahi hai to 'Generic' likhein" })}
-      ${fInput("keywords", "Search Keywords", { ph: "cotton tshirt, round neck tee", hint: "Comma se alag (good-to-have)" })}
-      ${fTextarea("description", "Product Description", { req: true, full: true, rows: 4, max: 2000, ph: "Fabric, fit, use, care — 30+ characters. Phone / link na daalein." })}
-      <div class="fld full"><span>Key Features <span class="muted">(5 bullet points — good-to-have, Amazon me required)</span></span>
+        hint: `Pattern: <em>Brand + Gender + Product + Fabric + Fit + Colour</em>. No price / offer words (₹, % off, free, sale). <span id="name-count">${String(d.name || "").length}</span>/150` })}
+      ${fInput("brand", "Brand", { req: true, max: 50, ph: "ZZAPKART", hint: "Use 'Generic' if you don't have a brand" })}
+      ${fInput("keywords", "Search Keywords", { ph: "cotton tshirt, round neck tee", hint: "Separate with commas (good to have)" })}
+      ${fTextarea("description", "Product Description", { req: true, full: true, rows: 4, max: 2000, ph: "Fabric, fit, use, care — 30+ characters. No phone numbers or links." })}
+      <div class="fld full"><span>Key Features <span class="muted">(5 bullet points — good to have)</span></span>
         ${d.features.map((f, i) => `<input data-f="features.${i}" type="text" maxlength="200" value="${esc(f)}" placeholder="Feature ${i + 1}" class="feature-input" />`).join("")}
       </div>
     </div>`;
@@ -537,20 +537,20 @@ function renderSection(id) {
     html = `<h3 class="sub-h">Compulsory <span class="muted small">(${tpl.label})</span></h3>
       <div class="form-grid three">${tpl.req.map((a) => attrField(a, true)).join("")}</div>
       <details class="good-attrs" ${tpl.good.some((a) => getPath(d, "attrs." + a.k)) ? "open" : ""}>
-        <summary>Good-to-have attributes <span class="boost">bharne se visibility ~21% tak badh sakti hai</span></summary>
+        <summary>Good-to-have attributes <span class="boost">can increase visibility by up to ~21%</span></summary>
         <div class="form-grid three">${tpl.good.map((a) => attrField(a, false)).join("")}</div>
       </details>`;
   } else if (id === "variants") {
     const chart = tpl.sizeChart || [];
     if (sizes) {
       const chosen = new Set(d.variants.map((x) => x.size));
-      html = `<p class="muted">Jo sizes bechne hain unpe click karein. Har size ka alag SKU aur stock hoga (SKU me size rakhna achha hai, jaise ZZ-CL-RN01-M).</p>
+      html = `<p class="muted">Click the sizes you sell. Each size gets its own SKU and stock (include the size in the SKU, e.g. ZZ-CL-RN01-M).</p>
         <div class="size-picker seller">${sizes.map((s) => `<button type="button" class="size-btn ${chosen.has(s) ? "active" : ""}" data-act="size" data-size="${esc(s)}">${esc(s)}</button>`).join("")}</div>
         <small class="err" data-err="variants"></small>
         ${d.variants.length ? `
           <div class="variant-tools">
             <button type="button" class="btn-sm btn-outline" data-act="auto-sku">⚡ Auto SKU</button>
-            <span class="muted small">Sab sizes ka stock:</span><input type="number" min="0" id="bulk-stock" class="bid-input" placeholder="10" />
+            <span class="muted small">Stock for all sizes:</span><input type="number" min="0" id="bulk-stock" class="bid-input" placeholder="10" />
             <button type="button" class="btn-sm btn-outline" data-act="bulk-stock">Apply</button>
           </div>
           <div class="table-wrap"><table class="table variant-table">
@@ -561,10 +561,10 @@ function renderSection(id) {
               <td><input data-f="variants.${i}.stock" data-num="1" type="number" min="0" step="1" value="${esc(x.stock)}" class="bid-input" /><small class="err" data-err="variants.${i}.stock"></small></td>
               ${chart.map((f) => `<td><input data-f="sizeChart.${x.size}.${f.k}" data-num="1" type="number" min="0" step="0.5" value="${esc(getPath(d, `sizeChart.${x.size}.${f.k}`) ?? "")}" class="bid-input" /></td>`).join("")}
             </tr>`).join("")}</tbody></table></div>
-          ${chart.length ? `<small class="err" data-err="sizeChart"></small><p class="muted small">Size chart compulsory hai (Meesho jaisa) — measurements garment ke, inch / cm me.</p>` : ""}` : ""}`;
+          ${chart.length ? `<small class="err" data-err="sizeChart"></small><p class="muted small">A size chart is required — garment measurements in inches / cm.</p>` : ""}` : ""}`;
     } else {
       html = `<div class="form-grid">
-        ${fInput("variants.0.sku", "Seller SKU ID", { req: true, max: 40, ph: "ZZ-EB-001", hint: "Aapka apna unique code" })}
+        ${fInput("variants.0.sku", "Seller SKU ID", { req: true, max: 40, ph: "ZZ-EB-001", hint: "Your own unique code" })}
         ${fInput("variants.0.stock", "Stock", { req: true, type: "number" })}
         <div class="fld"><button type="button" class="btn-sm btn-outline" data-act="auto-sku">⚡ Auto SKU</button></div>
       </div>`;
@@ -582,17 +582,17 @@ function renderSection(id) {
   } else if (id === "images") {
     const imgs = d.images;
     const r = tpl.images;
-    html = imgs === null ? `<p class="muted">Images load ho rahi hain…</p>` : `
+    html = imgs === null ? `<p class="muted">Loading images…</p>` : `
       <ul class="rules">
-        <li>Kam se kam <strong>${r.min}</strong> image compulsory, <strong>${r.rec}</strong> recommended (front, back, model, close-up, size chart, lifestyle)</li>
-        <li><strong>Koi bhi size / resolution ki photo chalegi</strong> — best: longest side 1000 px+ (zoom ke liye)</li>
-        ${r.ratio ? `<li>Is category me <strong>${r.ratio[0]}:${r.ratio[1]}</strong> ratio — photo alag size ki ho to apne-aap safed background ke saath ${r.ratio[0]}:${r.ratio[1]} me fit ho jayegi (kuch katega nahi)</li>` : ""}
-        <li>Main image: <strong>white background</strong>, sirf product, koi text / watermark / logo / price / props nahi</li>
-        <li>JPG, PNG, WEBP, GIF, AVIF… · 1 GB tak ki file · max 8 images</li>
+        <li>At least <strong>${r.min}</strong> image required, <strong>${r.rec}</strong> recommended (front, back, model, close-up, size chart, lifestyle)</li>
+        <li><strong>Photos of any size or resolution work</strong> — best: longest side 1000 px+ (for zoom)</li>
+        ${r.ratio ? `<li>This category uses <strong>${r.ratio[0]}:${r.ratio[1]}</strong> — other photo sizes are fitted to ${r.ratio[0]}:${r.ratio[1]} on a white background automatically (nothing is cut off)</li>` : ""}
+        <li>Main image: <strong>white background</strong>, product only — no text / watermark / logo / price / props</li>
+        <li>JPG, PNG, WEBP, GIF, AVIF… · files up to 1 GB · max 8 images</li>
       </ul>
       <label class="dropzone ${imgs.length >= 8 ? "disabled" : ""}">
         <input type="file" accept="image/*" multiple data-act="img-upload" ${imgs.length >= 8 ? "disabled" : ""} />
-        <span>📷 Images chunein ya yahan drop karein</span><small class="muted">${imgs.length}/8 uploaded</small>
+        <span>📷 Choose images or drop them here</span><small class="muted">${imgs.length}/8 uploaded</small>
       </label>
       <small class="err" data-err="images"></small>
       <div class="img-grid">${imgs.map((im, i) => {
@@ -602,7 +602,7 @@ function renderSection(id) {
           <img src="${safeImg(im.thumb || im.full)}" alt="" />
           ${i === 0 ? `<span class="img-tag">MAIN</span>` : ""}
           <div class="img-meta">
-            <span class="${resOk || !im.w ? "ok" : "warn"}" title="${resOk ? "Achhi resolution" : "Chalegi — 1000px+ ho to zoom behtar"}">${im.w ? `${im.w}×${im.h}` : "size ?"}</span>
+            <span class="${resOk || !im.w ? "ok" : "warn"}" title="${resOk ? "Good resolution" : "OK — 1000px+ gives better zoom"}">${im.w ? `${im.w}×${im.h}` : "size ?"}</span>
             ${r.ratio ? `<span class="${ratioOk ? "ok" : "warn"}">${ratioOk ? (im.fitted ? `${r.ratio[0]}:${r.ratio[1]} fit ✓` : `${r.ratio[0]}:${r.ratio[1]} ✓`) : "ratio alag"}</span>` : ""}
             ${i === 0 && im.whiteBg === false ? `<span class="warn">bg not white</span>` : ""}
           </div>
@@ -621,11 +621,11 @@ function renderSection(id) {
       ${fInput("pkg.l", "Length (cm)", { req: true, type: "number" })}
       ${fInput("pkg.b", "Breadth (cm)", { req: true, type: "number" })}
       ${fInput("pkg.h", "Height (cm)", { req: true, type: "number" })}
-      ${fInput("pkg.w", "Weight (g)", { req: true, type: "number", hint: "Packaging ke saath" })}
+      ${fInput("pkg.w", "Weight (g)", { req: true, type: "number", hint: "Including packaging" })}
     </div>
-    <p class="muted small" id="vol-weight">Volumetric weight: ${volKg ? (volKg * 1000).toFixed(0) + " g" : "—"} · Shipping fee dead / volumetric me jo zyada ho us par lagti hai. T-shirt ka typical folded pack ~28×22×3 cm, 200–250 g.</p>
+    <p class="muted small" id="vol-weight">Volumetric weight: ${volKg ? (volKg * 1000).toFixed(0) + " g" : "—"} · The shipping fee uses whichever is higher: dead or volumetric weight. A folded T-shirt pack is typically ~28×22×3 cm, 200–250 g.</p>
     <div class="form-grid">
-      ${fSelect("sla", "Dispatch time (Procurement SLA)", OPT.sla.map((s) => [s, `${s} din`]), { req: true, hint: "Kam SLA = behtar ranking (Next-day dispatch best)" })}
+      ${fSelect("sla", "Dispatch time (Procurement SLA)", OPT.sla.map((s) => [s, `${s} day${s === "1" ? "" : "s"}`]), { req: true, hint: "Shorter SLA = better ranking (next-day dispatch is best)" })}
       ${fSelect("fulfilment", "Fulfilment by", [["seller", "Seller (Self Ship)"], ["zzapkart", "Zzapkart Fulfilment (warehouse)"]], { req: true })}
     </div>`;
   } else if (id === "compliance") {
@@ -636,15 +636,15 @@ function renderSection(id) {
         ${fInput(`${p}.pincode`, "Pincode", { req: true, max: 6 })}
         ${fTextarea(`${p}.address`, "Full Address", { req: true, full: true, rows: 2 })}
       </div>`;
-    html = `<p class="muted">Legal Metrology rules ke hisaab se manufacturer, packer aur importer — teeno ka naam + poora address + pincode compulsory hai. Indian product ho to importer me apni / manufacturer ki details daal sakte hain.</p>
+    html = `<p class="muted">Under Legal Metrology rules, the name, full address and pincode of the manufacturer, packer and importer are all required. For Indian products you can use your own / the manufacturer's details as the importer.</p>
       <div class="form-grid three">
         ${fSelect("countryOfOrigin", "Country of Origin", OPT.countries, { req: true })}
         ${fSelect("genericName", "Generic Name", tpl.generic, { req: true })}
         ${fInput("netQty", "Net Quantity (pieces)", { req: true, type: "number" })}
       </div>
       <div class="defaults-row">
-        ${sellerDefaults().has ? `<button type="button" class="btn-sm btn-outline" data-act="use-defaults">↺ Profile wali default details bharo</button>` : `<span class="muted small">Tip: <a href="#profile" class="link">Profile</a> me default details save karein — har listing me auto-fill hongi.</span>`}
-        <label class="check"><input type="checkbox" data-act="save-defaults" ${LF.saveDefaults ? "checked" : ""} /> Inhe meri default details bana do</label>
+        ${sellerDefaults().has ? `<button type="button" class="btn-sm btn-outline" data-act="use-defaults">↺ Fill in my default details</button>` : `<span class="muted small">Tip: save default details in your <a href="#profile" class="link">Profile</a> — they'll fill in automatically on every listing.</span>`}
+        <label class="check"><input type="checkbox" data-act="save-defaults" ${LF.saveDefaults ? "checked" : ""} /> Save these as my default details</label>
       </div>
       ${partyFields("manufacturer", "Manufacturer")}
       <label class="check"><input type="checkbox" data-act="packer-same" ${d.packerSame ? "checked" : ""} /> Packer = Manufacturer</label>
@@ -653,13 +653,13 @@ function renderSection(id) {
       ${d.importerSame ? "" : partyFields("importer", "Importer")}`;
   } else if (id === "status") {
     html = `<div class="pay-options">
-        <label class="pay-opt ${d.listingStatus === "active" ? "selected" : ""}"><input type="radio" name="lstatus" data-act="lstatus" value="active" ${d.listingStatus === "active" ? "checked" : ""} /><span><strong>Active</strong> — QC pass hote hi store par live</span></label>
-        <label class="pay-opt ${d.listingStatus === "inactive" ? "selected" : ""}"><input type="radio" name="lstatus" data-act="lstatus" value="inactive" ${d.listingStatus === "inactive" ? "checked" : ""} /><span><strong>Inactive</strong> — QC ke baad bhi chhupi rahegi</span></label>
+        <label class="pay-opt ${d.listingStatus === "active" ? "selected" : ""}"><input type="radio" name="lstatus" data-act="lstatus" value="active" ${d.listingStatus === "active" ? "checked" : ""} /><span><strong>Active</strong> — goes live as soon as it passes QC</span></label>
+        <label class="pay-opt ${d.listingStatus === "inactive" ? "selected" : ""}"><input type="radio" name="lstatus" data-act="lstatus" value="inactive" ${d.listingStatus === "inactive" ? "checked" : ""} /><span><strong>Inactive</strong> — stays hidden even after QC</span></label>
       </div>
       <div class="form-grid">
         ${fInput("ean", "EAN / UPC (barcode)", { max: 14, hint: "Good-to-have" })}
       </div>
-      <p class="muted small">🎬 Product video ab <a href="#" data-goto-sec="images" class="link">Images</a> section me add hota hai.</p>`;
+      <p class="muted small">🎬 Add the product video in the <a href="#" data-goto-sec="images" class="link">Images</a> section.</p>`;
   }
   el.innerHTML = html;
   if (id === "images") attachVideoSrc();
@@ -667,15 +667,15 @@ function renderSection(id) {
 }
 
 // ---------------------------------------------------------------------
-// Product video (Images section ke andar): file upload ya YouTube link
+// Product video (inside the Images section): file upload or YouTube link
 // ---------------------------------------------------------------------
 function videoBlockHtml() {
   const v = LF.data.video;
   const P = PRODUCT_VIDEO;
   const pick = (label) => `<input type="file" accept="video/mp4,video/webm,video/quicktime" data-act="vid-upload" aria-label="${label}" />`;
   let body;
-  if (LF.videoLoading) body = `<p class="muted">Video load ho raha hai…</p>`;
-  else if (LF.videoBusy) body = `<p class="vid-busy">⏳ Video check ho raha hai (length, quality, preview)…</p>`;
+  if (LF.videoLoading) body = `<p class="muted">Loading video…</p>`;
+  else if (LF.videoBusy) body = `<p class="vid-busy">⏳ Checking the video (length, quality, preview)…</p>`;
   else if (v && v.kind === "file") {
     const good = Math.min(v.w, v.h) >= P.goodSide;
     body = `
@@ -684,9 +684,9 @@ function videoBlockHtml() {
       <div class="vid-meta">
         <strong>${esc(v.name || "Product video")}</strong>
         <span class="muted small">${fmtDuration(v.duration)} min · ${v.w}×${v.h} · ${fmtBytes(v.size)}</span>
-        <span class="small ${good ? "green" : "text-warn"}">${good ? "✓ Quality achhi hai" : "Quality thodi kam hai — 720p / 1080p behtar"}</span>
+        <span class="small ${good ? "green" : "text-warn"}">${good ? "✓ Good quality" : "Quality is a little low — 720p / 1080p is better"}</span>
         <div class="row-actions">
-          <label class="btn btn-sm btn-outline vid-replace">Replace${pick("Video badlo")}</label>
+          <label class="btn btn-sm btn-outline vid-replace">Replace${pick("Replace the video")}</label>
           <button type="button" class="btn btn-sm btn-danger" data-act="vid-del">Remove</button>
         </div>
       </div>
@@ -704,22 +704,22 @@ function videoBlockHtml() {
   } else {
     body = `
     <label class="dropzone vid-drop">
-      ${pick("Product video chunein")}
-      <span>🎬 Video chunein ya yahan drop karein</span><small class="muted">MP4 / WebM / MOV · ${fmtBytes(P.maxMB * 1048576)} tak · ${P.minSec} sec – ${P.maxSec / 60} min</small>
+      ${pick("Choose a product video")}
+      <span>🎬 Choose a video or drop it here</span><small class="muted">MP4 / WebM / MOV · up to ${fmtBytes(P.maxMB * 1048576)} · ${P.minSec} sec – ${P.maxSec / 60} min · vertical 9:16 looks best</small>
     </label>
-    <div class="vid-or"><span>ya YouTube link lagao</span></div>
+    <div class="vid-or"><span>or add a YouTube link</span></div>
     <div class="vid-yt-row">
-      <input type="url" id="vid-yt-input" placeholder="https://youtu.be/…  ya  youtube.com/watch?v=…" aria-label="YouTube video link" autocomplete="off" />
+      <input type="url" id="vid-yt-input" placeholder="https://youtu.be/…  or  youtube.com/watch?v=…" aria-label="YouTube video link" autocomplete="off" />
       <button type="button" class="btn btn-sm" data-act="vid-yt">Add link</button>
     </div>`;
   }
   return `
     <div class="vid-box" id="vid-box">
-      <h3 class="sub-h">🎬 Product video <span class="muted small">(optional — video wale products par buyers ka bharosa zyada hota hai)</span></h3>
+      <h3 class="sub-h">🎬 Product video <span class="muted small">(optional — shown as a vertical reel; shoppers trust products with video more)</span></h3>
       <ul class="rules">
-        <li>${P.minSec} second se ${P.maxSec / 60} minute tak · kam se kam ${P.minSide}p (720p / 1080p best) · ${fmtBytes(P.maxMB * 1048576)} tak</li>
-        <li>Sirf yahi product dikhao — 360° view, fabric / fit close-up, use karte hue</li>
-        <li>Phone number, website, doosre platform ka logo / watermark nahi (QC reject hoga)</li>
+        <li>${P.minSec} seconds to ${P.maxSec / 60} minutes · at least ${P.minSide}p (720p / 1080p best) · up to ${fmtBytes(P.maxMB * 1048576)}</li>
+        <li>Show only this product — 360° view, fabric / fit close-ups, the product in use</li>
+        <li>No phone numbers, websites or other platforms' logos / watermarks (QC will reject it)</li>
       </ul>
       ${body}
       <small class="err" id="vid-err" role="alert"></small>
@@ -750,7 +750,7 @@ async function videoUpload(file) {
     LF.data.video = r;
     LF.videoDirty = true;
     LF.videoLoading = false;
-    showToast(r.lowRes ? "Video add ho gaya ✓ · 720p+ ho to aur achha" : "Video add ho gaya ✓");
+    showToast(r.lowRes ? "Video added ✓ · 720p+ looks even better" : "Video added ✓");
   } catch (e) {
     err = e.message;
     showToast(e.message);
@@ -763,23 +763,23 @@ async function videoUpload(file) {
 function videoAddYoutube() {
   const inp = document.getElementById("vid-yt-input");
   const id = ytIdFrom(inp ? inp.value : "");
-  if (!id) { videoError("Sahi YouTube link daalein — jaise https://youtu.be/abc123XYZ_0 ya youtube.com/watch?v=…"); inp && inp.focus(); return; }
+  if (!id) { videoError("Enter a valid YouTube link — e.g. https://youtu.be/abc123XYZ_0 or youtube.com/watch?v=…"); inp && inp.focus(); return; }
   LF.data.video = { kind: "yt", ytId: id };
   LF.videoDirty = true;
   LF.videoLoading = false;
   renderSection("images");
   updateSide();
-  showToast("YouTube video add ho gaya ✓");
+  showToast("YouTube video added ✓");
 }
 
 function discLabel() {
   const mrp = Number(LF.data.mrp), price = Number(LF.data.price);
-  return mrp > 0 && price > 0 && price <= mrp ? `${Math.round(((mrp - price) / mrp) * 100)}% off dikhega` : "Customer ko ye price dikhega";
+  return mrp > 0 && price > 0 && price <= mrp ? `Shown as ${Math.round(((mrp - price) / mrp) * 100)}% off` : "This is the price customers see";
 }
 
 function feeBoxHtml() {
   const d = LF.data;
-  if (!(Number(d.price) > 0)) return `<p class="muted">Selling price daalein — fees aur aapko milne wala amount yahan dikhega.</p>`;
+  if (!(Number(d.price) > 0)) return `<p class="muted">Enter a selling price — the fees and the amount you receive appear here.</p>`;
   const f = feeBreakdown(d.price, lft(), d.pkg);
   return `
     <h3>Fees &amp; settlement <span class="muted small">(Zzapkart demo fee schedule)</span></h3>
@@ -790,9 +790,9 @@ function feeBoxHtml() {
       <tr><td>Shipping fee (${f.shipKg} kg, national)</td><td class="num">− ${money2(f.shipping)}</td></tr>
       <tr><td>Collection fee (2%)</td><td class="num">− ${money2(f.collection)}</td></tr>
       <tr><td>GST on fees (18%)</td><td class="num">− ${money2(f.gst)}</td></tr>
-      <tr class="total"><td>Aapko milega (per unit)</td><td class="num">${money2(f.settlement)}</td></tr>
+      <tr class="total"><td>You receive (per unit)</td><td class="num">${money2(f.settlement)}</td></tr>
     </tbody></table>
-    <p class="muted small">Pricing decide karte waqt hamesha settlement amount se profit nikalein. Local / zonal shipping national se sasti hoti hai.</p>`;
+    <p class="muted small">When pricing, always work out profit from the settlement amount. Local / zonal shipping costs less than national.</p>`;
 }
 
 function updateSide() {
@@ -814,18 +814,18 @@ function updateSide() {
     <ul class="checklist">${FORM_SECTIONS.map(([id, title]) => `<li class="${perSec[id] ? "todo" : "done"}"><a href="#" data-goto="${id}">${perSec[id] ? `<b>${perSec[id]}</b>` : "✓"} ${esc(id === "variants" && !sizesOf(lfv()) ? "SKU & stock" : title)}</a></li>`).join("")}
       ${perSec.account ? `<li class="todo"><b>!</b> ${res.errors.filter((e) => sectionOf(e.path) === "account").map((e) => esc(e.msg)).join(" · ")}</li>` : ""}</ul>
     ${q.missingGood.length ? `<div class="side-tip"><strong>Visibility badhao:</strong> ${q.missingGood.slice(0, 4).map(esc).join(", ")}${q.missingGood.length > 4 ? "…" : ""}</div>` : ""}
-    ${fee ? `<div class="side-fee">Aapko milega <strong>${money2(fee.settlement)}</strong> / unit</div>` : ""}
+    ${fee ? `<div class="side-fee">You receive <strong>${money2(fee.settlement)}</strong> / unit</div>` : ""}
     <button class="btn checkout-btn" id="lf-submit">${d.status === "qc_passed" ? "Submit changes for QC" : "Submit for QC"}</button>
     ${d.status !== "qc_passed" ? `<button class="btn btn-outline checkout-btn" id="lf-draft">Save draft</button>` : `<a class="btn btn-outline checkout-btn" href="#listings">Cancel</a>`}
-    <details class="side-tips"><summary>Rejection se bachne ke tips</summary>
+    <details class="side-tips"><summary>Tips to avoid rejection</summary>
       <ul>
-        <li>Sahi category / vertical chunein</li>
-        <li>Dropdown values hi use karein</li>
-        <li>Package dimensions sahi (galat value = galat fee)</li>
-        <li>Title me keyword stuffing / offer words nahi</li>
-        <li>Main image clean: white bg, sirf product</li>
-        <li>Good-to-have fields bhi bharein</li>
-        <li>Har size ka alag SKU</li>
+        <li>Choose the right category / vertical</li>
+        <li>Use the dropdown values</li>
+        <li>Accurate package dimensions (wrong values = wrong fees)</li>
+        <li>No keyword stuffing / offer words in the title</li>
+        <li>Clean main image: white background, product only</li>
+        <li>Fill in the good-to-have fields too</li>
+        <li>A separate SKU for each size</li>
       </ul></details>`;
   side.querySelectorAll("[data-goto]").forEach((a) => a.addEventListener("click", (e) => {
     e.preventDefault();
@@ -856,8 +856,8 @@ function showValidation(res) {
   const box = document.getElementById("lf-errors");
   const secName = (p) => (FORM_SECTIONS.find(([id]) => id === sectionOf(p)) || [, "Account"])[1];
   box.innerHTML = `
-    ${res.errors.length ? `<div class="alert error"><strong>${res.errors.length} cheezein theek karni hain:</strong>
-      <ul class="err-list">${res.errors.slice(0, 12).map((e) => `<li><a href="#" data-goto="${sectionOf(e.path)}">${esc(secName(e.path))}</a>: ${esc(e.msg)}</li>`).join("")}${res.errors.length > 12 ? `<li>…aur ${res.errors.length - 12}</li>` : ""}</ul></div>` : ""}
+    ${res.errors.length ? `<div class="alert error"><strong>${res.errors.length} thing(s) to fix:</strong>
+      <ul class="err-list">${res.errors.slice(0, 12).map((e) => `<li><a href="#" data-goto="${sectionOf(e.path)}">${esc(secName(e.path))}</a>: ${esc(e.msg)}</li>`).join("")}${res.errors.length > 12 ? `<li>…and ${res.errors.length - 12} more</li>` : ""}</ul></div>` : ""}
     ${res.warnings.length ? `<div class="alert warn"><strong>Suggestions:</strong><ul class="err-list">${res.warnings.map((w) => `<li>${esc(w.msg)}</li>`).join("")}</ul></div>` : ""}`;
   box.querySelectorAll("[data-goto]").forEach((a) => a.addEventListener("click", (e) => {
     e.preventDefault();
@@ -890,11 +890,11 @@ function wireForm() {
       if (p.startsWith("pkg.")) {
         const pkg = LF.data.pkg, vk = pkg.l && pkg.b && pkg.h ? (pkg.l * pkg.b * pkg.h) / 5000 : 0;
         const vw = document.getElementById("vol-weight");
-        if (vw) vw.firstChild.textContent = `Volumetric weight: ${vk ? (vk * 1000).toFixed(0) + " g" : "—"} · Shipping fee dead / volumetric me jo zyada ho us par lagti hai. T-shirt ka typical folded pack ~28×22×3 cm, 200–250 g.`;
+        if (vw) vw.firstChild.textContent = `Volumetric weight: ${vk ? (vk * 1000).toFixed(0) + " g" : "—"} · The shipping fee uses whichever is higher: dead or volumetric weight. A folded T-shirt pack is typically ~28×22×3 cm, 200–250 g.`;
       }
     }
     if (LF.shown) {
-      // Is field ki purani error hata do
+      // Clear this field's old error
       LF.errors = LF.errors.filter((x) => x.path !== p);
       applyErrors();
     }
@@ -980,10 +980,10 @@ function wireForm() {
       LF.videoLoading = false;
       renderSection("images");
       updateSide();
-      showToast("Video hata diya");
+      showToast("Video removed");
     }
     if (act === "vid-yt") videoAddYoutube();
-    if (act === "hsn-use") { setHsn(b.dataset.code); showToast(`HSN ${b.dataset.code} chuna ✓`); }
+    if (act === "hsn-use") { setHsn(b.dataset.code); showToast(`HSN ${b.dataset.code} selected ✓`); }
     if (act === "size") {
       const size = b.dataset.size;
       const i = d.variants.findIndex((x) => x.size === size);
@@ -1004,7 +1004,7 @@ function wireForm() {
     }
     if (act === "bulk-stock") {
       const val = Number(document.getElementById("bulk-stock").value);
-      if (!(Number.isInteger(val) && val >= 0)) { showToast("Stock number daalein"); return; }
+      if (!(Number.isInteger(val) && val >= 0)) { showToast("Enter a stock number"); return; }
       d.variants.forEach((x) => (x.stock = val));
       renderSection("variants");
       updateSide();
@@ -1053,19 +1053,19 @@ async function persistListing(status) {
   });
   if (status === "qc_pending") { rec.submittedAt = Date.now(); rec.qcReasons = []; }
   rec.legacy = false;
-  // Video: listing me sirf chhota sa info, asli file IndexedDB me
+  // Video: only small metadata in the listing; the actual file lives in IndexedDB
   delete rec.videoUrl;
   rec.video = cleanVideoMeta(d.video);
   if (LF.videoDirty) {
     const v = d.video;
     if (v && v.kind === "file" && v.blob instanceof Blob) {
       if (v.size > BIG_VIDEO) {
-        // Bada video (1 GB tak) save hone me kuch second lagte hain — tab tak dobara click na ho
-        showToast(`⏳ ${fmtBytes(v.size)} ka video save ho raha hai — page band na karein…`);
+        // Big videos (up to 1 GB) take a few seconds to save — prevent double clicks meanwhile
+        showToast(`⏳ Saving your ${fmtBytes(v.size)} video — please keep this page open…`);
         document.querySelectorAll("#lf-side .checkout-btn").forEach((b) => (b.disabled = true));
       }
       const ok = await MediaDB.put(videoKey(rec.id), { blob: v.blob, type: v.type, name: v.name, size: v.size, duration: v.duration, w: v.w, h: v.h, poster: v.poster });
-      if (!ok) { showToast("Video save nahi ho paya (browser storage bhar gaya) — chhota video try karein"); rec.video = null; }
+      if (!ok) { showToast("The video couldn't be saved (browser storage is full) — try a smaller video"); rec.video = null; }
     } else await MediaDB.del(videoKey(rec.id));
     LF.videoDirty = false;
   }
@@ -1081,11 +1081,11 @@ async function persistListing(status) {
 }
 
 async function saveDraftListing() {
-  if (String(LF.data.name || "").trim().length < 3) { showToast("Draft ke liye kam se kam product name likhein"); document.getElementById("sec-details").scrollIntoView({ behavior: "smooth" }); return; }
+  if (String(LF.data.name || "").trim().length < 3) { showToast("Enter at least the product name to save a draft"); document.getElementById("sec-details").scrollIntoView({ behavior: "smooth" }); return; }
   const saved = await persistListing(LF.data.status === "qc_failed" ? "qc_failed" : "draft");
   if (!saved) return;
   LF = null;
-  showToast("Draft save ho gaya ✓");
+  showToast("Draft saved ✓");
   location.hash = "listings/progress";
 }
 
@@ -1100,17 +1100,17 @@ async function submitListing() {
     limitReached: countsTowardLimit(d.id) >= plan().productLimit,
   });
   showValidation(res);
-  if (res.errors.length) { showToast(`${res.errors.length} errors — pehle theek karein`); return; }
+  if (res.errors.length) { showToast(`${res.errors.length} errors — please fix them first`); return; }
   const saved = await persistListing("qc_pending");
   if (!saved) return;
-  notifySeller(me.id, `🧪 "${saved.name}" QC ke liye bheji gayi. QC pass hote hi store par live hogi.`);
+  notifySeller(me.id, `🧪 "${saved.name}" was sent for QC. It goes live as soon as it passes.`);
   LF = null;
-  showToast("Listing QC ke liye bhej di ✓");
+  showToast("Listing sent for QC ✓");
   location.hash = "listings/progress";
 }
 
 // =====================================================================
-// BULK UPLOAD (CSV) — Flipkart "Add Bulk Listing" / Meesho "Catalog in Bulk"
+// BULK UPLOAD (CSV)
 // =====================================================================
 let bulkVertical = "";
 let bulkParsed = null; // { groups: [{ key, rows, draft, errors }] }
@@ -1153,7 +1153,7 @@ function sampleValue(col, v, rowIdx) {
   const sizes = sizesOf(v);
   const map = {
     group: "GRP-001", sku: `ZZ-SAMPLE-${sizes ? sizes[2 + rowIdx] || "M" : "01"}`.replace(/\s+/g, ""), size: sizes ? sizes[2 + rowIdx] || sizes[0] : "",
-    stock: "10", name: `ZZAPKART Sample ${v.name} Item`, brand: "ZZAPKART", description: `Sample description for ${v.name} — fabric / material, use aur care likhein.`,
+    stock: "10", name: `ZZAPKART Sample ${v.name} Item`, brand: "ZZAPKART", description: `Sample description for ${v.name} — describe the fabric / material, use and care.`,
     features: "Feature one|Feature two|Feature three", keywords: v.name.toLowerCase(), mrp: "999", price: "599", gst: String(tpl.gst[0]), hsn: tpl.hsn[0],
     "pkg.l": "28", "pkg.b": "22", "pkg.h": "3", "pkg.w": "250", sla: "2", countryOfOrigin: "India", genericName: tpl.generic[0], netQty: "1", listingStatus: "Active",
   };
@@ -1202,12 +1202,12 @@ function canonical(col, raw) {
 function buildBulkGroups(text, v) {
   const cols = bulkColumns(v);
   const rows = parseCSV(text);
-  if (rows.length < 2) return { error: "CSV me header ke baad kam se kam ek row chahiye" };
+  if (rows.length < 2) return { error: "The CSV needs at least one row after the header" };
   const header = rows[0].map((h) => String(h).replace(/\*/g, "").trim().toLowerCase());
   const idx = {};
   cols.forEach((c) => { idx[c.k] = header.indexOf(c.h.toLowerCase()); });
   const missingCols = cols.filter((c) => c.req && idx[c.k] < 0).map((c) => c.h);
-  if (missingCols.length) return { error: `Template ke columns missing: ${missingCols.slice(0, 5).join(", ")}${missingCols.length > 5 ? "…" : ""}. Isi category ka template download karke use karein.` };
+  if (missingCols.length) return { error: `Missing template columns: ${missingCols.slice(0, 5).join(", ")}${missingCols.length > 5 ? "…" : ""}. Download and use the template for this category.` };
 
   const df = sellerDefaults();
   const groups = new Map();
@@ -1244,10 +1244,10 @@ function buildBulkGroups(text, v) {
     });
     const res = validateListing(draft, { forSubmit: false, otherSkus: skuSeen });
     const errors = res.errors.filter((e) => !e.path.startsWith("images"));
-    if (!df.has) errors.push({ path: "manufacturer.name", msg: "Profile me default manufacturer / packer / importer details save karein" });
+    if (!df.has) errors.push({ path: "manufacturer.name", msg: "Save default manufacturer / packer / importer details in your Profile" });
     if (sizesOf(v)) {
       const dup = draft.variants.map((x) => x.size).filter((s, i, arr) => s && arr.indexOf(s) !== i);
-      if (dup.length) errors.push({ path: "variants", msg: `Size repeat hua: ${dup.join(", ")}` });
+      if (dup.length) errors.push({ path: "variants", msg: `Repeated size: ${dup.join(", ")}` });
     }
     if (!errors.length) draft.variants.forEach((x) => skuSeen.add(String(x.sku).toUpperCase()));
     out.push({ key: g.key, rowNums: g.rowNums, draft, errors });
@@ -1262,10 +1262,10 @@ function viewBulk() {
   content.innerHTML = `
     <p class="breadcrumb-dark"><a href="#listings">My Listings</a> › Bulk Upload</p>
     <h1 class="dash-title">Bulk Upload (CSV)</h1>
-    <p class="muted">Ek category ke bahut saare products ek saath. Ek hi <strong>Group ID</strong> wali rows = ek listing ke alag-alag sizes. Listings <strong>Draft</strong> banengi — images add karke QC ke liye bhejein.</p>
-    ${df.has ? "" : `<div class="alert warn">Pehle <a href="#profile">Profile → Default compliance details</a> (manufacturer / packer / importer) save karein — bulk listings me wahi lagengi.</div>`}
+    <p class="muted">Add many products from one category at once. Rows with the same <strong>Group ID</strong> = different sizes of one listing. Listings are created as <strong>Drafts</strong> — add images and send them for QC.</p>
+    ${df.has ? "" : `<div class="alert warn">First save your <a href="#profile">Profile → Default compliance details</a> (manufacturer / packer / importer) — bulk listings use them.</div>`}
     <section class="panel">
-      <h2><span class="step-no">1</span> Category chunein</h2>
+      <h2><span class="step-no">1</span> Choose a category</h2>
       <select id="bulk-vertical" class="range-select wide">
         <option value="">— Category / vertical —</option>
         ${TAXONOMY.map((t) => t.cats.map((c) => `<optgroup label="${esc(t.name)} › ${esc(c.name)}">${VERTICALS.filter((x) => x.cat === c.name && x.superCat === t.name).map((x) => `<option value="${x.id}" ${x.id === bulkVertical ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</optgroup>`).join("")).join("")}
@@ -1273,16 +1273,16 @@ function viewBulk() {
     </section>
     ${v ? `
     <section class="panel">
-      <h2><span class="step-no">2</span> Template download karein</h2>
-      <p class="muted">${cols.length} columns (${cols.filter((c) => c.req).length} compulsory — header me <strong>*</strong>). Sample rows hata kar apne products bharein.</p>
+      <h2><span class="step-no">2</span> Download the template</h2>
+      <p class="muted">${cols.length} columns (${cols.filter((c) => c.req).length} required — marked <strong>*</strong> in the header). Replace the sample rows with your products.</p>
       <button class="btn" id="bulk-template">⬇ ${esc(v.name)} template (.csv)</button>
-      <details class="data-table"><summary>Dropdown columns ki allowed values</summary>
+      <details class="data-table"><summary>Allowed values for dropdown columns</summary>
         <table class="table"><tbody>${cols.filter((c) => c.o).map((c) => `<tr><th>${esc(c.h)}</th><td class="small">${c.o.map(esc).join(", ")}</td></tr>`).join("")}</tbody></table>
       </details>
     </section>
     <section class="panel">
-      <h2><span class="step-no">3</span> Bhari hui CSV upload karein</h2>
-      <label class="dropzone"><input type="file" accept=".csv,text/csv" id="bulk-file" /><span>📄 CSV file chunein</span></label>
+      <h2><span class="step-no">3</span> Upload your filled CSV</h2>
+      <label class="dropzone"><input type="file" accept=".csv,text/csv" id="bulk-file" /><span>📄 Choose a CSV file</span></label>
       <div id="bulk-result"></div>
     </section>` : ""}`;
 
@@ -1312,14 +1312,14 @@ function renderBulkResult(v) {
   const ok = bulkParsed.groups.filter((g) => !g.errors.length);
   const bad = bulkParsed.groups.filter((g) => g.errors.length);
   box.innerHTML = `
-    <div class="bulk-summary"><span class="ok">✓ ${ok.length} listing(s) sahi</span><span class="bad">✕ ${bad.length} me errors</span></div>
+    <div class="bulk-summary"><span class="ok">✓ ${ok.length} listing(s) OK</span><span class="bad">✕ ${bad.length} with errors</span></div>
     <div class="table-wrap"><table class="table"><thead><tr><th>Group ID</th><th>Rows</th><th>Product</th><th>SKUs</th><th>Result</th></tr></thead>
       <tbody>${bulkParsed.groups.map((g) => `<tr>
         <td><strong>${esc(g.key)}</strong></td><td>${g.rowNums.join(", ")}</td><td>${esc(g.draft.name || "—")}</td>
         <td class="small">${g.draft.variants.map((x) => esc(`${x.sku}${x.size ? " (" + x.size + ")" : ""}`)).join(", ")}</td>
         <td>${g.errors.length ? `<div class="qc-reasons">${g.errors.slice(0, 6).map((e) => "• " + esc(e.msg)).join("<br>")}${g.errors.length > 6 ? `<br>…+${g.errors.length - 6}` : ""}</div>` : `<span class="status-pill s-live">Ready</span>`}</td>
       </tr>`).join("")}</tbody></table></div>
-    ${ok.length ? `<button class="btn" id="bulk-create">${ok.length} listing(s) Draft me banao</button>` : ""}`;
+    ${ok.length ? `<button class="btn" id="bulk-create">Create ${ok.length} draft listing(s)</button>` : ""}`;
   const btn = document.getElementById("bulk-create");
   if (btn) btn.addEventListener("click", () => {
     let n = 0;
@@ -1330,9 +1330,9 @@ function renderBulkResult(v) {
       Object.assign(rec, { status: "draft", image: "", imageCount: 0, quality: listingQuality({ ...d, images: [] }).score, createdAt: Date.now() });
       if (saveListing(rec)) n++;
     });
-    notifySeller(me.id, `📄 Bulk upload: ${n} draft listing(s) bani. Images add karke QC ke liye bhejein.`);
+    notifySeller(me.id, `📄 Bulk upload: ${n} draft listing(s) created. Add images and send them for QC.`);
     bulkParsed = null;
-    showToast(`${n} draft listings ban gayi ✓ — ab images add karein`);
+    showToast(`${n} draft listings created ✓ — now add images`);
     location.hash = "listings/progress";
   });
 }
@@ -1343,7 +1343,7 @@ function renderBulkResult(v) {
 function viewApprovals() {
   content.innerHTML = `
     <h1 class="dash-title">Category Approvals</h1>
-    <p class="muted">Kuch categories me bechne se pehle licence verify hota hai (Amazon "selling applications" / Flipkart "Track approval requests" jaisa). Approval ke bina listing draft me rahegi, QC ke liye nahi jayegi.</p>
+    <p class="muted">Some categories need a verified licence before you can sell. Without approval, listings stay as drafts and can't be sent for QC.</p>
     <div class="approval-grid">${Object.entries(RESTRICTED).map(([group, r]) => {
       const a = approvalFor(me.id, group);
       const st = !a ? ["Not applied", "s-completed"] : a.status === "approved" ? ["Approved", "s-approved"] : a.status === "pending" ? ["Pending review", "s-pending"] : ["Rejected", "s-rejected"];
@@ -1354,7 +1354,7 @@ function viewApprovals() {
         <p class="small">${[...new Set(verts.map((v) => v.cat))].map(esc).join(" · ")} (${verts.length} verticals)</p>
         ${a ? `<p class="small">License: ${esc(a.licenseNo)} · Valid till ${fmtDate(a.validTill)} · Applied ${fmtDate(a.at)}</p>` : ""}
         ${a && a.status === "rejected" ? `<div class="alert error small">Reason: ${esc(a.reason || "")}</div>` : ""}
-        ${!a || a.status === "rejected" ? `<button class="btn" data-apply="${group}">${a ? "Dobara apply karein" : "Apply for approval"}</button>` : ""}
+        ${!a || a.status === "rejected" ? `<button class="btn" data-apply="${group}">${a ? "Apply again" : "Apply for approval"}</button>` : ""}
       </section>`;
     }).join("")}</div>`;
   content.querySelectorAll("[data-apply]").forEach((b) => b.addEventListener("click", () => approvalForm(b.dataset.apply)));
@@ -1379,16 +1379,16 @@ function approvalForm(group) {
     const till = f.elements.validTill.value;
     let doc = "";
     const ok = [
-      setErr("licenseNo", r.pattern.test(no) ? "" : `Sahi number daalein (${r.hint})`),
-      setErr("nameOnLicense", f.elements.nameOnLicense.value.trim().length >= 3 ? "" : "Naam daalein"),
-      setErr("validTill", till && new Date(till) > new Date() ? "" : "Aage ki date chunein"),
+      setErr("licenseNo", r.pattern.test(no) ? "" : `Enter a valid number (${r.hint})`),
+      setErr("nameOnLicense", f.elements.nameOnLicense.value.trim().length >= 3 ? "" : "Enter the name on the licence"),
+      setErr("validTill", till && new Date(till) > new Date() ? "" : "Choose a future date"),
     ];
     try { doc = await readImage(f.elements.doc.files[0], 900); setErr("doc", ""); } catch (err) { ok.push(setErr("doc", err.message)); }
     if (!ok.every(Boolean)) return;
     const list = getApprovals();
     list.push({ id: uid("APR"), sellerId: me.id, group, licenseNo: no, nameOnLicense: f.elements.nameOnLicense.value.trim(), validTill: new Date(till).getTime(), doc, status: "pending", at: Date.now() });
     if (!saveApprovals(list)) return;
-    notifySeller(me.id, `📝 ${r.label} category approval ke liye apply kiya. Admin review karega.`);
+    notifySeller(me.id, `📝 ${r.label} category approval requested. We'll review it soon.`);
     closeModal();
     showToast("Approval request bhej di ✓");
     render();
@@ -1396,37 +1396,39 @@ function approvalForm(group) {
 }
 
 // =====================================================================
-// LISTING GUIDELINES (research report ka saar)
+// LISTING GUIDELINES
 // =====================================================================
 function viewGuidelines() {
   content.innerHTML = `
     <h1 class="dash-title">Listing Guidelines</h1>
-    <p class="muted">Amazon, Flipkart aur Meesho ke seller portals ke research ke hisaab se — inhe follow karne se QC reject kam aur visibility zyada.</p>
+    <p class="muted">Follow these to pass QC faster and get more visibility.</p>
     <div class="guide-grid">
-      <section class="panel"><h2>📋 Har listing me compulsory</h2>
-        <p class="small">Product name, brand, description, MRP, selling price, GST, HSN, SKU + stock (har size ka alag), country of origin, generic name, net quantity, manufacturer + packer + importer (naam, address, pincode), package L×B×H + weight, dispatch time, listing status, kam se kam 1 image. Category ke hisaab se extra fields (jaise T-shirt: fabric, fit, sleeve, neck, pattern, occasion, style code + size chart).</p></section>
+      <section class="panel"><h2>📋 Required for every listing</h2>
+        <p class="small">Product name, brand, description, MRP, selling price, GST, HSN, SKU + stock (one per size), country of origin, generic name, net quantity, manufacturer + packer + importer (name, address, pincode), package L×B×H + weight, dispatch time, listing status and at least 1 image. Some categories need extra fields (e.g. T-shirts: fabric, fit, sleeve, neck, pattern, occasion, style code + size chart).</p></section>
       <section class="panel"><h2>📷 Images</h2>
-        <ul class="small"><li><strong>Koi bhi size chalegi</strong> — photo apne-aap fit ho jati hai</li><li>Apparel / footwear / bags / jewellery: 5:6 ratio best (1500×1800 px)</li><li>Longest side 1000 px+ ho to zoom achha</li><li>Main image: white background, sirf product, frame ka ~85%</li><li>Text / watermark / logo / price / props nahi</li><li>4–6 images: front, back, model, close-up, size chart, lifestyle</li><li>JPG, PNG, WEBP… · 1 GB tak</li></ul></section>
+        <ul class="small"><li><strong>Any size works</strong> — photos are fitted automatically</li><li>Apparel / footwear / bags / jewellery: 5:6 is best (1500×1800 px)</li><li>Longest side 1000 px+ for good zoom</li><li>Main image: white background, product only, filling ~85% of the frame</li><li>No text / watermark / logo / price / props</li><li>4–6 images: front, back, model, close-up, size chart, lifestyle</li><li>JPG, PNG, WEBP… · up to 1 GB</li></ul></section>
+      <section class="panel"><h2>🎬 Product video</h2>
+        <ul class="small"><li>Shown as a vertical reel on your product page and in "Shop the Reels"</li><li>Vertical 9:16 (e.g. 1080×1920) looks best</li><li>5 seconds to 2 minutes · up to 1 GB · or a YouTube link</li><li>Show only this product — no phone numbers or other platforms' logos</li></ul></section>
       <section class="panel"><h2>✏️ Title</h2>
-        <ul class="small"><li>Pattern: Brand + Gender + Product + Fabric + Fit + Sleeve + Neck + Colour + Pack</li><li>Price / offer words (₹, % off, free, sale, best) nahi</li><li>Keyword stuffing nahi, ALL CAPS nahi</li><li>Weight / size naam me nahi — attributes me</li></ul></section>
+        <ul class="small"><li>Pattern: Brand + Gender + Product + Fabric + Fit + Sleeve + Neck + Colour + Pack</li><li>No price / offer words (₹, % off, free, sale, best)</li><li>No keyword stuffing, no ALL CAPS</li><li>Put weight / size in the attributes, not the name</li></ul></section>
       <section class="panel"><h2>💰 Price, GST &amp; fees</h2>
-        <ul class="small"><li>Selling price ≤ MRP; MRP positive whole number</li><li>Apparel GST: ₹2,500 tak 5%, upar 18%; books 0%; imitation jewellery 3% — final rate CA se confirm</li><li>Knitted T-shirt HSN 6109 (cotton 61091000)</li><li>Profit hamesha settlement (fees katne ke baad) se nikalein</li></ul></section>
+        <ul class="small"><li>Selling price ≤ MRP; MRP must be a positive whole number</li><li>Apparel GST: 5% up to ₹2,500, 18% above; books 0%; imitation jewellery 3% — confirm the final rate with your CA</li><li>Knitted T-shirt HSN 6109 (cotton 61091000)</li><li>Always work out profit from the settlement amount (after fees)</li></ul></section>
       <section class="panel"><h2>📦 Package &amp; dispatch</h2>
-        <ul class="small"><li>Sahi dimensions — shipping fee isi se (dead vs volumetric L×B×H/5000)</li><li>T-shirt folded pack ~28×22×3 cm, 200–250 g</li><li>Kam dispatch time = behtar ranking (next-day best)</li></ul></section>
+        <ul class="small"><li>Enter accurate dimensions — the shipping fee uses them (dead vs volumetric L×B×H/5000)</li><li>A folded T-shirt pack is ~28×22×3 cm, 200–250 g</li><li>Shorter dispatch time = better ranking (next-day is best)</li></ul></section>
       <section class="panel"><h2>🔒 Restricted categories</h2>
-        <ul class="small">${Object.values(RESTRICTED).map((r) => `<li>${esc(r.label)}: ${esc(r.license)}</li>`).join("")}<li>Toys: BIS (CM/L) number compulsory</li><li><a href="#approvals" class="link">Category Approvals</a> se apply karein</li></ul></section>
-      <section class="panel wide"><h2>🚫 Rejection se bachne ke 10 tips</h2>
+        <ul class="small">${Object.values(RESTRICTED).map((r) => `<li>${esc(r.label)}: ${esc(r.license)}</li>`).join("")}<li>Toys: BIS (CM/L) number required</li><li>Apply from <a href="#approvals" class="link">Category Approvals</a></li></ul></section>
+      <section class="panel wide"><h2>🚫 10 tips to avoid rejection</h2>
         <ol class="small">
-          <li>Sahi category / vertical chunein — galat vertical = QC reject ya kam visibility</li>
-          <li>Colour, fabric, pattern, neck — dropdown values hi use karein</li>
-          <li>Package dimensions sahi daalein (10×1×1 jaisi value flag hoti hai)</li>
-          <li>Title me keyword stuffing nahi</li>
-          <li>Primary image clean rakhein</li>
-          <li>Good-to-have fields bhi bharein (visibility ~21% tak)</li>
-          <li>Har size ka alag SKU (size letter SKU me)</li>
-          <li>Manufacturer / packer / importer details ek standard format me — Profile me default save karein</li>
-          <li>Bank / KYC pending na rakhein — bina verified bank payout nahi</li>
-          <li>Dispatch time kam rakhein</li>
+          <li>Choose the right category / vertical — the wrong one means QC rejection or lower visibility</li>
+          <li>Use the dropdown values for colour, fabric, pattern and neck</li>
+          <li>Enter real package dimensions (values like 10×1×1 get flagged)</li>
+          <li>No keyword stuffing in the title</li>
+          <li>Keep the primary image clean</li>
+          <li>Fill in the good-to-have fields too (up to ~21% more visibility)</li>
+          <li>A separate SKU for each size (include the size in the SKU)</li>
+          <li>Keep manufacturer / packer / importer details in one standard format — save defaults in your Profile</li>
+          <li>Don't leave bank / KYC pending — payouts need a verified bank account</li>
+          <li>Keep your dispatch time short</li>
         </ol></section>
     </div>`;
 };
