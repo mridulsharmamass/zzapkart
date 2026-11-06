@@ -96,10 +96,30 @@ async function processProductImage(file) {
 }
 
 // =====================================================================
-// Product video: MP4 / WebM / MOV · 50 MB tak · 5 sec – 2 min · kam se kam 360p
+// Product video: MP4 / WebM / MOV · 1 GB tak · 5 sec – 2 min · kam se kam 360p
 // File waisi hi IndexedDB me (key "video:<listingId>") + ek poster frame (JPEG)
 // =====================================================================
-const PRODUCT_VIDEO = { maxMB: 50, minSec: 5, maxSec: 120, minSide: 360, goodSide: 720 };
+const PRODUCT_VIDEO = { maxMB: 1024, minSec: 5, maxSec: 120, minSide: 360, goodSide: 720 };
+const BIG_VIDEO = 100 * 1048576; // isse bade video save hone me thoda time lete hain
+
+// 1048576 → "1 MB", 1073741824 → "1 GB"
+function fmtBytes(b) {
+  b = Number(b) || 0;
+  if (b >= 1073741824) return (b / 1073741824).toFixed(2).replace(/\.?0+$/, "") + " GB";
+  if (b >= 1048576) return (b / 1048576).toFixed(1).replace(/\.0$/, "") + " MB";
+  return Math.max(1, Math.round(b / 1024)) + " KB";
+}
+// Browser / device me itni jagah hai? (bade videos ke liye — IndexedDB quota)
+async function storageRoomFor(bytes) {
+  try {
+    if (!navigator.storage || !navigator.storage.estimate) return true;
+    if (navigator.storage.persist) navigator.storage.persist().catch(() => {}); // data apne-aap delete na ho
+    const { quota = 0, usage = 0 } = await navigator.storage.estimate();
+    return !quota || quota - usage > bytes * 1.1 + 5 * 1048576;
+  } catch {
+    return true;
+  }
+}
 
 function videoEvent(v, ok, ms, bad) {
   return new Promise((resolve, reject) => {
@@ -115,8 +135,9 @@ function videoEvent(v, ok, ms, bad) {
 async function processProductVideo(file) {
   const P = PRODUCT_VIDEO;
   if (!file || !/^video\/(mp4|webm|quicktime)$/.test(file.type)) throw new Error("Sirf MP4, WebM ya MOV video upload karein");
-  if (file.size > P.maxMB * 1024 * 1024) throw new Error(`Video ${P.maxMB} MB se chhota hona chahiye (ye ${(file.size / 1048576).toFixed(1)} MB hai)`);
+  if (file.size > P.maxMB * 1048576) throw new Error(`Video ${fmtBytes(P.maxMB * 1048576)} tak ka ho sakta hai (ye ${fmtBytes(file.size)} hai) — chhota / compress karke upload karein`);
   if (file.size < 1024) throw new Error("Ye video file khaali ya kharab hai — doosri file chunein");
+  if (!(await storageRoomFor(file.size))) throw new Error(`Is browser / device me ${fmtBytes(file.size)} ka video rakhne ki jagah nahi hai — device me jagah khaali karein ya chhota video chunein`);
   const url = URL.createObjectURL(file);
   const v = document.createElement("video");
   v.muted = true;

@@ -682,7 +682,7 @@ function videoBlockHtml() {
       <video controls playsinline preload="metadata" ${safeImg(v.poster) ? `poster="${safeImg(v.poster)}"` : ""} data-vid-src="1" aria-label="Product video preview"></video>
       <div class="vid-meta">
         <strong>${esc(v.name || "Product video")}</strong>
-        <span class="muted small">${fmtDuration(v.duration)} min · ${v.w}×${v.h} · ${(v.size / 1048576).toFixed(1)} MB</span>
+        <span class="muted small">${fmtDuration(v.duration)} min · ${v.w}×${v.h} · ${fmtBytes(v.size)}</span>
         <span class="small ${good ? "green" : "text-warn"}">${good ? "✓ Quality achhi hai" : "Quality thodi kam hai — 720p / 1080p behtar"}</span>
         <div class="row-actions">
           <label class="btn btn-sm btn-outline vid-replace">Replace${pick("Video badlo")}</label>
@@ -704,7 +704,7 @@ function videoBlockHtml() {
     body = `
     <label class="dropzone vid-drop">
       ${pick("Product video chunein")}
-      <span>🎬 Video chunein ya yahan drop karein</span><small class="muted">MP4 / WebM / MOV · ${P.maxMB} MB tak · ${P.minSec} sec – ${P.maxSec / 60} min</small>
+      <span>🎬 Video chunein ya yahan drop karein</span><small class="muted">MP4 / WebM / MOV · ${fmtBytes(P.maxMB * 1048576)} tak · ${P.minSec} sec – ${P.maxSec / 60} min</small>
     </label>
     <div class="vid-or"><span>ya YouTube link lagao</span></div>
     <div class="vid-yt-row">
@@ -716,7 +716,7 @@ function videoBlockHtml() {
     <div class="vid-box" id="vid-box">
       <h3 class="sub-h">🎬 Product video <span class="muted small">(optional — video wale products par buyers ka bharosa zyada hota hai)</span></h3>
       <ul class="rules">
-        <li>${P.minSec} second se ${P.maxSec / 60} minute tak · kam se kam ${P.minSide}p (720p / 1080p best) · ${P.maxMB} MB tak</li>
+        <li>${P.minSec} second se ${P.maxSec / 60} minute tak · kam se kam ${P.minSide}p (720p / 1080p best) · ${fmtBytes(P.maxMB * 1048576)} tak</li>
         <li>Sirf yahi product dikhao — 360° view, fabric / fit close-up, use karte hue</li>
         <li>Phone number, website, doosre platform ka logo / watermark nahi (QC reject hoga)</li>
       </ul>
@@ -1058,6 +1058,11 @@ async function persistListing(status) {
   if (LF.videoDirty) {
     const v = d.video;
     if (v && v.kind === "file" && v.blob instanceof Blob) {
+      if (v.size > BIG_VIDEO) {
+        // Bada video (1 GB tak) save hone me kuch second lagte hain — tab tak dobara click na ho
+        showToast(`⏳ ${fmtBytes(v.size)} ka video save ho raha hai — page band na karein…`);
+        document.querySelectorAll("#lf-side .checkout-btn").forEach((b) => (b.disabled = true));
+      }
       const ok = await MediaDB.put(videoKey(rec.id), { blob: v.blob, type: v.type, name: v.name, size: v.size, duration: v.duration, w: v.w, h: v.h, poster: v.poster });
       if (!ok) { showToast("Video save nahi ho paya (browser storage bhar gaya) — chhota video try karein"); rec.video = null; }
     } else await MediaDB.del(videoKey(rec.id));
