@@ -35,6 +35,72 @@ if (BRAND_STORES.length) {
     </section>`;
 }
 
+// ---------- Home banner carousel (apne-aap badalta hai) ----------
+function heroSlides() {
+  const maxOff = (list) => list.reduce((m, p) => Math.max(m, discount(p)), 0);
+  const artOf = (list, fallback) => {
+    const em = [...new Set(list.map((p) => p.emoji).filter((e) => e && e !== "📦"))].slice(0, 3);
+    return em.length ? em : [fallback];
+  };
+  const slides = [{
+    eyebrow: "Big Saving Days", title: `Up to ${maxOff(PRODUCTS)}% off`, text: "Electronics, fashion, home aur bahut kuch — sab ek jagah",
+    cta: "Shop by category", href: "#cat-tiles", bg: "radial-gradient(circle at 75% 30%, #3a1290 0%, #1e0b3d 70%)", art: ["🛍️", "🎧", "👟"], glow: true,
+  }];
+  // Har category ka offer = us category ke products ka asli max discount
+  [
+    ["Fashion", "Fashion Fest", "Trendy kapde, shoes aur accessories"],
+    ["Electronics", "Electronics Week", "Headphones, smart watches aur gadgets"],
+    ["Home", "Home Makeover", "Kitchen, decor aur lighting — ghar ko naya look do"],
+    ["Sports", "Fit India Sale", "Cricket, football aur yoga gear"],
+  ].forEach(([name, eyebrow, text]) => {
+    const c = CATEGORIES.find((x) => x.name === name);
+    const items = productsOf(name);
+    if (!c || !items.length) return;
+    const off = maxOff(items);
+    slides.push({ eyebrow, title: off ? `Up to ${off}% off` : `${items.length} products`, text, cta: `Shop ${name} →`, href: categoryUrl(c), bg: c.gradient, art: artOf(items, c.emoji) });
+  });
+  if (BRAND_STORES.length) {
+    slides.push({
+      eyebrow: "New · Brand Stores", title: "Naye Brand Stores", text: `${BRAND_STORES.slice(0, 3).map((s) => s.name).join(" · ")} — sellers ke official stores`,
+      cta: "Explore stores →", href: "#brand-stores", bg: `linear-gradient(120deg, #120a26, ${storeTheme(BRAND_STORES[0])})`, stores: BRAND_STORES.slice(0, 3),
+    });
+  }
+  slides.push({
+    eyebrow: "Zzapkart Seller Hub", title: "Apna business online lao", text: "Seller bano — listings, orders, payments aur ads ek hi dashboard me",
+    cta: "Start selling →", href: "seller.html", bg: "linear-gradient(120deg, #ff8a5c, #ff2d95)", art: ["🏪", "📦", "💰"],
+  });
+  return slides;
+}
+
+const HERO_SLIDES = heroSlides();
+const heroArt = (s) => s.stores
+  ? s.stores.map((st) => `<span class="hh-bubble hh-logo">${safeImg(st.logo) ? `<img src="${safeImg(st.logo)}" alt="" />` : esc(storeInitials(st.name))}</span>`).join("")
+  : s.art.map((e) => `<span class="hh-bubble">${e}</span>`).join("");
+hero.innerHTML = `
+  <div class="hh-viewport">
+    <div class="hh-track">
+      ${HERO_SLIDES.map((s, i) => `
+        <div class="hh-slide car-slide ${i === 0 ? "active" : ""}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${HERO_SLIDES.length}: ${esc(s.eyebrow)}" style="--hh-bg:${esc(s.bg)}">
+          <div class="hh-text">
+            <span class="hh-eyebrow">${esc(s.eyebrow)}</span>
+            <h2 class="hh-title${s.glow ? " glow" : ""}">${esc(s.title)}</h2>
+            <p class="hh-sub">${esc(s.text)}</p>
+            <a class="hh-cta" href="${esc(s.href)}">${esc(s.cta)}</a>
+          </div>
+          <div class="hh-art" aria-hidden="true">${heroArt(s)}</div>
+        </div>`).join("")}
+    </div>
+  </div>
+  <button type="button" class="hh-arrow car-prev" aria-label="Pichhla banner">‹</button>
+  <button type="button" class="hh-arrow car-next" aria-label="Agla banner">›</button>
+  <div class="hh-controls">
+    <div class="hh-dots">${HERO_SLIDES.map((s, i) => `<button type="button" data-dot="${i}" aria-label="Banner ${i + 1}: ${esc(s.eyebrow)}"></button>`).join("")}</div>
+    <button type="button" class="hh-toggle car-toggle"></button>
+  </div>
+  <div class="hh-progress" aria-hidden="true"><span></span></div>`;
+const heroTrack = hero.querySelector(".hh-track");
+startCarousel(hero, { interval: 4500, onShow: (i) => { heroTrack.style.transform = `translateX(-${i * 100}%)`; } });
+
 // ---------- Sponsored (seller ads) ----------
 const sponsoredEl = document.getElementById("sponsored");
 // Search ke saath khula ho (?q=) to home ads chhupe rehte — unka auction/impression mat karo

@@ -95,3 +95,93 @@ function renderCategoryNav() {
 }
 
 document.addEventListener("DOMContentLoaded", renderCategoryNav);
+
+// ---------------------------------------------------------------------
+// Auto-play carousel (home banners + Brand Store banners)
+// root ke andar: slides, dots [data-dot], prev/next, optional pause button.
+// Mouse hover / keyboard focus par rukta hai, tab chhupa ho ya carousel
+// chhupa ho (search view) to nahi chalta, "reduce motion" par auto-play band.
+// root par "car-running" class + --car-ms: progress bar ki CSS animation ke liye.
+// ---------------------------------------------------------------------
+function startCarousel(root, opts = {}) {
+  const o = { slide: ".car-slide", dot: "[data-dot]", prev: ".car-prev", next: ".car-next", toggle: ".car-toggle", interval: 5000, onShow: null, ...opts };
+  const slides = [...root.querySelectorAll(o.slide)];
+  const dots = [...root.querySelectorAll(o.dot)];
+  const toggleBtn = root.querySelector(o.toggle);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let cur = Math.max(0, slides.findIndex((s) => s.classList.contains("active")));
+  let timer = null;
+  let holding = false;       // mouse upar hai / keyboard focus andar hai
+  let userPaused = reduce;   // pause button (reduce motion me shuru se paused)
+  root.style.setProperty("--car-ms", o.interval + "ms");
+
+  function show(i) {
+    if (!slides.length) return;
+    cur = (i + slides.length) % slides.length;
+    slides.forEach((s, j) => {
+      const on = j === cur;
+      s.classList.toggle("active", on);
+      s.setAttribute("aria-hidden", String(!on));
+      // chhupi slides ke links Tab key se na milen
+      (s.matches("a, button") ? [s] : []).concat([...s.querySelectorAll("a, button")]).forEach((el) => (el.tabIndex = on ? 0 : -1));
+    });
+    dots.forEach((d, j) => {
+      d.classList.toggle("active", j === cur);
+      d.setAttribute("aria-current", j === cur ? "true" : "false");
+    });
+    if (o.onShow) o.onShow(cur);
+  }
+  function stop() {
+    clearTimeout(timer);
+    timer = null;
+    root.classList.remove("car-running");
+  }
+  function schedule() {
+    stop();
+    if (!root.isConnected || slides.length < 2 || userPaused || holding || document.hidden) return;
+    void root.offsetWidth; // progress animation dobara shuru ho
+    root.classList.add("car-running");
+    timer = setTimeout(() => {
+      if (!root.isConnected) return stop();
+      if (root.offsetParent === null) return schedule(); // abhi chhupa hai
+      show(cur + 1);
+      schedule();
+    }, o.interval);
+  }
+  function syncToggle() {
+    root.classList.toggle("car-paused", userPaused);
+    if (!toggleBtn) return;
+    toggleBtn.textContent = userPaused ? "▶" : "❚❚";
+    toggleBtn.setAttribute("aria-label", userPaused ? "Slideshow chalao" : "Slideshow roko");
+    toggleBtn.setAttribute("aria-pressed", String(userPaused));
+  }
+  const go = (i) => { show(i); schedule(); };
+
+  root.querySelector(o.prev)?.addEventListener("click", () => go(cur - 1));
+  root.querySelector(o.next)?.addEventListener("click", () => go(cur + 1));
+  dots.forEach((d) => d.addEventListener("click", () => go(Number(d.dataset.dot))));
+  toggleBtn?.addEventListener("click", () => { userPaused = !userPaused; syncToggle(); schedule(); });
+  root.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { holding = true; schedule(); } });
+  root.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") { holding = false; schedule(); } });
+  root.addEventListener("focusin", (e) => { if (e.target.matches(":focus-visible")) { holding = true; schedule(); } });
+  root.addEventListener("focusout", (e) => { if (!root.contains(e.relatedTarget)) { holding = false; schedule(); } });
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") go(cur - 1);
+    else if (e.key === "ArrowRight") go(cur + 1);
+  });
+  let x0 = null;
+  root.addEventListener("touchstart", (e) => (x0 = e.touches[0].clientX), { passive: true });
+  root.addEventListener("touchend", (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 40) go(cur + (dx < 0 ? 1 : -1));
+  });
+  const onVis = () => (root.isConnected ? schedule() : document.removeEventListener("visibilitychange", onVis));
+  document.addEventListener("visibilitychange", onVis);
+
+  show(cur);
+  syncToggle();
+  schedule();
+  return { show: go, stop, get index() { return cur; } };
+}

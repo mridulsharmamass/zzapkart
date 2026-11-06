@@ -1342,3 +1342,99 @@ a.card-img { cursor: pointer; }
   .sb-coll-head input { flex-basis: 100%; }
   .sb-chip .status-pill { display: none; }
 }
+
+/* =====================================================================
+   Home: auto-changing banner carousel (ui.js → startCarousel)
+   ===================================================================== */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+#cat-tiles, #brand-stores { scroll-margin-top: 130px; }
+.home-hero { position: relative; margin: 16px 5% 0; border-radius: 14px; overflow: hidden; background: var(--brand-dark); color: #fff; }
+.hh-viewport { overflow: hidden; }
+.hh-track { display: flex; transition: transform .7s cubic-bezier(.65, 0, .35, 1); }
+.hh-slide {
+  position: relative; flex: 0 0 100%; min-width: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  min-height: 270px; padding: 34px 84px 48px;
+  background: linear-gradient(90deg, rgba(12, 4, 30, .38), rgba(12, 4, 30, 0) 65%), var(--hh-bg);
+}
+.hh-text { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: 560px; min-width: 0; }
+.hh-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; background: rgba(255, 255, 255, .18); padding: 4px 10px; border-radius: 20px; }
+.hh-title { font-size: clamp(26px, 4vw, 44px); line-height: 1.1; }
+.hh-title.glow { background: linear-gradient(90deg, var(--brand-peach), var(--brand-pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hh-sub { font-size: 16px; opacity: .92; }
+.hh-cta { margin-top: 6px; background: #fff; color: var(--brand-dark); font-weight: 800; padding: 10px 20px; border-radius: 24px; font-size: 14px; box-shadow: 0 6px 18px rgba(0, 0, 0, .18); transition: background .2s; }
+.hh-cta::after { content: ""; position: absolute; inset: 0; } /* poori slide clickable */
+.hh-slide:hover .hh-cta { background: #ffe9b8; }
+.hh-cta:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.hh-art { display: flex; align-items: center; gap: 14px; flex-shrink: 0; pointer-events: none; } /* sirf sajawat — click neeche link par jaye */
+.hh-bubble {
+  width: 110px; height: 110px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .28);
+  display: flex; align-items: center; justify-content: center; font-size: 56px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+}
+.hh-bubble:nth-child(2) { width: 140px; height: 140px; font-size: 76px; transform: translateY(-14px); }
+.hh-bubble:nth-child(3) { transform: translateY(12px); }
+.hh-logo { background: #fff; color: var(--brand-dark); font-weight: 800; font-size: 30px; overflow: hidden; }
+.hh-logo img { width: 100%; height: 100%; object-fit: contain; }
+.hh-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: rgba(255, 255, 255, .92); color: var(--brand-dark); font-size: 28px; line-height: 1;
+  cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, .22); opacity: .85; transition: opacity .2s;
+}
+.hh-arrow:hover, .hh-arrow:focus-visible { opacity: 1; }
+.hh-arrow.car-prev { left: 18px; }
+.hh-arrow.car-next { right: 18px; }
+.hh-controls { position: absolute; left: 0; right: 0; bottom: 14px; z-index: 3; display: flex; justify-content: center; align-items: center; gap: 12px; pointer-events: none; }
+.hh-controls > * { pointer-events: auto; }
+.hh-dots { display: flex; gap: 7px; }
+.hh-dots button { width: 9px; height: 9px; border-radius: 5px; border: none; padding: 0; background: rgba(255, 255, 255, .55); cursor: pointer; transition: width .3s, background .3s; }
+.hh-dots button.active { width: 26px; background: #fff; }
+.hh-toggle { width: 30px; height: 22px; border-radius: 11px; border: none; background: rgba(0, 0, 0, .35); color: #fff; font-size: 10px; cursor: pointer; }
+.hh-toggle:hover { background: rgba(0, 0, 0, .55); }
+.hh-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, .18); z-index: 3; }
+.hh-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--brand-peach), var(--brand-pink)); }
+.car-running .hh-progress span { animation: hh-progress var(--car-ms, 5000ms) linear forwards; }
+@keyframes hh-progress { from { width: 0; } to { width: 100%; } }
+@keyframes hh-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+@keyframes hh-in { from { opacity: 0; translate: 0 14px; } to { opacity: 1; translate: 0 0; } }
+/* CTA par sirf fade: translate se CTA hi ::after ka containing block ban jaata aur poori slide clickable na rehti */
+@keyframes hh-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hh-slide.active .hh-bubble { animation: hh-float 4s ease-in-out infinite; }
+  .hh-slide.active .hh-bubble:nth-child(2) { animation-delay: -1.3s; }
+  .hh-slide.active .hh-bubble:nth-child(3) { animation-delay: -2.6s; }
+  .hh-slide.active .hh-text > * { animation: hh-in .6s ease both; }
+  .hh-slide.active .hh-text > :nth-child(2) { animation-delay: .08s; }
+  .hh-slide.active .hh-text > :nth-child(3) { animation-delay: .16s; }
+  .hh-slide.active .hh-text > .hh-cta { animation: hh-fade .6s ease .24s both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh-track { transition: none; }
+}
+
+/* Brand Store carousel: pause button */
+.bs-dots { align-items: center; }
+.bs-dots .bs-toggle { width: auto; height: 20px; padding: 0 8px; margin-left: 6px; border-radius: 10px; background: rgba(0, 0, 0, .45); color: #fff; font-size: 9px; line-height: 20px; }
+
+@media (max-width: 1050px) {
+  .hh-slide { padding: 30px 72px 46px; }
+  .hh-bubble { width: 84px; height: 84px; font-size: 42px; }
+  .hh-bubble:nth-child(2) { width: 106px; height: 106px; font-size: 56px; }
+}
+@media (max-width: 760px) {
+  .hh-bubble:nth-child(3) { display: none; }
+}
+@media (max-width: 600px) {
+  .home-hero { margin: 12px 16px 0; border-radius: 12px; }
+  .hh-slide { min-height: 196px; padding: 20px 16px 40px 18px; gap: 8px; }
+  .hh-text { gap: 6px; }
+  .hh-title { font-size: 25px; }
+  .hh-sub { font-size: 13px; }
+  .hh-eyebrow { font-size: 10px; padding: 3px 8px; }
+  .hh-cta { padding: 8px 14px; font-size: 13px; }
+  .hh-arrow { display: none; } /* mobile: swipe + dots */
+  .hh-art .hh-bubble:not(:first-child) { display: none; }
+  .hh-art .hh-bubble:first-child { width: 68px; height: 68px; font-size: 36px; transform: none; }
+}

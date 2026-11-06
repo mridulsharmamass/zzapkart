@@ -128,51 +128,19 @@ function renderBrandStore(seller, cfg) {
       ${bs.length > 1 ? `
         <button type="button" class="bs-arrow prev" aria-label="Previous banner">‹</button>
         <button type="button" class="bs-arrow next" aria-label="Next banner">›</button>
-        <div class="bs-dots">${bs.map((_, i) => `<button type="button" class="${i === 0 ? "active" : ""}" data-dot="${i}" aria-label="Banner ${i + 1}"></button>`).join("")}</div>` : ""}
+        <div class="bs-dots">${bs.map((_, i) => `<button type="button" class="${i === 0 ? "active" : ""}" data-dot="${i}" aria-label="Banner ${i + 1}"></button>`).join("")}<button type="button" class="bs-toggle car-toggle"></button></div>` : ""}
     </section>`;
   }
-  let timer = null;
+  let car = null;
   function initCarousel() {
-    clearInterval(timer);
+    if (car) car.stop();
+    car = null;
     const hero = document.getElementById("bs-hero");
     if (!hero) return;
     hero.querySelectorAll("img[data-banner-img]").forEach((img) => {
       MediaDB.get(storeBannerKey(img.dataset.bannerImg)).then((data) => { if (safeImg(data)) img.src = data; });
     });
-    const slides = [...hero.querySelectorAll(".bs-slide")];
-    const dots = [...hero.querySelectorAll("[data-dot]")];
-    if (slides.length < 2) return;
-    let cur = 0, paused = false;
-    const show = (i) => {
-      cur = (i + slides.length) % slides.length;
-      slides.forEach((s, j) => {
-        s.classList.toggle("active", j === cur);
-        s.setAttribute("aria-hidden", String(j !== cur));
-        if (s.tagName === "A") s.tabIndex = j === cur ? 0 : -1;
-      });
-      dots.forEach((d, j) => d.classList.toggle("active", j === cur));
-    };
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const restart = () => {
-      clearInterval(timer);
-      if (!reduce) timer = setInterval(() => { if (!paused && !document.hidden) show(cur + 1); }, 5000);
-    };
-    hero.querySelector(".prev").addEventListener("click", () => { show(cur - 1); restart(); });
-    hero.querySelector(".next").addEventListener("click", () => { show(cur + 1); restart(); });
-    dots.forEach((d) => d.addEventListener("click", () => { show(Number(d.dataset.dot)); restart(); }));
-    hero.addEventListener("mouseenter", () => (paused = true));
-    hero.addEventListener("mouseleave", () => (paused = false));
-    hero.addEventListener("focusin", () => (paused = true));
-    hero.addEventListener("focusout", () => (paused = false));
-    let x0 = null;
-    hero.addEventListener("touchstart", (e) => (x0 = e.touches[0].clientX), { passive: true });
-    hero.addEventListener("touchend", (e) => {
-      if (x0 === null) return;
-      const dx = e.changedTouches[0].clientX - x0;
-      x0 = null;
-      if (Math.abs(dx) > 40) { show(cur + (dx < 0 ? 1 : -1)); restart(); }
-    });
-    restart();
+    car = startCarousel(hero, { slide: ".bs-slide", prev: ".bs-arrow.prev", next: ".bs-arrow.next", interval: 5000 });
   }
 
   // ---------- Views ----------
@@ -261,7 +229,7 @@ function renderBrandStore(seller, cfg) {
   }
 
   function route() {
-    clearInterval(timer);
+    if (car) car.stop();
     const h = decodeURIComponent(location.hash.slice(1));
     if (h.startsWith("search/") && h.slice(7).trim()) return viewSearch(h.slice(7).trim());
     if (h.startsWith("c/")) {
