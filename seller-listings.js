@@ -585,24 +585,25 @@ function renderSection(id) {
     html = imgs === null ? `<p class="muted">Images load ho rahi hain…</p>` : `
       <ul class="rules">
         <li>Kam se kam <strong>${r.min}</strong> image compulsory, <strong>${r.rec}</strong> recommended (front, back, model, close-up, size chart, lifestyle)</li>
-        ${r.ratio ? `<li>Ratio <strong>${r.ratio[0]}:${r.ratio[1]}</strong> fixed — jaise <strong>1500×1800 px</strong></li>` : `<li>Square ya portrait, longest side <strong>1000 px+</strong> (zoom ke liye)</li>`}
+        <li><strong>Koi bhi size / resolution ki photo chalegi</strong> — best: longest side 1000 px+ (zoom ke liye)</li>
+        ${r.ratio ? `<li>Is category me <strong>${r.ratio[0]}:${r.ratio[1]}</strong> ratio — photo alag size ki ho to apne-aap safed background ke saath ${r.ratio[0]}:${r.ratio[1]} me fit ho jayegi (kuch katega nahi)</li>` : ""}
         <li>Main image: <strong>white background</strong>, sirf product, koi text / watermark / logo / price / props nahi</li>
-        <li>JPG / PNG, 10 MB tak, max 8 images</li>
+        <li>JPG, PNG, WEBP, GIF, AVIF… · 1 GB tak ki file · max 8 images</li>
       </ul>
       <label class="dropzone ${imgs.length >= 8 ? "disabled" : ""}">
-        <input type="file" accept="image/jpeg,image/png,image/webp" multiple data-act="img-upload" ${imgs.length >= 8 ? "disabled" : ""} />
+        <input type="file" accept="image/*" multiple data-act="img-upload" ${imgs.length >= 8 ? "disabled" : ""} />
         <span>📷 Images chunein ya yahan drop karein</span><small class="muted">${imgs.length}/8 uploaded</small>
       </label>
       <small class="err" data-err="images"></small>
       <div class="img-grid">${imgs.map((im, i) => {
         const ratioOk = !r.ratio || (im.w && Math.abs(im.w / im.h - r.ratio[0] / r.ratio[1]) <= 0.03);
-        const resOk = Math.max(im.w || 0, im.h || 0) >= 500;
+        const resOk = Math.max(im.w || 0, im.h || 0) >= 1000;
         return `<div class="img-card ${i === 0 ? "main" : ""}">
           <img src="${safeImg(im.thumb || im.full)}" alt="" />
           ${i === 0 ? `<span class="img-tag">MAIN</span>` : ""}
           <div class="img-meta">
-            <span class="${resOk ? "ok" : "bad"}">${im.w ? `${im.w}×${im.h}` : "size ?"}</span>
-            ${r.ratio ? `<span class="${ratioOk ? "ok" : "bad"}">${ratioOk ? "5:6 ✓" : "ratio ✗"}</span>` : ""}
+            <span class="${resOk || !im.w ? "ok" : "warn"}" title="${resOk ? "Achhi resolution" : "Chalegi — 1000px+ ho to zoom behtar"}">${im.w ? `${im.w}×${im.h}` : "size ?"}</span>
+            ${r.ratio ? `<span class="${ratioOk ? "ok" : "warn"}">${ratioOk ? (im.fitted ? `${r.ratio[0]}:${r.ratio[1]} fit ✓` : `${r.ratio[0]}:${r.ratio[1]} ✓`) : "ratio alag"}</span>` : ""}
             ${i === 0 && im.whiteBg === false ? `<span class="warn">bg not white</span>` : ""}
           </div>
           <div class="img-actions">
@@ -910,7 +911,7 @@ function wireForm() {
       t.value = "";
       for (const f of files) {
         if (d.images.length >= 8) { showToast("Max 8 images"); break; }
-        try { d.images.push(await processProductImage(f)); } catch (err) { showToast(err.message); }
+        try { d.images.push(await processProductImage(f, lft().images.ratio)); } catch (err) { showToast(err.message); }
       }
       renderSection("images");
       updateSide();
@@ -959,7 +960,7 @@ function wireForm() {
       const d = LF.data;
       for (const f of files) {
         if (d.images.length >= 8) { showToast("Max 8 images"); break; }
-        try { d.images.push(await processProductImage(f)); } catch (err) { showToast(err.message); }
+        try { d.images.push(await processProductImage(f, lft().images.ratio)); } catch (err) { showToast(err.message); }
       }
       renderSection("images");
       updateSide();
@@ -1405,7 +1406,7 @@ function viewGuidelines() {
       <section class="panel"><h2>📋 Har listing me compulsory</h2>
         <p class="small">Product name, brand, description, MRP, selling price, GST, HSN, SKU + stock (har size ka alag), country of origin, generic name, net quantity, manufacturer + packer + importer (naam, address, pincode), package L×B×H + weight, dispatch time, listing status, kam se kam 1 image. Category ke hisaab se extra fields (jaise T-shirt: fabric, fit, sleeve, neck, pattern, occasion, style code + size chart).</p></section>
       <section class="panel"><h2>📷 Images</h2>
-        <ul class="small"><li>Apparel / footwear / bags / jewellery: <strong>5:6 ratio</strong> (1500×1800 px)</li><li>Longest side 1000 px+ (zoom), minimum 500 px</li><li>Main image: white background, sirf product, frame ka ~85%</li><li>Text / watermark / logo / price / props nahi</li><li>4–6 images: front, back, model, close-up, size chart, lifestyle</li><li>JPG / PNG, RGB</li></ul></section>
+        <ul class="small"><li><strong>Koi bhi size chalegi</strong> — photo apne-aap fit ho jati hai</li><li>Apparel / footwear / bags / jewellery: 5:6 ratio best (1500×1800 px)</li><li>Longest side 1000 px+ ho to zoom achha</li><li>Main image: white background, sirf product, frame ka ~85%</li><li>Text / watermark / logo / price / props nahi</li><li>4–6 images: front, back, model, close-up, size chart, lifestyle</li><li>JPG, PNG, WEBP… · 1 GB tak</li></ul></section>
       <section class="panel"><h2>✏️ Title</h2>
         <ul class="small"><li>Pattern: Brand + Gender + Product + Fabric + Fit + Sleeve + Neck + Colour + Pack</li><li>Price / offer words (₹, % off, free, sale, best) nahi</li><li>Keyword stuffing nahi, ALL CAPS nahi</li><li>Weight / size naam me nahi — attributes me</li></ul></section>
       <section class="panel"><h2>💰 Price, GST &amp; fees</h2>

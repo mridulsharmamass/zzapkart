@@ -34,16 +34,50 @@ const MediaDB = (() => {
   };
 })();
 
+// Image: koi bhi size / resolution / ratio chalegi (1 GB file tak). Jo format browser khol sake
+// (JPG, PNG, WEBP, GIF, AVIF, BMP…) — save hamesha chhote JPEG / PNG me hota hai.
+const IMAGE_MAX_BYTES = 1024 * 1048576;
 function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
-    if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error("Sirf JPG / PNG / WEBP image"));
-    if (file.size > 10 * 1024 * 1024) return reject(new Error("Image 10 MB se chhoti honi chahiye"));
+    if (!file || !String(file.type).startsWith("image/") || /svg/i.test(file.type)) return reject(new Error("Sirf photo / image file chunein (JPG, PNG, WEBP…)"));
+    if (file.size > IMAGE_MAX_BYTES) return reject(new Error(`Image 1 GB tak ki ho sakti hai (ye ${(file.size / 1073741824).toFixed(2)} GB hai)`));
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => resolve({ img, url });
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image khul nahi payi")); };
+    img.decoding = "async";
+    img.onload = () => {
+      if (!img.naturalWidth || !img.naturalHeight) { URL.revokeObjectURL(url); reject(new Error("Image khul nahi payi")); return; }
+      resolve({ img, url });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(/hei[cf]/i.test(file.type + file.name)
+        ? "iPhone HEIC photo browser me nahi khulti — phone me 'Most Compatible' (JPG) setting se photo lein ya JPG me save karke upload karein"
+        : "Ye image khul nahi payi (file kharab ho sakti hai) — JPG / PNG me save karke dobara try karein"));
+    };
     img.src = url;
   });
+}
+
+// Image ko diye gaye ratio (jaise 5:6) wale safed canvas ke beech me rakho — kuch katega nahi.
+// ratio null ho to waisi hi. maxSide tak chhota (bada kabhi nahi).
+function fitSize(iw, ih, ratio) {
+  if (!ratio) return [iw, ih];
+  const r = ratio[0] / ratio[1];
+  return iw / ih > r ? [iw, Math.round(iw / r)] : [Math.round(ih * r), ih];
+}
+function drawFitted(img, ratio, maxSide, quality) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const [W, H] = fitSize(iw, ih, ratio);
+  const scale = Math.min(1, maxSide / Math.max(W, H));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(W * scale));
+  c.height = Math.max(1, Math.round(H * scale));
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, ((W - iw) / 2) * scale, ((H - ih) / 2) * scale, iw * scale, ih * scale);
+  return c.toDataURL("image/jpeg", quality);
 }
 
 function drawScaled(img, maxSide, quality) {
@@ -78,17 +112,21 @@ function hasWhiteBorder(img) {
   return white / total >= 0.8;
 }
 
-// File → { full (gallery), thumb (cards), w, h, whiteBg }
-async function processProductImage(file) {
+// File → { full (gallery), thumb (cards), w, h, whiteBg, fitted }
+// ratio (jaise [5, 6] kapdon ke liye): photo kisi bhi size ki ho, us ratio me safed
+// background ke saath fit ho jati hai (crop nahi). w / h = fit ke baad ka size.
+async function processProductImage(file, ratio = null) {
   const { img, url } = await loadImageFromFile(file);
   try {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const fit = ratio && Math.abs(iw / ih - ratio[0] / ratio[1]) > 0.03 ? ratio : null;
+    const [w, h] = fitSize(iw, ih, fit);
     return {
       id: uid("IMG"),
-      w: img.naturalWidth,
-      h: img.naturalHeight,
+      w, h, ow: iw, oh: ih, fitted: !!fit,
       whiteBg: hasWhiteBorder(img),
-      full: drawScaled(img, 1200, 0.82),
-      thumb: drawScaled(img, 420, 0.78),
+      full: drawFitted(img, fit, 1200, 0.82),
+      thumb: drawFitted(img, fit, 420, 0.78),
     };
   } finally {
     URL.revokeObjectURL(url);
@@ -226,20 +264,23 @@ async function mountProductGallery(p, main, thumbs) {
 // =====================================================================
 // Brand Store: logo (square) + banner (3:1) processing
 // =====================================================================
-const STORE_LOGO = { min: 200, out: 256 };
-const STORE_BANNER = { minW: 1000, minRatio: 2, maxRatio: 5, ratio: 3, outW: 1500, goodW: 1200 };
+// Koi bhi size chalegi — logo / banner apne-aap fit hote hain (kuch zaroori katta nahi)
+const STORE_LOGO = { out: 256, good: 200 };
+const STORE_BANNER = { minRatio: 2, maxRatio: 5, ratio: 3, outW: 1500, goodW: 1200 };
 
-// Logo: beech se square crop → 256×256. Transparent ho to PNG, warna JPEG.
+// Logo: poora logo 256×256 square me fit (crop nahi). Transparent / padding ho to PNG, warna JPEG.
 async function processStoreLogo(file) {
   const { img, url } = await loadImageFromFile(file);
   try {
     const w = img.naturalWidth, h = img.naturalHeight;
-    if (Math.min(w, h) < STORE_LOGO.min) throw new Error(`Logo kam se kam ${STORE_LOGO.min}×${STORE_LOGO.min} px ka ho (ye ${w}×${h} hai)`);
-    const side = Math.min(w, h);
+    const S = STORE_LOGO.out;
+    const scale = S / Math.max(w, h);
+    const dw = Math.max(1, Math.round(w * scale)), dh = Math.max(1, Math.round(h * scale));
     const c = document.createElement("canvas");
-    c.width = c.height = STORE_LOGO.out;
+    c.width = c.height = S;
     const ctx = c.getContext("2d");
-    ctx.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, STORE_LOGO.out, STORE_LOGO.out);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, w, h, (S - dw) / 2, (S - dh) / 2, dw, dh);
     const px = ctx.getImageData(0, 0, c.width, c.height).data;
     let transparent = false;
     for (let i = 3; i < px.length; i += 4) if (px[i] < 250) { transparent = true; break; }
@@ -254,19 +295,39 @@ async function processStoreLogo(file) {
       jc.drawImage(c, 0, 0);
       data = j.toDataURL("image/jpeg", 0.9);
     }
-    return { data, w, h, cropped: w !== h };
+    return { data, w, h, fitted: Math.abs(w - h) > 2, lowRes: Math.max(w, h) < STORE_LOGO.good };
   } finally {
     URL.revokeObjectURL(url);
   }
 }
 
-// Banner: landscape (2:1 se 5:1) → beech se 3:1 crop → max 1500×500 JPEG
+// Banner (koi bhi size):
+//  • landscape 2:1 – 5:1 → beech se 3:1 crop (thoda sa) → max 1500×500 JPEG
+//  • square / portrait / bahut lamba → poori image beech me, peeche usi ki blur photo (kuch nahi katega)
 async function processStoreBanner(file) {
   const { img, url } = await loadImageFromFile(file);
   try {
     const w = img.naturalWidth, h = img.naturalHeight, r = w / h;
-    if (w < STORE_BANNER.minW) throw new Error(`Banner kam se kam ${STORE_BANNER.minW} px chauda ho (ye ${w}×${h} hai). Recommended 1500×500 px.`);
-    if (r < STORE_BANNER.minRatio || r > STORE_BANNER.maxRatio) throw new Error(`Banner landscape (lamba-chauda) hona chahiye, 3:1 jaisa — jaise 1500×500 px. Ye ${w}×${h} hai.`);
+    const B = STORE_BANNER;
+    if (r < B.minRatio || r > B.maxRatio) {
+      const outW = B.outW, outH = Math.round(B.outW / B.ratio);
+      const c = document.createElement("canvas");
+      c.width = outW; c.height = outH;
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+      ctx.fillStyle = "#1e0b3d";
+      ctx.fillRect(0, 0, outW, outH);
+      // Peeche: wahi photo, poora banner dhakti hui, blur + thodi dark
+      const cover = Math.max(outW / w, outH / h);
+      ctx.save();
+      ctx.filter = "blur(28px) brightness(0.8)";
+      ctx.drawImage(img, (outW - w * cover) / 2, (outH - h * cover) / 2, w * cover, h * cover);
+      ctx.restore();
+      // Aage: poori photo, bina kate
+      const fit = Math.min(outW / w, outH / h);
+      ctx.drawImage(img, (outW - w * fit) / 2, (outH - h * fit) / 2, w * fit, h * fit);
+      return { id: uid("BNR"), data: c.toDataURL("image/jpeg", 0.85), w, h, cropped: false, fitted: true, lowRes: h < 400 && w < B.goodW };
+    }
     let sw = w, sh = h;
     if (r > STORE_BANNER.ratio) sw = h * STORE_BANNER.ratio; else sh = w / STORE_BANNER.ratio;
     const outW = Math.min(STORE_BANNER.outW, Math.round(sw));
@@ -282,6 +343,7 @@ async function processStoreBanner(file) {
       data: c.toDataURL("image/jpeg", 0.85),
       w, h,
       cropped: Math.abs(r - STORE_BANNER.ratio) > 0.03,
+      fitted: false,
       lowRes: sw < STORE_BANNER.goodW,
     };
   } finally {

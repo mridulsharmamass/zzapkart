@@ -765,11 +765,12 @@ function validateListing(L, ctx = {}) {
   else if (imgs.length < tpl.images.rec) W("images", `${tpl.images.rec} images recommended (abhi ${imgs.length})`);
   imgs.forEach((im, i) => {
     const longSide = Math.max(im.w, im.h);
-    if (longSide < 500) E(`images.${i}`, `Image ${i + 1}: resolution bahut kam (${im.w}×${im.h}) — kam se kam 500px`);
-    else if (longSide < 1000) W(`images.${i}`, `Image ${i + 1}: zoom ke liye 1000px+ recommended`);
-    if (tpl.images.ratio) {
+    // Koi bhi size chalegi — chhoti / alag ratio wali photo sirf suggestion (submit nahi rukta).
+    // Nayi upload apne-aap ratio me fit hoti hai (media.js processProductImage).
+    if (im.w && longSide < 1000) W(`images.${i}`, `Image ${i + 1}: ${im.w}×${im.h} — zoom ke liye 1000px+ behtar`);
+    if (tpl.images.ratio && im.w && im.h) {
       const [rw, rh] = tpl.images.ratio;
-      if (Math.abs(im.w / im.h - rw / rh) > 0.03) E(`images.${i}`, `Image ${i + 1}: ${rw}:${rh} ratio chahiye (jaise 1500×1800), abhi ${im.w}×${im.h}`);
+      if (Math.abs(im.w / im.h - rw / rh) > 0.03) W(`images.${i}`, `Image ${i + 1}: ${rw}:${rh} ratio behtar (abhi ${im.w}×${im.h}) — dobara upload karein to apne-aap fit ho jayegi`);
     }
   });
   if (imgs[0] && imgs[0].whiteBg === false) W("images.0", "Main image ka background white rakhein, sirf product (koi text / logo / props nahi)");

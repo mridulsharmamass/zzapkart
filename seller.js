@@ -43,31 +43,23 @@ modal.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-// Image file → chhota JPEG data URL (browser storage bachane ke liye)
+// Image file (koi bhi size, media.js ke loadImageFromFile se) → chhota JPEG data URL (browser storage bachane ke liye)
 function readImage(file, max = 700) {
-  return new Promise((resolve, reject) => {
-    if (!file) return reject(new Error("File chunein"));
-    if (!file.type.startsWith("image/")) return reject(new Error("Sirf image (JPG/PNG) upload karein"));
-    if (file.size > 8 * 1024 * 1024) return reject(new Error("Image 8MB se chhoti honi chahiye"));
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("File padh nahi paaye"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Image kharab hai"));
-      img.onload = () => {
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const c = document.createElement("canvas");
-        c.width = Math.round(img.width * scale);
-        c.height = Math.round(img.height * scale);
-        const ctx = c.getContext("2d");
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL("image/jpeg", 0.8));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
+  if (!file) return Promise.reject(new Error("File chunein"));
+  return loadImageFromFile(file).then(({ img, url }) => {
+    try {
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.8);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   });
 }
 

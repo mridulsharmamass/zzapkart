@@ -187,7 +187,7 @@ async function sbUploadLogo(file) {
     sbPersist();
     sbRenderMain();
     sbSide();
-    showToast(r.cropped ? "Logo upload ho gaya — square me crop kiya ✓" : "Logo upload ho gaya ✓");
+    showToast(["Logo upload ho gaya ✓", r.fitted && "poora logo square me fit kiya", r.lowRes && "500×500 px ho to aur saaf dikhega"].filter(Boolean).join(" · "));
   } catch (e) {
     if (errEl) errEl.textContent = e.message;
     showToast(e.message);
@@ -206,7 +206,7 @@ async function sbUploadBanner(file) {
     sbPersist();
     sbRenderMain();
     sbSide();
-    showToast(["Banner add ho gaya ✓", r.cropped && "3:1 me crop kiya", r.lowRes && "resolution kam hai, 1500 px chauda behtar"].filter(Boolean).join(" · "));
+    showToast(["Banner add ho gaya ✓", r.fitted ? "poori photo banner me fit ki (kuch kata nahi)" : r.cropped && "3:1 me thoda crop kiya", r.lowRes && "1500×500 px ho to aur saaf dikhega"].filter(Boolean).join(" · "));
   } catch (e) {
     if (errEl) errEl.textContent = e.message;
     showToast(e.message);
@@ -253,9 +253,9 @@ function sbBrandingHTML(d) {
           ${d.logo ? `<button type="button" class="btn btn-sm btn-outline" data-sb-act="del-logo">Remove</button>` : ""}
         </div>
         <ul class="sb-rules">
-          <li>Square (1:1) — kam se kam 200×200 px, best 500×500 px</li>
-          <li>JPG, PNG ya WEBP · 10 MB tak · transparent PNG best</li>
-          <li>Square na ho to beech se crop ho jayega</li>
+          <li><strong>Koi bhi size chalegi</strong> — square (500×500 px) best</li>
+          <li>JPG, PNG, WEBP… · 1 GB tak · transparent PNG best</li>
+          <li>Square na ho to poora logo square me fit ho jayega (kuch katega nahi)</li>
         </ul>
         <small class="err" data-err="logo"></small>
       </div>
@@ -507,8 +507,8 @@ function sbBannersHTML(d) {
     <div class="panel-head"><h2>Banners (${n}/${STORE_LIMITS.banners})</h2>
       <button type="button" class="btn btn-sm" data-sb-act="pick-banner" ${n >= STORE_LIMITS.banners ? "disabled" : ""}>+ Add banner</button></div>
     <ul class="sb-rules">
-      <li>Size <strong>1500×500 px (3:1)</strong> best hai · kam se kam 1000 px chauda</li>
-      <li>Thoda alag ratio ho to beech se 3:1 me crop hoga · JPG / PNG / WEBP, 10 MB tak</li>
+      <li><strong>Koi bhi size chalegi</strong> — 1500×500 px (3:1) best</li>
+      <li>Lambi (landscape) photo beech se 3:1 me aati hai; square / portrait photo poori dikhegi, peeche usi ki blur photo · 1 GB tak</li>
       <li>Store ke upar slideshow me har 5 second me badlenge · max ${STORE_LIMITS.banners}</li>
     </ul>
     <small class="err" data-err="banners"></small>
@@ -1018,8 +1018,8 @@ function viewStore() {
         <div class="wizard-main" id="sb-main"></div>
         <aside class="wizard-side" id="sb-side"></aside>
       </div>
-      <input type="file" id="sb-file-logo" accept="image/jpeg,image/png,image/webp" hidden />
-      <input type="file" id="sb-file-banner" accept="image/jpeg,image/png,image/webp" hidden />
+      <input type="file" id="sb-file-logo" accept="image/*" hidden />
+      <input type="file" id="sb-file-banner" accept="image/*" hidden />
     </div>`;
   const page = document.getElementById("sb-page");
   page.addEventListener("input", sbOnInput);
