@@ -124,8 +124,8 @@ function campaignStatus(c) {
   const seller = getSeller(c.sellerId);
   if (!seller || !seller.kyc || seller.kyc.status !== "approved") return { key: "blocked", label: "Seller not verified" };
   if (spentToday(c) >= c.dailyBudget) return { key: "out-of-budget", label: "Out of budget" };
-  const live = c.productIds.filter((pid) => !(c.pausedProducts || []).includes(pid)).map(sellerProductById).filter((p) => p && p.stock > 0);
-  if (!live.length) return { key: "not-delivering", label: "No products in stock" };
+  const live = c.productIds.filter((pid) => !(c.pausedProducts || []).includes(pid)).map(sellerProductById).filter((p) => p && isListingLive(p));
+  if (!live.length) return { key: "not-delivering", label: "No live products" };
   return { key: "delivering", label: "Delivering" };
 }
 

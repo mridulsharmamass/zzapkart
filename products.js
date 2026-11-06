@@ -6,6 +6,11 @@ const CATEGORIES = [
   { name: "Home",        slug: "home",        emoji: "🏠", tagline: "Ghar ko sajao — kitchen, decor aur lighting",  gradient: "linear-gradient(120deg, #4a1a9e, #c026d3)" },
   { name: "Sports",      slug: "sports",      emoji: "🏏", tagline: "Fit raho — cricket, football, yoga gear",      gradient: "linear-gradient(120deg, #f2611d, #ff2d95)" },
   { name: "Books",       slug: "books",       emoji: "📚", tagline: "Novels, notebooks aur padhai ka saaman",       gradient: "linear-gradient(120deg, #2d0f6b, #b0185f)" },
+  { name: "Accessories", slug: "accessories", emoji: "👜", tagline: "Bags, watches, jewellery aur eyewear",            gradient: "linear-gradient(120deg, #7a1fa2, #ff2d95)" },
+  { name: "Beauty",      slug: "beauty",      emoji: "💄", tagline: "Skin care, makeup, hair care aur fragrances",     gradient: "linear-gradient(120deg, #c2185b, #ff8a5c)" },
+  { name: "Grocery",     slug: "grocery",     emoji: "🛒", tagline: "Chai, masale, dry fruits aur roz ka saamaan",     gradient: "linear-gradient(120deg, #2d0f6b, #f2611d)" },
+  { name: "Health",      slug: "health",      emoji: "💊", tagline: "Vitamins, ayurveda aur health devices",           gradient: "linear-gradient(120deg, #4a1a9e, #ff5c8a)" },
+  { name: "Toys",        slug: "toys",        emoji: "🧸", tagline: "Toys, games aur baby care",                       gradient: "linear-gradient(120deg, #6d28d9, #ffb35c)" },
 ];
 
 // Product catalog — yahan naye products add/edit kar sakte ho

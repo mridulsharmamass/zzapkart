@@ -22,6 +22,12 @@
     <h1 class="dash-title">KYC Requests</h1>
     <div id="kyc-list"></div>
 
+    <h1 class="dash-title">Listing QC Queue</h1>
+    <div id="qc-list"></div>
+
+    <h1 class="dash-title">Category Approval Requests</h1>
+    <div id="appr-list"></div>
+
     <h1 class="dash-title">All Sellers</h1>
     <section class="panel"><div class="table-wrap" id="sellers"></div></section>
 
@@ -30,7 +36,7 @@
 
     <section class="panel danger-zone">
       <h2>Reset Demo Data</h2>
-      <p class="muted">Is browser se saare sellers, seller products, orders, ads aur stats hata do. Cart aur saved address bhi saaf ho jayenge.</p>
+      <p class="muted">Is browser se saare sellers, seller listings (images samet), approvals, orders, ads aur stats hata do. Cart aur saved address bhi saaf ho jayenge.</p>
       <button class="btn btn-danger" id="reset">Reset everything</button>
     </section>
   </main>
@@ -38,9 +44,12 @@
   <footer class="footer">© 2026 Zzapkart Prototype</footer>
 
   <script src="products.js"></script>
+  <script src="catalog.js"></script>
   <script src="store.js"></script>
+  <script src="media.js"></script>
   <script src="ads.js"></script>
   <script src="cart.js"></script>
+  <script src="admin-qc.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

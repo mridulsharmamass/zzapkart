@@ -17,14 +17,12 @@ STATES.forEach((s) => stateSelect.add(new Option(s, s)));
 
 // ---------- Cart data ----------
 function cartItems() {
-  return Object.entries(getCart())
-    .map(([id, qty]) => ({ product: PRODUCTS.find((p) => p.id === Number(id)), qty }))
-    .filter((x) => x.product);
+  return cartItemsResolved().filter((x) => x.qty > 0);
 }
 
 function totals(items) {
   const count = items.reduce((s, x) => s + x.qty, 0);
-  const mrp = items.reduce((s, x) => s + x.product.mrp * x.qty, 0);
+  const mrp = items.reduce((s, x) => s + Math.max(x.product.mrp, x.product.price) * x.qty, 0);
   const price = items.reduce((s, x) => s + x.product.price * x.qty, 0);
   const express = form.elements.delivery.value === "express";
   const delivery = express ? DELIVERY_OPTIONS.express.charge : price >= DELIVERY_FREE_ABOVE ? 0 : DELIVERY_CHARGE;
@@ -35,12 +33,12 @@ function renderSummary() {
   const items = cartItems();
   document.getElementById("mini-items").innerHTML = items
     .map(
-      ({ product: p, qty }) => `
+      ({ product: p, variant, qty }) => `
       <div class="mini-row">
         <div class="mini-img" style="background:${esc(p.color)}">${productThumb(p)}</div>
         <div class="mini-info">
           <div>${esc(p.name)}</div>
-          <div class="muted">Qty: ${qty}</div>
+          <div class="muted">${variant && variant.size ? `Size: ${esc(variant.size)} · ` : ""}Qty: ${qty}</div>
         </div>
         <div class="mini-price">${formatPrice(p.price * qty)}</div>
       </div>`
@@ -180,9 +178,9 @@ form.addEventListener("submit", (e) => {
 
   const items = cartItems();
   // Stock dobara check karo (ho sakta hai beech mein khatam ho gaya ho)
-  const short = items.find(({ product, qty }) => product.stock !== undefined && qty > product.stock);
+  const short = items.find(({ qty, maxStock }) => qty > maxStock);
   if (short) {
-    showToast(`${short.product.name}: sirf ${short.product.stock} stock mein hai. Cart update karein.`);
+    showToast(`${short.product.name}${short.variant && short.variant.size ? " (" + short.variant.size + ")" : ""}: sirf ${short.maxStock} stock mein hai. Cart update karein.`);
     return;
   }
 

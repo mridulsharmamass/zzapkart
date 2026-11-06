@@ -37,14 +37,40 @@ if (!cat) {
   const catSlots = runAuction({ placement: "category", category: cat.name }, 2);
   let catSlotsTracked = false;
 
+  // Sub-category chips (Flipkart jaisa: category → sub-category)
+  const subTree = (typeof TAXONOMY !== "undefined" ? TAXONOMY.find((t) => t.name === cat.name) : null);
+  const subs = subTree ? subTree.cats.map((c) => c.name) : [];
+  let sub = "All";
+  if (subs.length) {
+    const bar = document.createElement("div");
+    bar.className = "filter-tabs sub-chips";
+    bar.id = "sub-chips";
+    grid.parentNode.insertBefore(bar, grid);
+    bar.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-sub]");
+      if (!b) return;
+      sub = b.dataset.sub;
+      render();
+    });
+  }
+
   function render() {
     const q = searchInput.value.trim().toLowerCase();
-    const showAds = !q && catSlots.length > 0;
+    const showAds = !q && sub === "All" && catSlots.length > 0;
     const adIds = new Set(showAds ? catSlots.map((s) => s.pid) : []);
     const list = productsOf(cat.name)
-      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .filter((p) => !q || `${p.name} ${p.brand || ""} ${p.verticalName || ""}`.toLowerCase().includes(q))
+      .filter((p) => sub === "All" || p.catName === sub)
       .sort(SORTERS[sortSelect.value]);
 
+    const chips = document.getElementById("sub-chips");
+    if (chips) {
+      const all = productsOf(cat.name);
+      chips.innerHTML = ["All"].concat(subs).map((n) => {
+        const c = n === "All" ? all.length : all.filter((p) => p.catName === n).length;
+        return `<button class="chip ${sub === n ? "active" : ""}" data-sub="${esc(n)}">${esc(n)} (${c})</button>`;
+      }).join("");
+    }
     grid.innerHTML = (showAds ? sponsoredCards(catSlots) : "") +
       list.filter((p) => !adIds.has(p.id)).map((p) => productCard(p)).join("");
     if (showAds && !catSlotsTracked) { trackSlotsShown(catSlots); catSlotsTracked = true; }

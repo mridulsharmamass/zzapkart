@@ -118,13 +118,18 @@ function activateSubscription(planId, mode) {
 // ---------------------------------------------------------------------
 const SECTIONS = [
   { id: "overview", icon: "🏠", label: "Overview", locked: true },
-  { id: "products", icon: "📦", label: "Products", locked: true },
+  { id: "listings", icon: "📦", label: "My Listings", locked: true },
+  { id: "add-listing", icon: "➕", label: "Add Listing", locked: true },
+  { id: "bulk", icon: "📄", label: "Bulk Upload", locked: true },
+  { id: "approvals", icon: "🔒", label: "Category Approvals", locked: true },
   { id: "orders", icon: "🛒", label: "Orders", locked: true },
-  { id: "earnings", icon: "💰", label: "Earnings", locked: true },
+  { id: "earnings", icon: "💰", label: "Payments", locked: true },
   { id: "analytics", icon: "📊", label: "Sales Analytics", locked: true },
-  { id: "subscription", icon: "⭐", label: "Subscription", locked: true },
   { id: "ads", icon: "📣", label: "Ads Console", locked: true },
+  { id: "subscription", icon: "⭐", label: "Subscription", locked: true },
+  { id: "profile", icon: "🏦", label: "Profile & Bank", locked: false },
   { id: "kyc", icon: "🪪", label: "KYC Verification", locked: false },
+  { id: "guidelines", icon: "📘", label: "Listing Guidelines", locked: false },
   { id: "notifications", icon: "🔔", label: "Notifications", locked: false },
 ];
 
@@ -139,7 +144,8 @@ function renderNav() {
   const newOrders = isApproved() ? myShipments().filter((x) => x.shipment.status === "Placed").length : 0;
   document.getElementById("dash-nav").innerHTML = SECTIONS.map((s) => {
     const locked = s.locked && !isApproved();
-    const count = s.id === "orders" && newOrders ? `<span class="badge">${newOrders}</span>` : "";
+    const badges = isApproved() ? { orders: newOrders, listings: listingsOfSeller(me.id).filter((l) => l.status === "qc_failed").length, profile: bankStatus() === "verified" ? 0 : "!" } : {};
+    const count = badges[s.id] ? `<span class="badge">${badges[s.id]}</span>` : "";
     return `<a href="#${s.id}" class="${s.id === cur ? "active" : ""} ${locked ? "locked" : ""}">
       <span>${s.icon}</span>${s.label}${locked ? " 🔒" : ""}${count}</a>`;
   }).join("");
@@ -191,26 +197,88 @@ window.addEventListener("hashchange", render);
 const VIEWS = {};
 
 // ---------------------------------------------------------------------
-// Overview
+// Overview: to-do list (Meesho / Flipkart jaisa) + account health
 // ---------------------------------------------------------------------
+const shipFees = (sh) => (typeof sh.fees === "number" ? sh.fees : 0);
+const shipNet = (sh) => (typeof sh.settlement === "number" ? sh.settlement : sh.amount);
+
+function accountHealth() {
+  const ships = myShipments();
+  const now = Date.now();
+  const shippedAt = (sh) => sh.shippedAt || (sh.history.find((h) => h.status === "Shipped") || {}).at;
+  const dispatched = ships.filter((x) => shippedAt(x.shipment));
+  const late = dispatched.filter((x) => x.shipment.dispatchBy && shippedAt(x.shipment) > x.shipment.dispatchBy);
+  const breaching = ships.filter((x) => x.shipment.status === "Placed" && x.shipment.dispatchBy && now > x.shipment.dispatchBy);
+  const ls = listingsOfSeller(me.id).filter((l) => l.status !== "archived");
+  const submitted = ls.filter((l) => l.status !== "draft");
+  const everFailed = submitted.filter((l) => (l.qcFailCount || 0) > 0);
+  const lateRate = dispatched.length ? (late.length / dispatched.length) * 100 : 0;
+  const qcRejRate = submitted.length ? (everFailed.length / submitted.length) * 100 : 0;
+  const avgQuality = ls.length ? Math.round(ls.reduce((s, l) => s + (l.quality ?? listingQuality(l).score), 0) / ls.length) : 0;
+  const atRisk = lateRate > 10 || breaching.length > 0;
+  return { lateRate, breaching: breaching.length, qcRejRate, avgQuality, atRisk, dispatched: dispatched.length };
+}
+
 VIEWS.overview = () => {
   const ships = myShipments();
-  const earned = ships.filter((x) => x.shipment.status === "Delivered").reduce((s, x) => s + x.shipment.amount, 0);
-  const pending = ships.filter((x) => x.shipment.status !== "Delivered").reduce((s, x) => s + x.shipment.amount, 0);
-  const newCount = ships.filter((x) => x.shipment.status === "Placed").length;
-  const prods = productsOfSeller(me.id);
+  const delivered = ships.filter((x) => x.shipment.status === "Delivered");
+  const earned = delivered.reduce((s, x) => s + shipNet(x.shipment), 0);
+  const pending = ships.filter((x) => x.shipment.status !== "Delivered").reduce((s, x) => s + shipNet(x.shipment), 0);
+  const placed = ships.filter((x) => x.shipment.status === "Placed");
+  const ls = listingsOfSeller(me.id);
+  const by = (st) => ls.filter((l) => listingDisplayStatus(l) === st);
+  const live = by("live");
+  const lowStock = live.reduce((n, l) => n + l.variants.filter((v) => Number(v.stock) > 0 && Number(v.stock) <= 5).length, 0);
+  const enhance = ls.filter((l) => l.status !== "archived" && (l.quality ?? listingQuality(l).score) < 75).length;
   const p = plan();
   const sub = me.subscription;
+  const prof = me.profile || {};
+  const h = accountHealth();
+  const apprIssues = Object.keys(RESTRICTED).map((g) => approvalFor(me.id, g)).filter((a) => a && a.status !== "approved");
+
+  const todos = [
+    [placed.length, "Orders dispatch karne hain", "#orders", "🛒"],
+    [h.breaching, "Orders ki dispatch-by date nikal gayi — turant ship karein", "#orders", "⏰"],
+    [by("qc_failed").length, "Listings me QC error — fix karke dobara bhejein", "#listings/qc_failed", "❌"],
+    [by("draft").length, "Draft listings complete karein", "#listings/progress", "📝"],
+    [by("out_of_stock").length, "Out of stock listings (search me nahi dikhti)", "#listings/oos", "📦"],
+    [lowStock, "Sizes ka stock 5 ya kam", "#listings/live", "📉"],
+    [enhance, "Listings enhance karein (quality 75% se kam)", "#listings/enhance", "✨"],
+    [bankStatus() === "verified" ? 0 : 1, "Bank penny-drop verification pending — iske bina payout nahi", "#profile", "🏦"],
+    [prof.gstin ? 0 : 1, "GSTIN add karein", "#profile", "🧾"],
+    [sellerDefaults().has ? 0 : 1, "Default manufacturer / packer / importer details save karein", "#profile", "🏭"],
+    [apprIssues.length, "Category approval pending / rejected", "#approvals", "🔒"],
+    [by("qc_pending").length, "Listings QC review me hain", "#listings/progress", "🧪"],
+  ].filter(([n]) => n > 0);
 
   content.innerHTML = `
     <h1 class="dash-title">Namaste, ${esc(me.name.split(" ")[0])} 👋</h1>
     <div class="stat-grid">
-      ${tile("Total Earnings", formatPrice(earned), "Delivered orders se")}
-      ${tile("Pending Amount", formatPrice(pending), "Placed + Shipped")}
-      ${tile("Orders", ships.length, newCount ? `<a href="#orders">${newCount} naye — process karo</a>` : "Sab process ho gaye")}
-      ${tile("Products", `${prods.length}${p.productLimit === Infinity ? "" : " / " + p.productLimit}`, `<a href="#products">Manage</a>`)}
+      ${tile("Net Earnings", formatPrice(Math.round(earned)), "Delivered orders, fees ke baad")}
+      ${tile("Pending Amount", formatPrice(Math.round(pending)), "Placed + Shipped (net)")}
+      ${tile("Orders", ships.length, placed.length ? `<a href="#orders">${placed.length} dispatch karne hain</a>` : "Sab process ho gaye")}
+      ${tile("Live Listings", `${live.length} / ${ls.filter((l) => l.status !== "archived").length}`, `<a href="#listings">Manage</a> · limit ${p.productLimit === Infinity ? "∞" : p.productLimit}`)}
       ${tile("Plan", p.name, sub && sub.expiresAt > Date.now() ? "Expires " + fmtDate(sub.expiresAt) : `<a href="#subscription">Upgrade karo</a>`)}
       ${tile("Ad Credits", formatPrice(me.adCredits || 0), `<a href="#ads">Ads chalao</a>`)}
+    </div>
+
+    <div class="dash-cols">
+      <section class="panel">
+        <div class="panel-head"><h2>To-do</h2><span class="muted small">${todos.length} kaam</span></div>
+        ${todos.length ? `<ul class="todo-list">${todos.map(([n, label, href, icon]) => `
+          <li><a href="${href}"><span class="todo-icon">${icon}</span><span class="todo-label">${esc(label)}</span><span class="todo-count">${n}</span></a></li>`).join("")}</ul>`
+          : `<p class="muted">Sab kaam ho gaya 🎉</p>`}
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Account health</h2><span class="status-pill ${h.atRisk ? "s-rejected" : "s-approved"}">${h.atRisk ? "At risk" : "Healthy"}</span></div>
+        <table class="table health-table"><tbody>
+          <tr><td>Late dispatch rate <span class="muted small">(target &lt; 4%)</span></td><td class="num ${h.lateRate > 4 ? "text-danger" : "green"}">${h.lateRate.toFixed(1)}%</td></tr>
+          <tr><td>Orders dispatch-by ke baad bhi pending</td><td class="num ${h.breaching ? "text-danger" : "green"}">${h.breaching}</td></tr>
+          <tr><td>QC rejection rate</td><td class="num ${h.qcRejRate > 20 ? "text-warn" : ""}">${h.qcRejRate.toFixed(0)}%</td></tr>
+          <tr><td>Average listing quality</td><td class="num ${h.avgQuality < 75 ? "text-warn" : "green"}">${h.avgQuality}%</td></tr>
+          <tr><td>Bank account</td><td class="num">${bankStatus() === "verified" ? `<span class="green">Verified</span>` : `<a href="#profile" class="text-danger">Not verified</a>`}</td></tr>
+        </tbody></table>
+      </section>
     </div>
 
     <div class="dash-cols">
@@ -221,7 +289,7 @@ VIEWS.overview = () => {
           <tbody>${ships.slice(0, 5).map(({ order: o, shipment: sh }) => `
             <tr><td>#${esc(o.id)}<div class="muted">${fmtDate(o.createdAt)}</div></td>
             <td>${esc(o.buyer.name)}</td><td>${formatPrice(sh.amount)}</td><td>${pill(sh.status)}</td></tr>`).join("")}
-          </tbody></table>` : `<p class="muted">Abhi koi order nahi. Products add karo aur store par dekho!</p>`}
+          </tbody></table>` : `<p class="muted">Abhi koi order nahi. Listing banao aur QC pass karwao!</p>`}
       </section>
       <section class="panel">
         <div class="panel-head"><h2>Notifications</h2><a href="#notifications" class="link">All →</a></div>
@@ -231,154 +299,12 @@ VIEWS.overview = () => {
     </div>`;
 };
 
-// ---------------------------------------------------------------------
-// Products
-// ---------------------------------------------------------------------
-VIEWS.products = () => {
-  const prods = productsOfSeller(me.id);
-  const p = plan();
-  const atLimit = prods.length >= p.productLimit;
-
-  content.innerHTML = `
-    <div class="dash-head">
-      <h1 class="dash-title">Products</h1>
-      <button class="btn" id="add-product" ${atLimit ? "disabled" : ""}>+ Add Product</button>
-    </div>
-    <p class="muted">${prods.length} product(s) · ${p.name} plan limit: ${p.productLimit === Infinity ? "Unlimited" : p.productLimit}
-      ${atLimit ? ` · <strong>Limit poori ho gayi</strong> — <a href="#subscription" class="link">plan upgrade karo</a>` : ""}</p>
-    ${prods.length ? `
-    <div class="table-wrap"><table class="table">
-      <thead><tr><th></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
-      <tbody>${prods.map((x) => `
-        <tr>
-          <td><div class="thumb">${safeImg(x.image) ? `<img src="${safeImg(x.image)}" alt="" />` : "📦"}</div></td>
-          <td><strong>${esc(x.name)}</strong><div class="muted clamp">${esc(x.description)}</div></td>
-          <td>${esc(x.category)}</td>
-          <td>${formatPrice(x.price)}${x.mrp > x.price ? `<div class="mrp">${formatPrice(x.mrp)}</div>` : ""}</td>
-          <td class="${x.stock === 0 ? "text-danger" : x.stock <= 5 ? "text-warn" : ""}">${x.stock}${x.stock > 0 && x.stock <= 5 ? " (Low)" : ""}</td>
-          <td>${x.stock > 0 ? pill("Live") : pill("Out of stock")}</td>
-          <td class="row-actions">
-            <button class="btn-sm btn-outline" data-edit="${x.id}">Edit</button>
-            <button class="btn-sm btn-danger" data-del="${x.id}">Delete</button>
-          </td>
-        </tr>`).join("")}
-      </tbody></table></div>` : `
-    <div class="panel empty"><div class="empty-emoji">📦</div><p>Abhi koi product nahi. Pehla product add karo!</p></div>`}`;
-
-  document.getElementById("add-product").addEventListener("click", () => productForm());
-  content.querySelectorAll("[data-edit]").forEach((b) =>
-    b.addEventListener("click", () => productForm(prods.find((x) => x.id === Number(b.dataset.edit)))));
-  content.querySelectorAll("[data-del]").forEach((b) =>
-    b.addEventListener("click", () => {
-      const x = prods.find((y) => y.id === Number(b.dataset.del));
-      if (x && confirm(`"${x.name}" delete karna hai? Ye wapas nahi aayega.`)) {
-        deleteSellerProduct(me.id, x.id);
-        showToast("Product delete ho gaya");
-        render();
-      }
-    }));
-};
-
-function productForm(existing) {
-  const x = existing || {};
-  openModal(`
-    <form id="product-form" class="checkout-form" novalidate>
-      <div class="modal-head"><h2>${existing ? "Edit Product" : "Add New Product"}</h2><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
-      <div class="form-grid">
-        <label class="full">Product Name
-          <input name="name" value="${esc(x.name)}" placeholder="Red T-shirt" maxlength="80" />
-          <small class="err"></small>
-        </label>
-        <label>Category
-          <select name="category">${CATEGORIES.map((c) => `<option ${c.name === x.category ? "selected" : ""}>${c.name}</option>`).join("")}</select>
-          <small class="err"></small>
-        </label>
-        <label>Available Stock
-          <input name="stock" type="number" min="0" step="1" value="${x.stock ?? ""}" placeholder="100" />
-          <small class="err"></small>
-        </label>
-        <label>Selling Price (₹)
-          <input name="price" type="number" min="1" step="1" value="${x.price ?? ""}" placeholder="499" />
-          <small class="err"></small>
-        </label>
-        <label>MRP (₹, optional)
-          <input name="mrp" type="number" min="1" step="1" value="${x.mrp ?? ""}" placeholder="799" />
-          <small class="err"></small>
-        </label>
-        <label class="full">Product Image ${existing ? "(nayi chunoge to badal jayegi)" : ""}
-          <input name="image" type="file" accept="image/*" />
-          <small class="err"></small>
-        </label>
-        <div class="full img-preview" id="img-preview">${safeImg(x.image) ? `<img src="${safeImg(x.image)}" alt="Preview" />` : ""}</div>
-        <label class="full">Product Description
-          <textarea name="description" rows="3" maxlength="500" placeholder="Cotton T-shirt for summer wear">${esc(x.description)}</textarea>
-          <small class="err"></small>
-        </label>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline" data-close>Cancel</button>
-        <button type="submit" class="btn">${existing ? "Save Changes" : "Add Product"}</button>
-      </div>
-    </form>`);
-
-  const form = document.getElementById("product-form");
-  let imageData = x.image || "";
-  const setErr = (n, m) => {
-    const el = form.elements[n];
-    el.closest("label").querySelector(".err").textContent = m || "";
-    el.classList.toggle("invalid", !!m);
-    return !m;
-  };
-
-  form.elements.image.addEventListener("change", async () => {
-    try {
-      imageData = await readImage(form.elements.image.files[0]);
-      document.getElementById("img-preview").innerHTML = `<img src="${imageData}" alt="Preview" />`;
-      setErr("image", "");
-    } catch (err) {
-      setErr("image", err.message);
-    }
-  });
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const v = (n) => form.elements[n].value.trim();
-    const price = Number(v("price"));
-    const mrp = v("mrp") ? Number(v("mrp")) : 0;
-    const stock = Number(v("stock"));
-    const ok = [
-      setErr("name", v("name").length < 3 ? "Product ka naam daalein (3+ letters)" : ""),
-      setErr("price", !Number.isInteger(price) || price < 1 ? "Sahi price daalein" : ""),
-      setErr("mrp", mrp && mrp < price ? "MRP price se kam nahi ho sakti" : ""),
-      setErr("stock", v("stock") === "" || !Number.isInteger(stock) || stock < 0 ? "Stock 0 ya usse zyada" : ""),
-      setErr("image", imageData ? "" : "Product image upload karein"),
-      setErr("description", v("description").length < 10 ? "Thoda description likhein (10+ letters)" : ""),
-    ].every(Boolean);
-    if (!ok) return;
-
-    if (!existing && productsOfSeller(me.id).length >= plan().productLimit) {
-      showToast("Plan limit poori ho gayi — upgrade karein");
-      return;
-    }
-    const product = {
-      id: existing ? existing.id : Date.now(),
-      sellerId: me.id,
-      name: v("name"),
-      category: v("category"),
-      price,
-      mrp: mrp || price,
-      stock,
-      image: imageData,
-      description: v("description"),
-      createdAt: existing ? existing.createdAt : Date.now(),
-      updatedAt: Date.now(),
-    };
-    if (!saveSellerProduct(product)) return;
-    closeModal();
-    showToast(existing ? "Product update ho gaya ✓" : "Product add ho gaya — store par live hai ✓");
-    render();
-  });
-}
+VIEWS.listings = () => viewListings();
+VIEWS["add-listing"] = () => viewAddListing();
+VIEWS.bulk = () => viewBulk();
+VIEWS.approvals = () => viewApprovals();
+VIEWS.guidelines = () => viewGuidelines();
+VIEWS.profile = () => viewProfile();
 
 // ---------------------------------------------------------------------
 // Orders
@@ -388,20 +314,23 @@ const COURIERS = ["Delhivery", "Blue Dart", "DTDC", "Ekart", "India Post", "Self
 
 VIEWS.orders = () => {
   const ships = myShipments();
+  const now = Date.now();
   const counts = { all: ships.length, Placed: 0, Shipped: 0, Delivered: 0 };
   ships.forEach((x) => counts[x.shipment.status]++);
   const list = orderFilter === "all" ? ships : ships.filter((x) => x.shipment.status === orderFilter);
-  const tabs = [["all", "All"], ["Placed", "New"], ["Shipped", "Shipped"], ["Delivered", "Delivered"]];
+  const tabs = [["all", "All"], ["Placed", "To dispatch"], ["Shipped", "Shipped"], ["Delivered", "Delivered"]];
 
   content.innerHTML = `
     <h1 class="dash-title">Orders</h1>
     <div class="filter-tabs">${tabs.map(([k, l]) =>
       `<button class="chip ${orderFilter === k ? "active" : ""}" data-filter="${k}">${l} (${counts[k]})</button>`).join("")}</div>
-    ${list.length ? list.map(({ order: o, shipment: sh }) => `
+    ${list.length ? list.map(({ order: o, shipment: sh }) => {
+      const late = sh.dispatchBy && ((sh.status === "Placed" && now > sh.dispatchBy) || (sh.shippedAt && sh.shippedAt > sh.dispatchBy));
+      return `
       <section class="panel order-card">
         <div class="order-head">
           <div><strong>Order #${esc(o.id)}</strong><div class="muted">${fmtDateTime(o.createdAt)}</div></div>
-          ${pill(sh.status)}
+          <div class="order-badges">${sh.dispatchBy && sh.status === "Placed" ? `<span class="status-pill ${late ? "s-rejected" : "s-pending"}">${late ? "Late! " : ""}Dispatch by ${fmtDate(sh.dispatchBy)}</span>` : ""}${pill(sh.status)}</div>
         </div>
         <div class="order-grid">
           <div>
@@ -411,11 +340,11 @@ VIEWS.orders = () => {
           </div>
           <div>
             <h4>Items</h4>
-            ${sh.items.map((it) => `<p>${esc(it.name)} × ${it.qty} <span class="muted">(${formatPrice(it.price * it.qty)})</span></p>`).join("")}
+            ${sh.items.map((it) => `<p>${esc(it.name)}${it.size ? ` · <strong>Size ${esc(it.size)}</strong>` : ""} × ${it.qty} <span class="muted">(${formatPrice(it.price * it.qty)})</span>${it.sku ? `<br><span class="muted small">SKU: ${esc(it.sku)}</span>` : ""}</p>`).join("")}
           </div>
           <div>
             <h4>Details</h4>
-            <p>Total: <strong>${formatPrice(sh.amount)}</strong></p>
+            <p>Total: <strong>${formatPrice(sh.amount)}</strong>${typeof sh.fees === "number" ? `<br><span class="muted small">Fees ${money2(sh.fees)} · You get <strong>${money2(sh.settlement)}</strong></span>` : ""}</p>
             <p class="muted">${esc(DELIVERY_OPTIONS[o.delivery]?.label || "")} · ${PAY[o.payment] || ""}</p>
             ${sh.trackingId ? `<p class="muted">Tracking: ${esc(sh.trackingId)} (${esc(sh.courier)})</p>` : ""}
           </div>
@@ -423,12 +352,13 @@ VIEWS.orders = () => {
         ${sh.status === "Placed" ? `
           <form class="ship-form" data-order="${esc(o.id)}">
             <select name="courier" aria-label="Courier">${COURIERS.map((c) => `<option>${c}</option>`).join("")}</select>
-            <input name="tracking" placeholder="Tracking ID (optional for Self Delivery)" maxlength="40" />
+            <input name="tracking" placeholder="Tracking ID (Self Delivery ke liye optional)" maxlength="40" />
             <button class="btn" type="submit">📦 Mark as Shipped</button>
           </form>` : ""}
         ${sh.status === "Shipped" ? `<button class="btn" data-deliver="${esc(o.id)}">✅ Mark as Delivered</button>` : ""}
-        ${sh.status === "Delivered" ? `<p class="green">✓ Delivered ${fmtDate(sh.deliveredAt)} · Payout: ${fmtDate(payoutDate(sh))}</p>` : ""}
-      </section>`).join("") : `<div class="panel empty"><div class="empty-emoji">🛒</div><p>Is filter mein koi order nahi.</p></div>`}`;
+        ${sh.status === "Delivered" ? `<p class="green">✓ Delivered ${fmtDate(sh.deliveredAt)} · Payout: ${bankStatus() === "verified" ? fmtDate(payoutDate(sh)) : "on hold (bank verify karein)"}</p>` : ""}
+      </section>`;
+    }).join("") : `<div class="panel empty"><div class="empty-emoji">🛒</div><p>Is filter mein koi order nahi.</p></div>`}`;
 
   content.querySelectorAll("[data-filter]").forEach((b) =>
     b.addEventListener("click", () => { orderFilter = b.dataset.filter; render(); }));
@@ -449,42 +379,51 @@ VIEWS.orders = () => {
 
   content.querySelectorAll("[data-deliver]").forEach((b) => b.addEventListener("click", () => {
     updateShipment(b.dataset.deliver, me.id, "Delivered");
-    notifySeller(me.id, `✅ Order #${b.dataset.deliver} delivered. Payout ${plan().payoutDays} din mein schedule hua.`);
+    notifySeller(me.id, `✅ Order #${b.dataset.deliver} delivered. ${bankStatus() === "verified" ? `Payout ${plan().payoutDays} din mein schedule hua.` : "Payout on hold — bank verify karein."}`);
     showToast("Order delivered ✓");
     render();
   }));
 };
 
 // ---------------------------------------------------------------------
-// Earnings
+// Payments: gross → fees → net settlement, bank verify ke bina hold
 // ---------------------------------------------------------------------
 VIEWS.earnings = () => {
   const ships = myShipments();
   const delivered = ships.filter((x) => x.shipment.status === "Delivered");
   const now = Date.now();
-  const paid = delivered.filter((x) => payoutDate(x.shipment) <= now);
-  const scheduled = delivered.filter((x) => payoutDate(x.shipment) > now);
-  const sum = (arr) => arr.reduce((s, x) => s + x.shipment.amount, 0);
+  const bankOk = bankStatus() === "verified";
+  const status = (sh) => (!bankOk ? "hold" : payoutDate(sh) <= now ? "paid" : "scheduled");
+  const sum = (arr, fn) => arr.reduce((s, x) => s + fn(x.shipment), 0);
+  const paid = delivered.filter((x) => status(x.shipment) === "paid");
+  const scheduled = delivered.filter((x) => status(x.shipment) === "scheduled");
+  const hold = delivered.filter((x) => status(x.shipment) === "hold");
   const inProgress = ships.filter((x) => x.shipment.status !== "Delivered");
 
   content.innerHTML = `
-    <h1 class="dash-title">Earnings Overview</h1>
+    <h1 class="dash-title">Payments</h1>
+    ${bankOk ? "" : `<div class="alert error">🏦 Bank account verified nahi hai — sab payouts <strong>on hold</strong> hain. <a href="#profile">Penny-drop verification karein</a>.</div>`}
     <div class="stat-grid">
-      ${tile("Total Earned", formatPrice(sum(delivered)), `${delivered.length} delivered order(s)`)}
-      ${tile("Paid Out", formatPrice(sum(paid)), "Aapke bank account mein")}
-      ${tile("Upcoming Payouts", formatPrice(sum(scheduled)), `${scheduled.length} scheduled`)}
-      ${tile("In Progress", formatPrice(sum(inProgress)), "Delivery ke baad milega")}
+      ${tile("Gross Sales", money2(sum(delivered, (sh) => sh.amount)), `${delivered.length} delivered order(s)`)}
+      ${tile("Fees (incl. GST)", money2(sum(delivered, shipFees)), "Commission + fixed + shipping + collection")}
+      ${tile("Net Earned", money2(sum(delivered, shipNet)), "Settlement amount")}
+      ${tile("Paid Out", money2(sum(paid, shipNet)), "Bank account me")}
+      ${tile("Upcoming", money2(sum(scheduled, shipNet)), `${scheduled.length} scheduled`)}
+      ${tile("On Hold", money2(sum(hold, shipNet)), hold.length ? "Bank verify karein" : "—")}
     </div>
-    <div class="alert info">💳 Payout policy (${plan().name} plan): delivery ke <strong>${plan().payoutDays} din</strong> baad payment aapke account mein. Prepaid (UPI/Card) aur COD dono ke liye.</div>
+    <div class="alert info">💳 Payout policy (${plan().name} plan): delivery ke <strong>${plan().payoutDays} din</strong> baad settlement amount aapke verified bank account me. In-progress orders ka net: <strong>${money2(sum(inProgress, shipNet))}</strong>.</div>
     <section class="panel">
-      <h2>Payouts</h2>
+      <h2>Order-wise settlements</h2>
       ${delivered.length ? `<div class="table-wrap"><table class="table">
-        <thead><tr><th>Order</th><th>Delivered</th><th>Payment</th><th>Amount</th><th>Payout Date</th><th>Status</th></tr></thead>
-        <tbody>${delivered.map(({ order: o, shipment: sh }) => `
-          <tr><td>#${esc(o.id)}</td><td>${fmtDate(sh.deliveredAt)}</td><td>${PAY[o.payment] || ""}</td>
-          <td>${formatPrice(sh.amount)}</td><td>${fmtDate(payoutDate(sh))}</td>
-          <td>${payoutDate(sh) <= now ? pill("Paid") : pill("Scheduled")}</td></tr>`).join("")}
-        </tbody></table></div>` : `<p class="muted">Abhi koi delivered order nahi. Order deliver hote hi payout yahan dikhega.</p>`}
+        <thead><tr><th>Order</th><th>Delivered</th><th>Payment</th><th class="num">Gross</th><th class="num">Fees</th><th class="num">Net</th><th>Payout Date</th><th>Status</th></tr></thead>
+        <tbody>${delivered.map(({ order: o, shipment: sh }) => {
+          const st = status(sh);
+          return `<tr><td>#${esc(o.id)}</td><td>${fmtDate(sh.deliveredAt)}</td><td>${PAY[o.payment] || ""}</td>
+          <td class="num">${money2(sh.amount)}</td><td class="num">− ${money2(shipFees(sh))}</td><td class="num"><strong>${money2(shipNet(sh))}</strong></td>
+          <td>${st === "hold" ? "—" : fmtDate(payoutDate(sh))}</td>
+          <td>${st === "paid" ? pill("Paid") : st === "scheduled" ? pill("Scheduled") : `<span class="status-pill s-rejected">On hold</span>`}</td></tr>`;
+        }).join("")}
+        </tbody></table></div>` : `<p class="muted">Abhi koi delivered order nahi. Order deliver hote hi settlement yahan dikhega.</p>`}
     </section>`;
 };
 

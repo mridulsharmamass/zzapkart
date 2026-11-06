@@ -47,7 +47,7 @@ function render() {
           ${sh.items.map((it) => `
             <div class="mini-row">
               <div class="mini-img" style="background:#f3eefc">${safeImg(it.image) ? `<img src="${safeImg(it.image)}" alt="" />` : esc(it.emoji || "📦")}</div>
-              <div class="mini-info"><div>${esc(it.name)}</div><div class="muted">Qty: ${it.qty}</div></div>
+              <div class="mini-info"><div>${esc(it.name)}</div><div class="muted">${it.size ? `Size: ${esc(it.size)} · ` : ""}Qty: ${it.qty}</div></div>
               <div class="mini-price">${formatPrice(it.price * it.qty)}</div>
             </div>`).join("")}
           ${timeline(sh)}

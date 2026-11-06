@@ -303,7 +303,7 @@ function keywordSuggestions(productIds) {
 }
 
 function newDraft(type) {
-  const prods = productsOfSeller(me.id).filter((p) => p.stock > 0);
+  const prods = productsOfSeller(me.id).filter((p) => isListingLive(p));
   return {
     type,
     name: `${type === "SB" ? "Sponsored Brands" : "Sponsored Products"} – ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`,
@@ -322,12 +322,12 @@ function newDraft(type) {
 
 function renderCreateCampaign() {
   const prods = productsOfSeller(me.id);
-  const inStockProds = prods.filter((p) => p.stock > 0);
+  const inStockProds = prods.filter((p) => isListingLive(p));
   if (!inStockProds.length) {
     content.innerHTML = `
       <p class="breadcrumb-dark"><a href="#ads">Campaign Manager</a> › Create campaign</p>
       <section class="panel ads-empty"><div class="empty-emoji">📦</div><h2>Pehle product add karo</h2>
-      <p class="muted">Ad chalane ke liye kam se kam ek in-stock product chahiye.</p><a href="#products" class="btn">Add product</a></section>`;
+      <p class="muted">Ad chalane ke liye kam se kam ek live (QC pass, in-stock) listing chahiye.</p><a href="#listings" class="btn">My Listings</a> <a href="#add-listing" class="btn">+ Add listing</a></section>`;
     return;
   }
 
@@ -403,10 +403,10 @@ function renderCreateCampaign() {
           <h2>Products <span class="muted">(${d.productIds.length} selected${isSB ? ", max 3" : ""})</span></h2>
           <div class="pick-list">
             ${prods.map((p) => `
-              <label class="pick ${p.stock > 0 ? "" : "disabled"}">
-                <input type="checkbox" data-pick="${p.id}" ${d.productIds.includes(p.id) ? "checked" : ""} ${p.stock > 0 ? "" : "disabled"} />
+              <label class="pick ${isListingLive(p) ? "" : "disabled"}">
+                <input type="checkbox" data-pick="${p.id}" ${d.productIds.includes(p.id) ? "checked" : ""} ${isListingLive(p) ? "" : "disabled"} />
                 <span class="thumb">${thumbOf(p)}</span>
-                <span class="pick-info"><strong>${esc(p.name)}</strong><span class="muted">${formatPrice(p.price)} · Stock ${p.stock}${p.stock > 0 ? "" : " (out of stock)"}</span></span>
+                <span class="pick-info"><strong>${esc(p.name)}</strong><span class="muted">${formatPrice(p.price)} · Stock ${p.stock}${isListingLive(p) ? "" : " (live nahi)"}</span></span>
               </label>`).join("")}
           </div>
           <small class="err" data-err="products"></small>
@@ -686,7 +686,7 @@ function tabProducts(c, body) {
     render();
   }));
   document.getElementById("add-prods").addEventListener("click", () => {
-    const avail = all.filter((p) => !c.productIds.includes(p.id) && p.stock > 0);
+    const avail = all.filter((p) => !c.productIds.includes(p.id) && isListingLive(p));
     if (!avail.length) { showToast("Add karne ke liye aur in-stock products nahi"); return; }
     if (c.type === "SB" && c.productIds.length >= 3) { showToast("Sponsored Brands mein max 3 products"); return; }
     openModal(`

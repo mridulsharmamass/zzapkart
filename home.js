@@ -72,8 +72,8 @@ function runSearch() {
   // Har shabd naam / category / description mein hona chahiye ("summer shirt" → dono words)
   const qWords = words(raw).map(stem);
   const list = PRODUCTS.filter((p) => {
-    const hay = new Set(words(`${p.name} ${p.category} ${p.description || ""}`).map(stem));
-    const text = normalizeQuery(`${p.name} ${p.category}`);
+    const hay = new Set(words(`${p.name} ${p.brand || ""} ${p.category} ${p.catName || ""} ${p.verticalName || ""} ${p.keywords || ""} ${p.description || ""}`).map(stem));
+    const text = normalizeQuery(`${p.brand || ""} ${p.name} ${p.category} ${p.verticalName || ""}`);
     return text.includes(normalizeQuery(raw)) || qWords.every((w) => hay.has(w) || [...hay].some((h) => h.startsWith(w) && w.length >= 3));
   });
 

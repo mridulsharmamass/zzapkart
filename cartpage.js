@@ -1,4 +1,4 @@
-// Cart page: items list, quantity +/-, remove, price summary
+// Cart page: items list (size ke saath), quantity +/-, remove, price summary
 const listEl = document.getElementById("cart-list");
 const emptyEl = document.getElementById("cart-empty");
 const summaryEl = document.getElementById("summary");
@@ -7,10 +7,13 @@ const DELIVERY_FREE_ABOVE = 499;
 const DELIVERY_CHARGE = 40;
 
 function renderCart() {
+  // Jo items ab bik nahi rahe (listing hata di / size khatam) unhe cart se hatao
   const cart = getCart();
-  const items = Object.entries(cart)
-    .map(([id, qty]) => ({ product: PRODUCTS.find((p) => p.id === Number(id)), qty }))
-    .filter((x) => x.product);
+  const items = cartItemsResolved();
+  const validKeys = new Set(items.map((x) => x.key));
+  if (Object.keys(cart).some((k) => !validKeys.has(k))) {
+    saveCart(Object.fromEntries(Object.entries(cart).filter(([k]) => validKeys.has(k))));
+  }
 
   if (items.length === 0) {
     listEl.innerHTML = "";
@@ -22,32 +25,31 @@ function renderCart() {
   summaryEl.classList.remove("hidden");
 
   listEl.innerHTML = items
-    .map(
-      ({ product: p, qty }) => `
+    .map(({ key, product: p, variant, qty, maxStock }) => `
       <div class="cart-row">
-        <div class="cart-img" style="background:${esc(p.color)}">${productThumb(p)}</div>
+        <a class="cart-img" href="product.html?id=${p.id}" style="background:${esc(p.color)}">${productThumb(p)}</a>
         <div class="cart-info">
           <h4>${esc(p.name)}</h4>
-          <p class="muted">${esc(p.category)}${p.sellerName ? " · Sold by " + esc(p.sellerName) : ""}</p>
+          <p class="muted">${variant && variant.size ? `Size: <strong>${esc(variant.size)}</strong> · ` : ""}${esc(p.category)}${p.sellerName ? " · Sold by " + esc(p.sellerName) : ""}</p>
+          ${qty > maxStock ? `<p class="text-danger small">Sirf ${maxStock} stock mein — quantity kam karein</p>` : ""}
           <div class="price-row">
             <span class="price">${formatPrice(p.price * qty)}</span>
-            <span class="mrp">${formatPrice(p.mrp * qty)}</span>
+            ${p.mrp > p.price ? `<span class="mrp">${formatPrice(p.mrp * qty)}</span>` : ""}
           </div>
           <div class="cart-actions">
             <div class="qty">
-              <button data-act="dec" data-id="${p.id}" aria-label="Decrease">−</button>
+              <button data-act="dec" data-key="${esc(key)}" aria-label="Decrease">−</button>
               <span>${qty}</span>
-              <button data-act="inc" data-id="${p.id}" aria-label="Increase">+</button>
+              <button data-act="inc" data-key="${esc(key)}" aria-label="Increase">+</button>
             </div>
-            <button class="remove" data-act="remove" data-id="${p.id}">Remove</button>
+            <button class="remove" data-act="remove" data-key="${esc(key)}">Remove</button>
           </div>
         </div>
-      </div>`
-    )
+      </div>`)
     .join("");
 
   const count = items.reduce((s, x) => s + x.qty, 0);
-  const mrp = items.reduce((s, x) => s + x.product.mrp * x.qty, 0);
+  const mrp = items.reduce((s, x) => s + Math.max(x.product.mrp, x.product.price) * x.qty, 0);
   const price = items.reduce((s, x) => s + x.product.price * x.qty, 0);
   const delivery = price >= DELIVERY_FREE_ABOVE ? 0 : DELIVERY_CHARGE;
   const total = price + delivery;
@@ -60,25 +62,29 @@ function renderCart() {
   delEl.classList.toggle("green", !delivery);
   document.getElementById("sum-total").textContent = formatPrice(total);
   document.getElementById("sum-save").textContent =
-    `Is order par aap ${formatPrice(mrp - price)} bacha rahe ho`;
+    mrp > price ? `Is order par aap ${formatPrice(mrp - price)} bacha rahe ho` : "";
+  const overStock = items.some((x) => x.qty > x.maxStock);
+  const btn = document.getElementById("checkout");
+  btn.disabled = overStock;
+  btn.title = overStock ? "Kuch items ka stock kam hai" : "";
 }
 
 listEl.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-act]");
   if (!btn) return;
-  const id = Number(btn.dataset.id);
-  const qty = getCart()[id] || 0;
+  const key = btn.dataset.key;
+  const qty = getCart()[key] || 0;
   if (btn.dataset.act === "inc") {
-    const p = PRODUCTS.find((x) => x.id === id);
-    if (p && p.stock !== undefined && qty >= p.stock) {
-      showToast(`Sirf ${p.stock} piece stock mein hain`);
+    const item = resolveCartItem(key, qty);
+    if (item && qty >= item.maxStock) {
+      showToast(`Sirf ${item.maxStock} piece stock mein hain`);
       return;
     }
-    setQty(id, qty + 1);
+    setQty(key, qty + 1);
   }
-  if (btn.dataset.act === "dec") setQty(id, qty - 1);
+  if (btn.dataset.act === "dec") setQty(key, qty - 1);
   if (btn.dataset.act === "remove") {
-    removeFromCart(id);
+    removeFromCart(key);
     showToast("Item cart se hata diya");
   }
   renderCart();
