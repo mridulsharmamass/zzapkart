@@ -225,7 +225,7 @@ function exportListingsCsv(list) {
 // ADD / EDIT LISTING
 // =====================================================================
 let LF = null; // { mode, data, saveDefaults, errors, warnings, loadingImages }
-let pickerSuper = "Fashion";
+let pickerSuper = "";
 
 const FORM_SECTIONS = [
   ["details", "Product details"], ["attrs", "Category attributes"], ["variants", "Sizes, SKU & stock"],
@@ -304,55 +304,100 @@ function viewAddListing() {
 };
 
 // ---------- Step 1: category picker ----------
-function verticalButton(v) {
+// Cascading dropdowns: main category → category → sub category (vertical)
+let pickerCat = "";
+let pickerV = "";
+
+function pickerSummary(v) {
   const tpl = TEMPLATES[v.template];
   const lock = tpl.restricted && !isCategoryApproved(me.id, tpl.restricted);
-  return `<button class="v-btn" data-v="${v.id}">${esc(v.name)}${lock ? ` <span class="lock-tag" title="Approval chahiye">🔒 Approval</span>` : ""}</button>`;
+  const sizes = sizesOf(v);
+  const r = tpl.images;
+  return `<div class="pk-summary">
+    <div class="pk-path">${esc(v.superCat)} › ${esc(v.cat)} › <strong>${esc(v.name)}</strong></div>
+    <ul class="pk-facts">
+      <li><span>Form</span><strong>${esc(tpl.label)}</strong></li>
+      <li><span>Commission</span><strong>${tpl.commission}%</strong></li>
+      <li><span>GST</span><strong>${tpl.gst.map((g) => g + "%").join(" / ")}</strong></li>
+      <li><span>HSN (suggested)</span><strong>${esc(tpl.hsn[0])}</strong></li>
+      <li><span>Images</span><strong>min ${r.min}${r.ratio ? ` · ${r.ratio[0]}:${r.ratio[1]}` : ""}</strong></li>
+      <li><span>Sizes</span><strong>${sizes ? esc(`${sizes[0]} – ${sizes[sizes.length - 1]}`) : "Nahi (single SKU)"}</strong></li>
+    </ul>
+    ${lock ? `<div class="alert warn">🔒 Is category ke liye <strong>${esc(RESTRICTED[tpl.restricted].label)}</strong> approval chahiye. Draft bana sakte ho — QC ke liye bhejne se pehle <a href="#approvals">approval lein</a>.</div>` : ""}
+    <button type="button" class="btn" data-v="${v.id}">Continue → product details bharein</button>
+  </div>`;
 }
 
 function renderPicker(forLegacy) {
-  const sup = TAXONOMY.find((t) => t.name === pickerSuper) || TAXONOMY[0];
+  const sup = TAXONOMY.find((t) => t.name === pickerSuper) || null;
+  const cat = sup ? sup.cats.find((c) => c.name === pickerCat) || null : null;
+  const verts = cat ? VERTICALS.filter((x) => x.superCat === sup.name && x.cat === cat.name) : [];
+  const v = verts.find((x) => x.id === pickerV) || null;
+  const opt = (val, label, cur) => `<option value="${esc(val)}" ${val === cur ? "selected" : ""}>${esc(label)}</option>`;
+  const locked = (x) => TEMPLATES[x.template].restricted && !isCategoryApproved(me.id, TEMPLATES[x.template].restricted);
   content.innerHTML = `<div id="picker-root">
     <p class="breadcrumb-dark"><a href="#listings">My Listings</a> › Add Listing</p>
     <h1 class="dash-title">${forLegacy ? "Is listing ki category chunein" : "Kya bechna hai? Category chunein"}</h1>
-    <p class="muted">Sahi category chunna sabse zaroori hai — isi se form ke fields badalte hain. Galat category = QC reject ya kam visibility.</p>
+    <p class="muted">Main category → category → sub category chunein. Isi se aage ka form (fields, size chart, image rules, GST / HSN) badalta hai. Galat category = QC reject ya kam visibility.</p>
     <section class="panel">
-      <input type="search" id="vsearch" class="v-search" placeholder="Search karein: T-Shirts, Jeans, Earbuds, Face Wash, Tea..." autocomplete="off" />
-      <div id="vresults" class="v-results"></div>
+      <h2><span class="step-no">1</span> Category chunein</h2>
+      <div class="cascade">
+        <label>Main category
+          <select id="pk-sup"><option value="">— Main category chunein —</option>${TAXONOMY.map((t) => opt(t.name, t.name, sup ? sup.name : "")).join("")}</select></label>
+        <span class="cascade-arrow" aria-hidden="true">›</span>
+        <label>Category
+          <select id="pk-cat" ${sup ? "" : "disabled"}><option value="">${sup ? "— Category chunein —" : "Pehle main category chunein"}</option>${sup ? sup.cats.map((c) => opt(c.name, c.name, pickerCat)).join("") : ""}</select></label>
+        <span class="cascade-arrow" aria-hidden="true">›</span>
+        <label>Sub category
+          <select id="pk-v" ${cat ? "" : "disabled"}><option value="">${cat ? "— Sub category chunein —" : "Pehle category chunein"}</option>${verts.map((x) => opt(x.id, x.name + (locked(x) ? " 🔒" : ""), pickerV)).join("")}</select></label>
+      </div>
+      <div id="pk-info">${v ? pickerSummary(v) : `<p class="muted pk-hint">${!sup ? "1️⃣ Main category chunein (jaise Fashion)" : !cat ? "2️⃣ Ab category chunein (jaise Men Top Wear)" : "3️⃣ Ab sub category chunein (jaise T-Shirts)"}</p>`}</div>
     </section>
     <section class="panel">
-      <h2>Ya browse karein</h2>
-      <div class="filter-tabs">${TAXONOMY.map((t) => `<button class="chip ${t.name === sup.name ? "active" : ""}" data-sup="${esc(t.name)}">${esc(t.name)}</button>`).join("")}</div>
-      <div class="cat-browse">${sup.cats.map((c) => `
-        <div class="cat-block"><h3>${esc(c.name)} <span class="muted small">· ${esc(TEMPLATES[c.t].label)}</span></h3>
-          <div class="v-list">${VERTICALS.filter((v) => v.cat === c.name && v.superCat === sup.name).map(verticalButton).join("")}</div></div>`).join("")}</div>
+      <h2>Ya seedha search karein</h2>
+      <input type="search" id="vsearch" class="v-search" placeholder="Search karein: T-Shirts, Jeans, Earbuds, Face Wash, Tea..." autocomplete="off" />
+      <div id="vresults" class="v-results"></div>
     </section></div>`;
   const pick = (id) => {
     if (forLegacy && LF) {
-      const v = getVertical(id), tpl = templateOf(v);
+      const pv = getVertical(id), tpl = templateOf(pv);
       LF.data.vertical = id;
-      LF.data.category = v.superCat;
+      LF.data.category = pv.superCat;
       LF.data.gst = LF.data.gst ?? tpl.gst[0];
       LF.data.hsn = LF.data.hsn || tpl.hsn[0];
       LF.data.genericName = LF.data.genericName || tpl.generic[0];
       const d = sellerDefaults();
       LF.data.countryOfOrigin = LF.data.countryOfOrigin || d.countryOfOrigin;
       if (!LF.data.manufacturer.name) { LF.data.manufacturer = d.manufacturer; LF.data.packerSame = true; LF.data.importerSame = true; }
-      if (sizesOf(v)) LF.data.variants = [];
+      if (sizesOf(pv)) LF.data.variants = [];
       renderListingForm();
     } else location.hash = `add-listing/v/${id}`;
   };
-  content.querySelectorAll("[data-sup]").forEach((b) => b.addEventListener("click", () => { pickerSuper = b.dataset.sup; renderPicker(forLegacy); }));
-  document.getElementById("picker-root").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) pick(b.dataset.v); });
+  const root = document.getElementById("picker-root");
+  root.querySelector("#pk-sup").addEventListener("change", (e) => {
+    pickerSuper = e.target.value; pickerCat = ""; pickerV = "";
+    renderPicker(forLegacy);
+    document.getElementById(pickerSuper ? "pk-cat" : "pk-sup").focus();
+  });
+  root.querySelector("#pk-cat").addEventListener("change", (e) => {
+    pickerCat = e.target.value; pickerV = "";
+    renderPicker(forLegacy);
+    document.getElementById(pickerCat ? "pk-v" : "pk-cat").focus();
+  });
+  root.querySelector("#pk-v").addEventListener("change", (e) => {
+    pickerV = e.target.value;
+    renderPicker(forLegacy);
+    (document.querySelector("#pk-info [data-v]") || document.getElementById("pk-v")).focus();
+  });
+  root.addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) pick(b.dataset.v); });
   const vs = document.getElementById("vsearch");
   vs.addEventListener("input", () => {
     const res = searchVerticals(vs.value);
     document.getElementById("vresults").innerHTML = vs.value.trim()
-      ? (res.length ? res.map((v) => `<button class="v-result" data-v="${v.id}"><strong>${esc(v.name)}</strong><span class="muted small">${esc(v.superCat)} › ${esc(v.cat)}</span>${TEMPLATES[v.template].restricted ? `<span class="lock-tag">Approval</span>` : ""}</button>`).join("")
-        : `<p class="muted">Kuch nahi mila — browse karke dekhein.</p>`)
+      ? (res.length ? res.map((x) => `<button class="v-result" data-v="${x.id}"><strong>${esc(x.name)}</strong><span class="muted small">${esc(x.superCat)} › ${esc(x.cat)}</span>${TEMPLATES[x.template].restricted ? `<span class="lock-tag">Approval</span>` : ""}</button>`).join("")
+        : `<p class="muted">Kuch nahi mila — upar dropdown se chunein.</p>`)
       : "";
   });
-  vs.focus();
 }
 
 // ---------- Step 2: the form ----------
@@ -378,6 +423,52 @@ function fSelect(path, label, options, opts = {}) {
 function fTextarea(path, label, opts = {}) {
   return fieldWrap(path, label, `<textarea data-f="${path}" rows="${opts.rows || 3}" maxlength="${opts.max || 2000}" placeholder="${esc(opts.ph || "")}">${esc(getPath(LF.data, path) ?? "")}</textarea>`, opts);
 }
+// HSN: suggested codes (code + matlab) + "doosra code" + HSN finder
+function hsnHint(code) {
+  const c = String(code || "").trim();
+  if (!c) return 'Code likhein ya neeche "HSN code dhoondho" se chunein';
+  const d = hsnDesc(c);
+  return d ? "📘 " + esc(d) : "Ye code hamari list me nahi — GST portal se confirm karein";
+}
+function hsnFieldHtml(tpl) {
+  const cur = String(LF.data.hsn ?? "");
+  const listed = tpl.hsn.includes(cur);
+  return `<label class="fld hsn-fld">HSN Code <span class="req">*</span>
+    <select data-act="hsn-pick" aria-label="HSN code chunein">
+      ${tpl.hsn.map((h) => `<option value="${h}" ${h === cur ? "selected" : ""}>${h} — ${esc(hsnDesc(h))}</option>`).join("")}
+      <option value="__other" ${listed ? "" : "selected"}>Doosra HSN code (khud likhein)</option>
+    </select>
+    <input data-f="hsn" type="text" inputmode="numeric" maxlength="8" class="hsn-custom ${listed ? "hidden" : ""}" value="${esc(cur)}" placeholder="4, 6 ya 8 digit HSN code" aria-label="HSN code" />
+    <small class="hint" id="hsn-desc">${hsnHint(cur)}</small>
+    <small class="err" data-err="hsn"></small></label>`;
+}
+function hsnFinderHtml() {
+  return `<details class="hsn-finder"><summary>🔎 HSN code nahi pata? Yahan dhoondho</summary>
+    <input type="search" id="hsn-q" placeholder="Product ya code likhein — jaise cotton t-shirt, earphones, 6109" autocomplete="off" aria-label="HSN search" />
+    <div id="hsn-results" class="hsn-results"></div>
+    <p class="small muted">Description sirf madad ke liye hai. Final HSN apne CA ya <a href="https://services.gst.gov.in/services/searchhsnsac" target="_blank" rel="noopener">GST portal (HSN search)</a> se confirm karein.</p>
+  </details>`;
+}
+function renderHsnResults(q) {
+  const box = document.getElementById("hsn-results");
+  if (!box) return;
+  const res = searchHsn(q);
+  box.innerHTML = !q.trim() ? "" : res.length
+    ? res.map((x) => `<button type="button" class="hsn-hit" data-act="hsn-use" data-code="${x.code}"><strong>${x.code}</strong><span>${esc(x.desc)}</span></button>`).join("")
+    : `<p class="muted small">Kuch nahi mila — doosra shabd try karein.</p>`;
+}
+function setHsn(code) {
+  const root = document.getElementById("lf-root");
+  const sel = root.querySelector('[data-act="hsn-pick"]');
+  const inp = root.querySelector('[data-f="hsn"]');
+  if (!inp) return;
+  const listed = lft().hsn.includes(code);
+  if (sel) sel.value = listed ? code : "__other";
+  inp.classList.toggle("hidden", listed);
+  inp.value = code;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function attrField(a, req) {
   const path = `attrs.${a.k}`;
   if (a.o) return fSelect(path, a.l, a.o, { req, hint: a.hint ? esc(a.hint) : "" });
@@ -409,8 +500,7 @@ function renderListingForm() {
           </section>`).join("")}
       </div>
       <aside class="wizard-side panel" id="lf-side"></aside>
-    </div>
-    <datalist id="hsn-list">${tpl.hsn.map((h) => `<option value="${h}"></option>`).join("")}</datalist>`;
+    </div>`;
   FORM_SECTIONS.forEach(([id]) => renderSection(id));
   updateSide();
   wireForm();
@@ -475,8 +565,9 @@ function renderSection(id) {
       ${fInput("mrp", "MRP (₹)", { req: true, type: "number", hint: "Positive whole number. Selling price ≤ MRP" })}
       ${fInput("price", "Selling Price (₹)", { req: true, type: "number", hint: `<span id="disc-label">${discLabel()}</span>` })}
       ${fSelect("gst", "GST Rate", gstOpts, { req: true, hint: esc(tpl.gstHint) })}
-      ${fInput("hsn", "HSN Code", { req: true, list: "hsn-list", ph: tpl.hsn[0], hint: `Suggested: ${tpl.hsn.slice(0, 3).join(", ")}…` })}
+      ${hsnFieldHtml(tpl)}
     </div>
+    ${hsnFinderHtml()}
     <div class="fee-box" id="fee-box">${feeBoxHtml()}</div>`;
   } else if (id === "images") {
     const imgs = d.images;
@@ -666,11 +757,13 @@ function wireForm() {
   const root = document.getElementById("lf-root");
   root.addEventListener("input", (e) => {
     const t = e.target;
+    if (t.id === "hsn-q") { renderHsnResults(t.value); return; }
     if (!t.dataset.f) return;
     let val = t.value;
     if (t.dataset.num) val = val === "" ? "" : Number(val);
     setPath(LF.data, t.dataset.f, val);
     const p = t.dataset.f;
+    if (p === "hsn") { const hd = document.getElementById("hsn-desc"); if (hd) hd.innerHTML = hsnHint(val); }
     if (p === "name") { const c = document.getElementById("name-count"); if (c) c.textContent = String(val).length; }
     if (p === "mrp" || p === "price" || p.startsWith("pkg.")) {
       const fb = document.getElementById("fee-box"); if (fb) fb.innerHTML = feeBoxHtml();
@@ -711,6 +804,12 @@ function wireForm() {
       renderSection("compliance");
       updateSide();
     }
+    if (act === "hsn-pick") {
+      if (t.value === "__other") {
+        setHsn("");
+        document.querySelector('#lf-root [data-f="hsn"]').focus();
+      } else setHsn(t.value);
+    }
     if (act === "save-defaults") LF.saveDefaults = t.checked;
     if (act === "lstatus") { d.listingStatus = t.value; renderSection("status"); }
   });
@@ -720,6 +819,7 @@ function wireForm() {
     if (!b || b.tagName === "INPUT") return;
     const d = LF.data;
     const act = b.dataset.act;
+    if (act === "hsn-use") { setHsn(b.dataset.code); showToast(`HSN ${b.dataset.code} chuna ✓`); }
     if (act === "size") {
       const size = b.dataset.size;
       const i = d.variants.findIndex((x) => x.size === size);

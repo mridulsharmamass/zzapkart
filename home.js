@@ -95,7 +95,6 @@ hero.innerHTML = `
   <button type="button" class="hh-arrow car-next" aria-label="Agla banner">›</button>
   <div class="hh-controls">
     <div class="hh-dots">${HERO_SLIDES.map((s, i) => `<button type="button" data-dot="${i}" aria-label="Banner ${i + 1}: ${esc(s.eyebrow)}"></button>`).join("")}</div>
-    <button type="button" class="hh-toggle car-toggle"></button>
   </div>
   <div class="hh-progress" aria-hidden="true"><span></span></div>`;
 const heroTrack = hero.querySelector(".hh-track");
@@ -201,6 +200,13 @@ let searchTimer;
 searchInput.addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(runSearch, 350);
+});
+// Enter ya search icon: turant search
+document.getElementById("home-search-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  clearTimeout(searchTimer);
+  if (!searchInput.value.trim()) { searchInput.focus(); return; }
+  runSearch();
 });
 
 // Doosre page se search karke aaye ho to (?q=...) wala text bhar do

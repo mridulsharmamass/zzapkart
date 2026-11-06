@@ -12,9 +12,13 @@
   <header class="navbar">
     <a href="index.html" class="logo"><img src="images/logo-full.png" alt="Zzapkart" /></a>
     <div class="search-box">
-      <input id="search" type="search" placeholder="Search for products, brands and more" autocomplete="off" />
+      <form id="home-search-form" role="search">
+        <input id="search" type="search" placeholder="Search for products, brands and more" autocomplete="off" aria-label="Search" />
+        <button type="submit" class="search-btn" aria-label="Search"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+      </form>
     </div>
-    <a href="orders.html" class="nav-link">📦 <span>My Orders</span></a>
+    <a href="account.html#orders" class="nav-link">📦 <span>My Orders</span></a>
+    <a href="account.html" class="nav-link" id="nav-account">👤 <span>Login</span></a>
     <a href="seller.html" class="nav-link sell-link">🏪 <span>Sell</span></a>
     <a href="cart.html" class="cart-link">
       🛒 Cart <span id="cart-count" class="badge">0</span>
@@ -29,7 +33,7 @@
   <main class="container">
     <!-- Normal view: saari categories + har category ka section -->
     <div id="browse-view">
-      <h2 class="section-title">Shop by Category</h2>
+      <div class="section-head"><h2 class="section-title">Shop by Category</h2><a href="browse.html" class="link">All categories →</a></div>
       <div class="cat-tiles" id="cat-tiles"></div>
       <div id="brand-stores"></div>
       <div id="sponsored"></div>

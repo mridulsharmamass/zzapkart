@@ -711,6 +711,7 @@ function viewStore() {
         <span id="sb-status-top"></span>
       </div>
       <p class="muted sb-sub">Zzapkart par aapki apni mini website — apna logo, banners, collections aur products. Buyers ise <strong>store link</strong> se ya product page ke "Visit store" se kholte hain.</p>
+      ${st.adminBlocked ? `<div class="alert error">⛔ Zzapkart admin ne aapka store band kiya hai: <strong>${esc(st.adminBlocked.reason)}</strong>. Theek karke support se contact karein — tab tak store buyers ko nahi dikhega.</div>` : ""}
       ${st.published && st.live ? `
         <section class="panel sb-livebar">
           <span class="sb-live-dot" aria-hidden="true"></span><strong>Store live hai</strong>
@@ -719,6 +720,7 @@ function viewStore() {
           <a class="btn btn-sm btn-outline" href="${esc(storeUrl(st.live.slug))}" target="_blank" rel="noopener">Open store ↗</a>
           <span class="sb-stat"><strong>${stats.last7}</strong> visits (7 din)</span>
           <span class="sb-stat"><strong>${stats.total}</strong> total visits</span>
+          <span class="sb-stat"><strong>${storeSubscribers(me.id).length}</strong> newsletter subscribers</span>
         </section>` : st.live ? `<div class="alert warn">Store abhi <strong>offline</strong> hai. "Publish" karte hi wapas live ho jayega.</div>` : ""}
       <nav class="sub-tabs sb-tabs">${SB_TABS.map(([k, l]) => `<a href="#store/${k}" class="${k === SB.tab ? "active" : ""}">${l}</a>`).join("")}</nav>
       <div id="sb-root" class="wizard lf-wrap sb-wrap checkout-form">

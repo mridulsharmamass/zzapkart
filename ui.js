@@ -86,7 +86,8 @@ function renderCategoryNav() {
   if (!nav) return;
   const current = new URLSearchParams(location.search).get("c");
   const onCategoryPage = location.pathname.endsWith("category.html");
-  nav.innerHTML = CATEGORIES.map(
+  const onBrowse = location.pathname.endsWith("browse.html");
+  nav.innerHTML = `<a href="browse.html" class="cat-nav-all ${onBrowse ? "active" : ""}"><span class="cat-nav-emoji">☰</span>All Categories</a>` + CATEGORIES.map(
     (c) => `
       <a href="${categoryUrl(c)}" class="${onCategoryPage && c.slug === current ? "active" : ""}">
         <span class="cat-nav-emoji">${c.emoji}</span>${c.name}
@@ -96,23 +97,33 @@ function renderCategoryNav() {
 
 document.addEventListener("DOMContentLoaded", renderCategoryNav);
 
+// Navbar: customer login ho to "Hi, Naam", warna "Login" (wapas isi page par laut aaye)
+function renderAccountNav() {
+  const a = document.getElementById("nav-account");
+  if (!a || typeof currentCustomer !== "function") return;
+  const c = currentCustomer();
+  const here = (location.pathname.split("/").pop() || "index.html") + location.search;
+  a.href = c ? "account.html" : "account.html?next=" + encodeURIComponent(here);
+  a.title = c ? "My Account" : "Login / Sign up";
+  const label = a.querySelector("span");
+  if (label) label.textContent = c ? "Hi, " + c.name.split(" ")[0] : "Login";
+}
+document.addEventListener("DOMContentLoaded", renderAccountNav);
+
 // ---------------------------------------------------------------------
-// Auto-play carousel (home banners + Brand Store banners)
-// root ke andar: slides, dots [data-dot], prev/next, optional pause button.
-// Mouse hover / keyboard focus par rukta hai, tab chhupa ho ya carousel
-// chhupa ho (search view) to nahi chalta, "reduce motion" par auto-play band.
+// Auto-play carousel (home banners + Brand Store banners) — hamesha chalta hai.
+// root ke andar: slides, dots [data-dot], prev/next. Sirf tab rukta hai jab
+// page/tab chhupa ho, carousel chhupa ho (search view) ya keyboard focus andar ho.
+// "Reduce motion" setting par bhi badalta hai, bas slide animation nahi hota (CSS).
 // root par "car-running" class + --car-ms: progress bar ki CSS animation ke liye.
 // ---------------------------------------------------------------------
 function startCarousel(root, opts = {}) {
-  const o = { slide: ".car-slide", dot: "[data-dot]", prev: ".car-prev", next: ".car-next", toggle: ".car-toggle", interval: 5000, onShow: null, ...opts };
+  const o = { slide: ".car-slide", dot: "[data-dot]", prev: ".car-prev", next: ".car-next", interval: 5000, onShow: null, ...opts };
   const slides = [...root.querySelectorAll(o.slide)];
   const dots = [...root.querySelectorAll(o.dot)];
-  const toggleBtn = root.querySelector(o.toggle);
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let cur = Math.max(0, slides.findIndex((s) => s.classList.contains("active")));
   let timer = null;
-  let holding = false;       // mouse upar hai / keyboard focus andar hai
-  let userPaused = reduce;   // pause button (reduce motion me shuru se paused)
+  let keyboardFocus = false;
   root.style.setProperty("--car-ms", o.interval + "ms");
 
   function show(i) {
@@ -138,7 +149,7 @@ function startCarousel(root, opts = {}) {
   }
   function schedule() {
     stop();
-    if (!root.isConnected || slides.length < 2 || userPaused || holding || document.hidden) return;
+    if (!root.isConnected || slides.length < 2 || keyboardFocus || document.hidden) return;
     void root.offsetWidth; // progress animation dobara shuru ho
     root.classList.add("car-running");
     timer = setTimeout(() => {
@@ -148,23 +159,13 @@ function startCarousel(root, opts = {}) {
       schedule();
     }, o.interval);
   }
-  function syncToggle() {
-    root.classList.toggle("car-paused", userPaused);
-    if (!toggleBtn) return;
-    toggleBtn.textContent = userPaused ? "▶" : "❚❚";
-    toggleBtn.setAttribute("aria-label", userPaused ? "Slideshow chalao" : "Slideshow roko");
-    toggleBtn.setAttribute("aria-pressed", String(userPaused));
-  }
   const go = (i) => { show(i); schedule(); };
 
   root.querySelector(o.prev)?.addEventListener("click", () => go(cur - 1));
   root.querySelector(o.next)?.addEventListener("click", () => go(cur + 1));
   dots.forEach((d) => d.addEventListener("click", () => go(Number(d.dataset.dot))));
-  toggleBtn?.addEventListener("click", () => { userPaused = !userPaused; syncToggle(); schedule(); });
-  root.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { holding = true; schedule(); } });
-  root.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") { holding = false; schedule(); } });
-  root.addEventListener("focusin", (e) => { if (e.target.matches(":focus-visible")) { holding = true; schedule(); } });
-  root.addEventListener("focusout", (e) => { if (!root.contains(e.relatedTarget)) { holding = false; schedule(); } });
+  root.addEventListener("focusin", (e) => { if (e.target.matches(":focus-visible")) { keyboardFocus = true; schedule(); } });
+  root.addEventListener("focusout", (e) => { if (!root.contains(e.relatedTarget)) { keyboardFocus = false; schedule(); } });
   root.addEventListener("keydown", (e) => {
     if (e.key === "ArrowLeft") go(cur - 1);
     else if (e.key === "ArrowRight") go(cur + 1);
@@ -181,7 +182,6 @@ function startCarousel(root, opts = {}) {
   document.addEventListener("visibilitychange", onVis);
 
   show(cur);
-  syncToggle();
   schedule();
   return { show: go, stop, get index() { return cur; } };
 }

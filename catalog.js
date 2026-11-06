@@ -581,6 +581,102 @@ function feeBreakdown(price, tpl, pkg) {
 // =====================================================================
 const PINCODE_RE = /^[1-9]\d{5}$/;
 const HSN_RE = /^\d{4}(\d{2}){0,2}$/;
+
+// ---------------------------------------------------------------------
+// HSN directory: listing form me code ke saath uska matlab dikhane aur
+// "HSN dhoondho" ke liye. Sirf madad ke liye — final code CA / GST portal se.
+// ---------------------------------------------------------------------
+const HSN_HEADINGS = {
+  "0409": "Natural honey", "0801": "Coconuts, cashew & brazil nuts", "0901": "Coffee", "0902": "Tea", "0910": "Ginger, turmeric & other spices / masala mixes",
+  "1006": "Rice", "1101": "Wheat or meslin flour (atta)", "1905": "Bread, biscuits, cakes & other bakery products", "2001": "Vegetables & fruits preserved in vinegar (pickles)",
+  "2106": "Food preparations n.e.s. (supplements, protein mixes)", "3003": "Medicaments, not in measured doses (incl. Ayurvedic)", "3004": "Medicaments in measured doses / retail packs (incl. Ayurvedic)",
+  "3303": "Perfumes & toilet waters", "3304": "Beauty, make-up & skin-care preparations", "3305": "Hair preparations (shampoo, hair oil)", "3307": "Shaving, deodorants, bath & other toilet preparations",
+  "3401": "Soap & skin-washing preparations", "3924": "Tableware, kitchenware & household articles of plastic", "3926": "Other articles of plastic (e.g., phone covers)",
+  "4202": "Trunks, suitcases, handbags, wallets, backpacks & similar", "4203": "Articles of apparel & accessories of leather (belts)", "4414": "Wooden frames for paintings, photos & mirrors",
+  "4420": "Wooden statuettes, ornaments & caskets", "4820": "Registers, notebooks, diaries & similar stationery", "4901": "Printed books, brochures & leaflets",
+  "5208": "Woven fabrics of cotton", "5407": "Woven fabrics of synthetic filament yarn", "5705": "Other carpets & textile floor coverings (rugs, mats)",
+  "6103": "Men's suits, trousers & shorts — knitted", "6104": "Women's suits, dresses, trousers & shorts — knitted", "6105": "Men's shirts — knitted",
+  "6107": "Men's underpants, briefs, nightshirts & pyjamas — knitted", "6108": "Women's slips, panties, nightdresses & pyjamas — knitted",
+  "6109": "T-shirts, singlets & vests — knitted", "6110": "Jerseys, pullovers, sweatshirts & cardigans — knitted", "6114": "Other garments — knitted",
+  "6115": "Socks, stockings & hosiery — knitted", "6201": "Men's overcoats, jackets & windcheaters — woven", "6203": "Men's suits, trousers, jeans & shorts — woven",
+  "6204": "Women's suits, dresses, skirts, trousers & jeans — woven", "6205": "Men's shirts — woven", "6211": "Other garments (kurtas, track suits etc.) — woven",
+  "6212": "Brassieres, girdles & similar", "6217": "Other made-up clothing accessories", "6301": "Blankets & travelling rugs", "6302": "Bed linen, table linen, toilet & kitchen linen (towels)",
+  "6303": "Curtains, drapes & blinds", "6304": "Other furnishing articles (cushion covers, bedspreads)", "6402": "Other footwear — rubber / plastic soles & uppers",
+  "6403": "Footwear with leather uppers", "6404": "Footwear with textile uppers (sports shoes, canvas shoes)", "6405": "Other footwear", "6505": "Hats & caps",
+  "6702": "Artificial flowers, foliage & fruit", "6912": "Ceramic tableware & kitchenware", "7007": "Safety glass (toughened / laminated) — incl. screen guards",
+  "7013": "Glassware for table, kitchen & decoration", "7113": "Jewellery of precious metal (silver, gold)", "7117": "Imitation jewellery",
+  "7323": "Table, kitchen & household articles of iron / steel", "7615": "Table, kitchen & household articles of aluminium", "8215": "Spoons, forks, ladles & similar kitchenware",
+  "8306": "Bells, statuettes, photo frames & ornaments of base metal", "8423": "Weighing machines (incl. personal / kitchen scales)",
+  "8471": "Computers & units (keyboard, mouse, storage)", "8504": "Transformers, adapters & chargers", "8507": "Electric accumulators (batteries, power banks)",
+  "8517": "Telephones, smartphones & data communication apparatus (smartwatches, routers)", "8518": "Microphones, loudspeakers, headphones & earphones",
+  "8544": "Insulated wire & cables (charging / data cables)", "8712": "Bicycles", "9004": "Spectacles & sunglasses", "9018": "Medical & health instruments",
+  "9102": "Wrist-watches (non-precious metal case)", "9105": "Other clocks (wall clocks, alarm clocks)", "9401": "Seats & chairs", "9403": "Other furniture",
+  "9404": "Mattresses, quilts, cushions & pillows", "9405": "Lamps & lighting fittings", "9503": "Toys, dolls, puzzles & scale models", "9504": "Board games, table games & video game consoles",
+  "9506": "Sports, gym & outdoor games equipment", "9608": "Ball-point pens & markers", "9609": "Pencils, crayons & chalks", "9617": "Vacuum flasks & bottles",
+  "9619": "Sanitary pads, diapers & similar hygiene articles",
+};
+const HSN_INFO = {
+  "61091000": "T-shirts, singlets & vests — knitted, of cotton", "61099090": "T-shirts & vests — knitted, of other textile materials",
+  "61051010": "Men's shirts — knitted, of cotton", "62052000": "Men's shirts — woven, of cotton", "61102000": "Sweatshirts, pullovers & cardigans — knitted, of cotton",
+  "62019390": "Men's jackets & windcheaters — of man-made fibres", "62044990": "Women's dresses — woven, of other textile materials",
+  "62034200": "Men's trousers, jeans & shorts — woven, of cotton", "62046200": "Women's trousers, jeans & shorts — woven, of cotton",
+  "61034200": "Men's trousers & shorts — knitted, of cotton", "61046200": "Women's trousers & shorts — knitted, of cotton",
+  "62034990": "Men's trousers & shorts — woven, of other textile materials", "62114290": "Other garments (kurtas, salwar etc.) — women's, of cotton",
+  "62043990": "Women's jackets & blazers — of other textile materials", "52085290": "Woven cotton fabric, printed (dress material)",
+  "54075290": "Woven synthetic filament fabric, dyed (saree / dress material)", "61149090": "Other garments — knitted, of other textile materials",
+  "61071100": "Men's briefs & underpants — knitted, of cotton", "62121000": "Brassieres", "61083100": "Women's nightdresses & pyjamas — knitted, of cotton",
+  "61072100": "Men's nightshirts & pyjamas — knitted, of cotton", "64041190": "Sports shoes — rubber / plastic soles, textile uppers",
+  "64029990": "Other footwear — rubber / plastic soles & uppers (slippers etc.)", "64035119": "Footwear — leather soles & uppers, covering the ankle",
+  "64051000": "Other footwear — uppers of leather", "64022000": "Flip-flops / footwear with upper straps fixed by plugs",
+  "42029200": "Bags & cases — outer surface of plastic or textile (backpacks, travel bags)", "42022210": "Handbags — outer surface of plastic sheeting",
+  "42023120": "Wallets & purses — outer surface of leather", "42021290": "Suitcases, trolleys & school bags — outer surface of plastic / textile",
+  "91021100": "Wrist-watches, battery operated — analog display", "91021200": "Wrist-watches, battery operated — digital display",
+  "91021900": "Other battery-operated wrist-watches", "71171910": "Imitation jewellery — bangles", "71171920": "Imitation jewellery — German silver",
+  "71179010": "Imitation jewellery — other materials", "71131190": "Jewellery of silver", "90041000": "Sunglasses", "42033000": "Belts — of leather",
+  "65050090": "Hats & caps", "61151030": "Socks & hosiery — knitted", "62171010": "Clothing accessories (made-up)",
+  "85183000": "Headphones & earphones (incl. with microphone)", "85182200": "Multiple loudspeakers in one enclosure (speakers)",
+  "85176290": "Data communication apparatus — other (smartwatches, wearables, routers)", "85176100": "Base stations (communication apparatus)",
+  "84716060": "Computer input units (mouse / keyboard)", "84718000": "Other computer units (e.g., webcams, card readers)",
+  "90189099": "Other medical / health instruments", "84231000": "Personal weighing scales (incl. baby scales)",
+  "39269099": "Other articles of plastic (phone cases & covers)", "85044030": "Chargers & power adapters", "85444299": "Cables with connectors (charging / data cables)",
+  "85076000": "Lithium-ion batteries / power banks", "70071900": "Toughened safety glass (screen guards)",
+  "49011010": "Printed books — single sheets", "49011020": "Pamphlets, booklets & brochures", "49019900": "Printed books — other",
+  "48202000": "Exercise books & notebooks", "96081019": "Ball-point pens — other", "96091000": "Pencils & crayons",
+  "48201010": "Registers & account books", "95030090": "Toys — other (puzzles, craft kits)",
+  "33049910": "Face creams & skin-care creams", "33049990": "Other beauty, make-up & skin-care preparations", "33051090": "Shampoos — other",
+  "33030010": "Perfumes", "33079090": "Other toilet & personal-care preparations", "34013019": "Face wash / body wash (liquid skin-washing products)",
+  "33059011": "Hair oils", "09024020": "Black tea", "09012190": "Roasted coffee — other", "09109100": "Spice mixtures (masala)",
+  "08013200": "Cashew nuts, shelled", "19059090": "Other bakery products (biscuits, rusk)", "20019000": "Pickles — vegetables / fruits in vinegar",
+  "11010000": "Wheat flour (atta)", "10063020": "Basmati rice", "04090000": "Natural honey",
+  "21069099": "Food supplements / nutraceuticals", "30049011": "Ayurvedic medicines — packed in doses", "21061000": "Protein concentrates (protein powder)",
+  "30039011": "Ayurvedic medicines — not in doses", "73239390": "Kitchen & household articles of stainless steel",
+  "76151030": "Aluminium kitchenware (e.g., pressure cookers)", "39241090": "Plastic tableware & kitchenware — other", "69120010": "Ceramic tableware (crockery)",
+  "70134900": "Glass tableware — other", "82159900": "Spoons, ladles & kitchen tools — other", "96170019": "Vacuum flasks & bottles — other",
+  "63022100": "Bed linen — printed, of cotton", "63039200": "Curtains — of synthetic fibres", "63049260": "Furnishing articles of cotton (cushion covers etc.)",
+  "63026000": "Towels — terry, of cotton", "57050049": "Rugs, mats & floor coverings — other", "63014000": "Blankets — of synthetic fibres",
+  "91052100": "Wall clocks — battery operated", "44201000": "Wooden statuettes & ornaments", "83062990": "Metal statuettes & ornaments — other",
+  "94051000": "Ceiling & wall lights", "67029090": "Artificial flowers — of other materials", "70139900": "Decorative glassware — other",
+  "44140000": "Wooden photo / mirror frames", "94013000": "Swivel chairs with adjustable height (office chairs)", "94036000": "Wooden furniture — other",
+  "94038900": "Furniture of other materials (bamboo, cane etc.)", "94017100": "Upholstered seats with metal frames", "94042990": "Mattresses — of other materials",
+  "95030010": "Wheeled toys (tricycles, scooters, pedal cars)", "95030030": "Toys (heading 9503: dolls, models, puzzles)", "95049090": "Board games & table games — other",
+  "96190010": "Hygiene articles (heading 9619: pads, diapers)", "34011190": "Toilet soap — other",
+  "95069990": "Sports & outdoor equipment — other", "95066210": "Inflatable balls (footballs etc.)", "95069110": "Gym & fitness equipment",
+  "95065190": "Tennis rackets — other", "95063900": "Golf equipment — other", "87120010": "Bicycles",
+};
+function hsnDesc(code) {
+  const c = String(code || "").trim();
+  return HSN_INFO[c] || HSN_HEADINGS[c.slice(0, 4)] || "";
+}
+// "cotton t-shirt", "6109", "earphones" → [{ code, desc }]
+function searchHsn(q, limit = 8) {
+  const s = String(q || "").trim().toLowerCase();
+  if (!s) return [];
+  const terms = s.split(/\s+/);
+  const all = Object.entries(HSN_INFO).map(([code, desc]) => ({ code, desc }))
+    .concat(Object.entries(HSN_HEADINGS).map(([code, desc]) => ({ code, desc: desc + " (heading)" })));
+  return all.filter(({ code, desc }) => /^\d+$/.test(s) ? code.startsWith(s) : terms.every((w) => desc.toLowerCase().includes(w.replace(/s$/, ""))))
+    .slice(0, limit);
+}
 const SKU_RE = /^[A-Za-z0-9_-]{3,40}$/;
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;

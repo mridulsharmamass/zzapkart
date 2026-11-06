@@ -171,6 +171,7 @@ function renderBanner() {
   if (st === "not_submitted") b.push(`<div class="alert warn">🪪 Dashboard unlock karne ke liye <a href="#kyc">KYC complete karein</a>.</div>`);
   if (st === "pending") b.push(`<div class="alert info">⏳ Aapka KYC admin review mein hai. Approve hote hi poora dashboard khul jayega.</div>`);
   if (st === "rejected") b.push(`<div class="alert error">❌ KYC reject hua: ${esc(me.kyc.reason || "")} — <a href="#kyc">dobara submit karein</a>.</div>`);
+  if (me.suspended) b.push(`<div class="alert error">⛔ Aapka seller account Zzapkart ne suspend kiya hai: <strong>${esc(me.suspended.reason || "")}</strong>. Tab tak aapke products aur Brand Store buyers ko nahi dikhenge. Support se contact karein.</div>`);
   const sub = me.subscription;
   if (isApproved() && sub && sub.expiresAt > Date.now() && daysLeft(sub.expiresAt) <= 5) {
     b.push(`<div class="alert warn">⏰ Aapka <strong>${PLANS[sub.plan].name}</strong> plan ${daysLeft(sub.expiresAt)} din mein expire hoga (${fmtDate(sub.expiresAt)}). Auto-renew: <strong>${me.autoRenew ? "ON" : "OFF"}</strong> · <a href="#subscription">Manage</a></div>`);

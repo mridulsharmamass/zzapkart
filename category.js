@@ -1,5 +1,6 @@
 // Category page: category.html?c=electronics — har category ka apna page
-const slug = new URLSearchParams(location.search).get("c");
+const params = new URLSearchParams(location.search);
+const slug = params.get("c");
 const cat = CATEGORIES.find((c) => c.slug === slug);
 
 const grid = document.getElementById("cat-grid");
@@ -40,27 +41,32 @@ if (!cat) {
   // Sub-category chips (Flipkart jaisa: category → sub-category)
   const subTree = (typeof TAXONOMY !== "undefined" ? TAXONOMY.find((t) => t.name === cat.name) : null);
   const subs = subTree ? subTree.cats.map((c) => c.name) : [];
-  let sub = "All";
+  // browse.html se aaye ho to sub-category (?sub=) aur product type (?v=) pehle se chune
+  let sub = subs.includes(params.get("sub")) ? params.get("sub") : "All";
+  let vert = params.get("v") || "";
   if (subs.length) {
     const bar = document.createElement("div");
     bar.className = "filter-tabs sub-chips";
     bar.id = "sub-chips";
     grid.parentNode.insertBefore(bar, grid);
     bar.addEventListener("click", (e) => {
+      if (e.target.closest("[data-clear-v]")) { vert = ""; render(); return; }
       const b = e.target.closest("[data-sub]");
       if (!b) return;
       sub = b.dataset.sub;
+      vert = "";
       render();
     });
   }
 
   function render() {
     const q = searchInput.value.trim().toLowerCase();
-    const showAds = !q && sub === "All" && catSlots.length > 0;
+    const showAds = !q && sub === "All" && !vert && catSlots.length > 0;
     const adIds = new Set(showAds ? catSlots.map((s) => s.pid) : []);
     const list = productsOf(cat.name)
       .filter((p) => !q || `${p.name} ${p.brand || ""} ${p.verticalName || ""}`.toLowerCase().includes(q))
       .filter((p) => sub === "All" || p.catName === sub)
+      .filter((p) => !vert || p.verticalName === vert)
       .sort(SORTERS[sortSelect.value]);
 
     const chips = document.getElementById("sub-chips");
@@ -69,8 +75,9 @@ if (!cat) {
       chips.innerHTML = ["All"].concat(subs).map((n) => {
         const c = n === "All" ? all.length : all.filter((p) => p.catName === n).length;
         return `<button class="chip ${sub === n ? "active" : ""}" data-sub="${esc(n)}">${esc(n)} (${c})</button>`;
-      }).join("");
+      }).join("") + (vert ? `<button class="chip vert-chip" data-clear-v="1" title="Filter hatao">${esc(vert)} ✕</button>` : "");
     }
+    document.getElementById("crumb").textContent = [cat.name, sub !== "All" ? sub : "", vert].filter(Boolean).join(" › ");
     grid.innerHTML = (showAds ? sponsoredCards(catSlots) : "") +
       list.filter((p) => !adIds.has(p.id)).map((p) => productCard(p)).join("");
     if (showAds && !catSlotsTracked) { trackSlotsShown(catSlots); catSlotsTracked = true; }
@@ -82,6 +89,7 @@ if (!cat) {
   }
 
   searchInput.addEventListener("input", render);
+  document.getElementById("cat-search-form").addEventListener("submit", (e) => { e.preventDefault(); render(); });
   sortSelect.addEventListener("change", render);
   enableAddToCart(grid);
   render();

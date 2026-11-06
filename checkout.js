@@ -1,15 +1,12 @@
 // Checkout page: address form, payment method, order summary, place order
-const DELIVERY_FREE_ABOVE = 499;
+const DELIVERY_FREE_ABOVE = FREE_DELIVERY_MIN;
 const DELIVERY_CHARGE = 40;
-const ADDRESS_KEY = "zzapkart_address";
 
-const STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa",
-  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu & Kashmir", "Jharkhand", "Karnataka",
-  "Kerala", "Ladakh", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
-  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
-  "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Chandigarh", "Puducherry",
-];
+// Order ke liye login zaroori (order history + saved addresses ke liye)
+const CUSTOMER = currentCustomer();
+if (!CUSTOMER) location.replace("account.html?next=checkout.html");
+
+const STATES = INDIAN_STATES;
 
 const form = document.getElementById("checkout-form");
 const stateSelect = form.elements.state;
@@ -60,15 +57,40 @@ if (cartItems().length === 0) {
   location.replace("cart.html");
 }
 
-// ---------- Saved address prefill ----------
-try {
-  const saved = JSON.parse(localStorage.getItem(ADDRESS_KEY));
-  if (saved) {
-    ["name", "phone", "address", "city", "pincode", "state", "email"].forEach((k) => {
-      if (saved[k]) form.elements[k].value = saved[k];
-    });
-  }
-} catch {}
+// ---------- Saved addresses (customer account) ----------
+const savedBox = document.getElementById("saved-addrs");
+const addrFields = document.getElementById("addr-fields");
+const saveAddrWrap = document.getElementById("save-addr-wrap");
+const myAddrs = () => (CUSTOMER && CUSTOMER.addresses) || [];
+let selectedAddr = (myAddrs().find((a) => a.isDefault) || myAddrs()[0] || { id: "new" }).id;
+
+function fillAddress(a) {
+  form.elements.name.value = a ? a.name : (CUSTOMER ? CUSTOMER.name : "");
+  form.elements.phone.value = a ? a.phone : (CUSTOMER ? CUSTOMER.phone || "" : "");
+  form.elements.address.value = a ? (a.landmark ? `${a.address}, ${a.landmark}` : a.address) : "";
+  form.elements.city.value = a ? a.city : "";
+  form.elements.pincode.value = a ? a.pincode : "";
+  form.elements.state.value = a ? a.state : "";
+  if (CUSTOMER) form.elements.email.value = CUSTOMER.email;
+}
+function renderSavedAddrs() {
+  const list = myAddrs();
+  if (!list.length) selectedAddr = "new";
+  savedBox.innerHTML = list.length ? list.map((a) => `
+    <label class="addr-opt ${selectedAddr === a.id ? "selected" : ""}">
+      <input type="radio" name="savedAddr" value="${a.id}" ${selectedAddr === a.id ? "checked" : ""} />
+      <span><strong>${esc(a.name)}</strong> <span class="addr-label">${esc(a.label)}</span> <span class="muted">${esc(a.phone)}</span><br>${esc(addressLine(a))}</span>
+    </label>`).join("") + `
+    <label class="addr-opt new ${selectedAddr === "new" ? "selected" : ""}"><input type="radio" name="savedAddr" value="new" ${selectedAddr === "new" ? "checked" : ""} /> <span>+ Naya address daalo</span></label>` : "";
+  const useNew = selectedAddr === "new";
+  addrFields.classList.toggle("hidden", !useNew);
+  saveAddrWrap.classList.toggle("hidden", !useNew || !CUSTOMER);
+  fillAddress(useNew ? null : list.find((a) => a.id === selectedAddr));
+}
+if (CUSTOMER) {
+  document.getElementById("acct-line").innerHTML = `Logged in as <strong>${esc(CUSTOMER.name)}</strong> (${esc(CUSTOMER.email)}) · <a href="account.html#addresses" class="link">Addresses manage karo</a>`;
+  renderSavedAddrs();
+}
 
 // ---------- Payment method toggle ----------
 const upiBox = document.getElementById("upi-box");
@@ -83,6 +105,7 @@ function updatePaymentUI() {
   );
 }
 form.addEventListener("change", (e) => {
+  if (e.target.name === "savedAddr") { selectedAddr = e.target.value; renderSavedAddrs(); }
   if (e.target.name === "payment" || e.target.name === "delivery") updatePaymentUI();
   if (e.target.name === "delivery") renderSummary();
 });
@@ -163,6 +186,7 @@ function escapeHtml(s) {
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   if (!validate()) {
+    addrFields.classList.remove("hidden"); // saved address me kami ho to fields dikhao
     const first = form.querySelector(".invalid");
     if (first) first.focus();
     showToast("Kuch details galat ya missing hain");
@@ -174,7 +198,9 @@ form.addEventListener("submit", (e) => {
     name: f("name"), phone: f("phone"), address: f("address"),
     city: f("city"), pincode: f("pincode"), state: f("state"), email: f("email"),
   };
-  localStorage.setItem(ADDRESS_KEY, JSON.stringify(address)); // agli baar ke liye yaad rakho
+  if (CUSTOMER && selectedAddr === "new" && document.getElementById("save-addr").checked) {
+    saveCustomerAddress(CUSTOMER.id, { ...address, label: "Home" }); // agli baar ke liye account me
+  }
 
   const items = cartItems();
   // Stock dobara check karo (ho sakta hai beech mein khatam ho gaya ho)
@@ -193,6 +219,7 @@ form.addEventListener("submit", (e) => {
     delivery: deliveryType,
     deliveryCharge: t.delivery,
     payment: method,
+    customerId: CUSTOMER ? CUSTOMER.id : null,
   });
   const orderId = order.id;
 

@@ -17,6 +17,11 @@ const DB = {
   buyerNotifs: "zk_buyer_notifications",
   approvals: "zk_category_approvals",
   storeStats: "zk_store_stats",
+  storeSubs: "zk_store_subscribers",
+  customers: "zk_customers",
+  customerSession: "zk_customer_session",
+  admin: "zk_admin",
+  adminSession: "zk_admin_session",
 };
 
 function dbGet(key, fallback) {
@@ -208,7 +213,8 @@ function isCategoryApproved(sellerId, group) {
 // Storefront: sirf QC-pass + active listings, KYC-approved sellers ki
 // ---------------------------------------------------------------------
 function storefrontSellerProducts() {
-  const sellers = new Map(getSellers().filter((s) => s.kyc && s.kyc.status === "approved").map((s) => [s.id, s]));
+  // Suspended sellers (super admin) ke products store par nahi dikhte
+  const sellers = new Map(getSellers().filter((s) => s.kyc && s.kyc.status === "approved" && !s.suspended).map((s) => [s.id, s]));
   return getListings()
     .filter((p) => sellers.has(p.sellerId) && p.status === "qc_passed" && p.listingStatus === "active")
     .filter((p) => {
@@ -275,7 +281,8 @@ const STORE_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
 const STORE_RESERVED = ["zzapkart", "admin", "seller", "sellers", "store", "stores", "help", "support", "cart", "checkout", "orders"];
 
 function storeIsActive(s) {
-  return !!(s && s.kyc && s.kyc.status === "approved" && activePlan(s).brandStore && s.store && s.store.published && s.store.live);
+  return !!(s && s.kyc && s.kyc.status === "approved" && !s.suspended && activePlan(s).brandStore &&
+    s.store && s.store.published && s.store.live && !s.store.adminBlocked);
 }
 function storeTheme(cfg) { return (STORE_THEMES[cfg && cfg.theme] || STORE_THEMES.purple).color; }
 function storeUrl(slug) { return "store.html?s=" + encodeURIComponent(slug); }
@@ -343,6 +350,73 @@ function cartItemsResolved() {
 }
 
 // ---------------------------------------------------------------------
+// Customers (buyer accounts): naam, email, mobile, password (hash), saved addresses
+// ---------------------------------------------------------------------
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MOBILE_RE = /^[6-9]\d{9}$/;
+const FREE_DELIVERY_MIN = 499; // isse upar delivery free (checkout + Brand Store cart)
+const MAX_ADDRESSES = 10;
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Delhi", "Goa",
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu & Kashmir", "Jharkhand", "Karnataka",
+  "Kerala", "Ladakh", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
+  "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Chandigarh", "Puducherry",
+];
+
+function getCustomers() { return dbGet(DB.customers, []); }
+function saveCustomers(list) { return dbSet(DB.customers, list); }
+function getCustomer(id) { return getCustomers().find((c) => c.id === id) || null; }
+function customerByEmail(email) {
+  const e = String(email || "").trim().toLowerCase();
+  return getCustomers().find((c) => c.email === e) || null;
+}
+function updateCustomer(id, changes) {
+  const list = getCustomers();
+  const i = list.findIndex((c) => c.id === id);
+  if (i < 0) return null;
+  list[i] = { ...list[i], ...changes };
+  return saveCustomers(list) ? list[i] : null;
+}
+function setCustomerSession(id) { dbSet(DB.customerSession, { customerId: id, at: Date.now() }); }
+function clearCustomerSession() { localStorage.removeItem(DB.customerSession); }
+function currentCustomer() {
+  const s = dbGet(DB.customerSession, null);
+  const c = s ? getCustomer(s.customerId) : null;
+  return c && !c.blocked ? c : null; // admin ne block kiya to logged out
+}
+function customerOrders(customerId) { return getOrders().filter((o) => o.customerId === customerId); }
+function addressLine(a) {
+  return [a.address, a.landmark, a.city, a.state].filter(Boolean).join(", ") + (a.pincode ? " – " + a.pincode : "");
+}
+// Naya address account me jodo (same address dobara na bane). Pehla address default.
+function saveCustomerAddress(customerId, addr) {
+  const c = getCustomer(customerId);
+  if (!c) return null;
+  const list = c.addresses || [];
+  const same = list.find((a) => a.address.trim().toLowerCase() === addr.address.trim().toLowerCase() && a.pincode === addr.pincode && a.phone === addr.phone);
+  if (same) return same;
+  if (list.length >= MAX_ADDRESSES) return null;
+  const rec = { id: uid("A"), label: addr.label || "Home", name: addr.name, phone: addr.phone, address: addr.address, landmark: addr.landmark || "",
+    city: addr.city, state: addr.state, pincode: addr.pincode, isDefault: list.length === 0 };
+  updateCustomer(customerId, { addresses: list.concat(rec) });
+  return rec;
+}
+
+// Brand Store newsletter subscribers
+function storeSubscribers(sellerId) { return dbGet(DB.storeSubs, {})[sellerId] || []; }
+function subscribeToStore(sellerId, email) {
+  const all = dbGet(DB.storeSubs, {});
+  const list = all[sellerId] || [];
+  const e = String(email).trim().toLowerCase();
+  if (list.some((x) => x.email === e)) return false;
+  list.push({ email: e, at: Date.now() });
+  all[sellerId] = list;
+  dbSet(DB.storeSubs, all);
+  return true;
+}
+
+// ---------------------------------------------------------------------
 // Customer behaviour stats (views, add-to-cart)
 // ---------------------------------------------------------------------
 const _viewedThisPage = new Set();
@@ -377,7 +451,7 @@ function getOrders() { return dbGet(DB.orders, []); }
 function saveOrders(list) { return dbSet(DB.orders, list); }
 
 // items: [{ product (storefront), variant (or null), qty }]
-function createOrder({ buyer, items, delivery, deliveryCharge, payment }) {
+function createOrder({ buyer, items, delivery, deliveryCharge, payment, customerId = null }) {
   const orderId = "ZK" + Date.now().toString().slice(-8);
   const now = Date.now();
   const listings = dbGet(DB.products, []).map(normalizeListing);
@@ -415,7 +489,7 @@ function createOrder({ buyer, items, delivery, deliveryCharge, payment }) {
   });
 
   const subtotal = shipments.reduce((s, x) => s + x.amount, 0);
-  const order = { id: orderId, createdAt: now, buyer, delivery, deliveryCharge, payment, subtotal, total: subtotal + deliveryCharge, shipments };
+  const order = { id: orderId, createdAt: now, customerId, buyer, delivery, deliveryCharge, payment, subtotal, total: subtotal + deliveryCharge, shipments };
   const list = getOrders();
   list.unshift(order);
   saveOrders(list);
