@@ -55,6 +55,7 @@ if (!product) {
         ${product.brand ? `<span class="pdp-brand">${esc(product.brand)}</span>` : ""}
         <h1>${esc(product.name)}</h1>
         <p class="sold-by">Sold by <strong>${esc(product.sellerName || "Zzapkart")}</strong></p>
+        ${product.storeSlug ? `<a class="pdp-store-link" href="${storeUrl(product.storeSlug)}">🏬 Visit the ${esc(product.storeName)} store →</a>` : ""}
         ${product.rating ? `<span class="rating">${product.rating} ★</span>` : `<span class="rating new">New</span>`}
         <div class="price-row pdp-price">
           <span class="price">${formatPrice(product.price)}</span>

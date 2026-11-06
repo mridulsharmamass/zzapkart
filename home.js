@@ -16,6 +16,25 @@ document.getElementById("cat-tiles").innerHTML = CATEGORIES.map(
     </a>`
 ).join("");
 
+// ---------- Brand Stores (Premium sellers ke apne stores) ----------
+const BRAND_STORES = activeStores();
+function storeTileHTML(s, cls = "bs-tile") {
+  return `
+    <a class="${cls}" href="${storeUrl(s.slug)}" style="--st:${storeTheme(s)}">
+      <span class="bs-tile-logo">${safeImg(s.logo) ? `<img src="${safeImg(s.logo)}" alt="" />` : esc(storeInitials(s.name))}</span>
+      <span class="bs-tile-text"><strong>${esc(s.name)}</strong>${s.tagline ? `<small>${esc(s.tagline)}</small>` : ""}<span class="bs-tile-cta">Visit store →</span></span>
+    </a>`;
+}
+if (BRAND_STORES.length) {
+  document.getElementById("brand-stores").innerHTML = `
+    <section class="cat-section">
+      <div class="cat-section-head" style="border-left-color:#ff2d95">
+        <div><h2>🏬 Brand Stores</h2><p class="muted">Sellers ke apne official stores — unke saare products ek jagah</p></div>
+      </div>
+      <div class="bs-strip">${BRAND_STORES.map((s) => storeTileHTML(s)).join("")}</div>
+    </section>`;
+}
+
 // ---------- Sponsored (seller ads) ----------
 const sponsoredEl = document.getElementById("sponsored");
 // Search ke saath khula ho (?q=) to home ads chhupe rehte — unka auction/impression mat karo
@@ -83,6 +102,15 @@ function runSearch() {
   const topIds = new Set(top.map((s) => s.pid));
   const organic = list.filter((p) => !topIds.has(p.id));
   const rest = runAuction({ placement: "rest", query: raw }, 4).filter((s) => !topIds.has(s.pid)).slice(0, 2);
+
+  // Store ka naam search kiya ho to store ka link sabse upar
+  const nq = normalizeQuery(raw);
+  const storeHits = nq.length < 3 ? [] : BRAND_STORES.filter((s) => {
+    const n = normalizeQuery(`${s.name} ${s.slug.replace(/-/g, " ")}`);
+    return n.includes(nq) || nq.includes(normalizeQuery(s.name));
+  }).slice(0, 3);
+  document.getElementById("search-stores").innerHTML = storeHits.length
+    ? `<div class="bs-search-hits">${storeHits.map((s) => storeTileHTML(s, "bs-tile bs-hit")).join("")}</div>` : "";
 
   const half = Math.min(organic.length, 4);
   searchBrand.innerHTML = brandBanner(brand);

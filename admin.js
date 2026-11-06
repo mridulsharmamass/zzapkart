@@ -31,11 +31,11 @@ function render() {
 
   // ---------- Sellers ----------
   document.getElementById("sellers").innerHTML = sellers.length ? `
-    <table class="table"><thead><tr><th>Shop</th><th>Owner</th><th>Email</th><th>KYC</th><th>Plan</th><th>Bank</th><th>Listings</th><th>Joined</th></tr></thead>
+    <table class="table"><thead><tr><th>Shop</th><th>Owner</th><th>Email</th><th>KYC</th><th>Plan</th><th>Bank</th><th>Listings</th><th>Store</th><th>Joined</th></tr></thead>
     <tbody>${sellers.map((s) => `<tr>
       <td><strong>${esc(s.shopName)}</strong></td><td>${esc(s.name)}</td><td>${esc(s.email)}</td>
       <td><span class="status-pill s-${s.kyc.status.replace("_", "-")}">${KYC_LABEL[s.kyc.status]}</span></td>
-      <td>${activePlan(s).name}</td><td>${s.profile && s.profile.bank && s.profile.bank.status === "verified" ? "✓ Verified" : "—"}</td><td>${listingsOfSeller(s.id).filter((l) => l.status === "qc_passed").length} live / ${productsOfSeller(s.id).length}</td><td>${fmtDate(s.createdAt)}</td></tr>`).join("")}
+      <td>${activePlan(s).name}</td><td>${s.profile && s.profile.bank && s.profile.bank.status === "verified" ? "✓ Verified" : "—"}</td><td>${listingsOfSeller(s.id).filter((l) => l.status === "qc_passed").length} live / ${productsOfSeller(s.id).length}</td><td>${storeIsActive(s) ? `<a class="link" href="${storeUrl(s.store.live.slug)}" target="_blank" rel="noopener">Live ↗</a>` : s.store && s.store.live ? "Offline" : "—"}</td><td>${fmtDate(s.createdAt)}</td></tr>`).join("")}
     </tbody></table>` : `<p class="muted">Abhi koi seller registered nahi.</p>`;
 
   // ---------- Platform orders ----------

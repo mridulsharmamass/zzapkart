@@ -126,6 +126,7 @@ const SECTIONS = [
   { id: "earnings", icon: "💰", label: "Payments", locked: true },
   { id: "analytics", icon: "📊", label: "Sales Analytics", locked: true },
   { id: "ads", icon: "📣", label: "Ads Console", locked: true },
+  { id: "store", icon: "🏬", label: "Brand Store", locked: true },
   { id: "subscription", icon: "⭐", label: "Subscription", locked: true },
   { id: "profile", icon: "🏦", label: "Profile & Bank", locked: false },
   { id: "kyc", icon: "🪪", label: "KYC Verification", locked: false },
@@ -146,9 +147,17 @@ function renderNav() {
     const locked = s.locked && !isApproved();
     const badges = isApproved() ? { orders: newOrders, listings: listingsOfSeller(me.id).filter((l) => l.status === "qc_failed").length, profile: bankStatus() === "verified" ? 0 : "!" } : {};
     const count = badges[s.id] ? `<span class="badge">${badges[s.id]}</span>` : "";
+    const pro = s.id === "store" && !plan().brandStore ? `<span class="nav-pro">PREMIUM</span>` : "";
     return `<a href="#${s.id}" class="${s.id === cur ? "active" : ""} ${locked ? "locked" : ""}">
-      <span>${s.icon}</span>${s.label}${locked ? " 🔒" : ""}${count}</a>`;
+      <span>${s.icon}</span>${s.label}${locked ? " 🔒" : ""}${count}${pro}</a>`;
   }).join("");
+
+  const storeLink = document.querySelector(".dash-store-link");
+  if (storeLink) {
+    const mine = storeIsActive(me);
+    storeLink.href = mine ? storeUrl(me.store.live.slug) : "index.html";
+    storeLink.textContent = mine ? "↗ View my Brand Store" : "↗ View Store";
+  }
 
   const unread = sellerNotifications(me.id).filter((n) => !n.read).length;
   const nc = document.getElementById("notif-count");
@@ -249,6 +258,7 @@ VIEWS.overview = () => {
     [sellerDefaults().has ? 0 : 1, "Default manufacturer / packer / importer details save karein", "#profile", "🏭"],
     [apprIssues.length, "Category approval pending / rejected", "#approvals", "🔒"],
     [by("qc_pending").length, "Listings QC review me hain", "#listings/progress", "🧪"],
+    [p.brandStore && !(me.store && me.store.published) ? 1 : 0, "Premium: apna Brand Store banao aur publish karo", "#store", "🏬"],
   ].filter(([n]) => n > 0);
 
   content.innerHTML = `
@@ -305,6 +315,7 @@ VIEWS.bulk = () => viewBulk();
 VIEWS.approvals = () => viewApprovals();
 VIEWS.guidelines = () => viewGuidelines();
 VIEWS.profile = () => viewProfile();
+VIEWS.store = () => viewStore();
 
 // ---------------------------------------------------------------------
 // Orders
@@ -620,7 +631,7 @@ VIEWS.analytics = () => {
 const PLAN_FEATURES = {
   basic: ["10 product listings", "Payout delivery ke 7 din baad", "Basic sales reports", "Standard visibility"],
   advanced: ["50 product listings", "Payout 3 din mein", "Detailed reports + customer behaviour", "₹500 free ad credits / month"],
-  premium: ["Unlimited products", "Next-day payout", "★ Featured badge + homepage/top placement", "Detailed reports + customer behaviour", "₹2,000 free ad credits / month"],
+  premium: ["Unlimited products", "Next-day payout", "🏬 Apna Brand Store — logo, banners, collections, store link", "★ Featured badge + homepage/top placement", "Detailed reports + customer behaviour", "₹2,000 free ad credits / month"],
 };
 
 VIEWS.subscription = () => {
@@ -852,7 +863,10 @@ VIEWS.notifications = () => {
 
 // Doosre tab mein data badle (jaise admin ne KYC approve kiya) to refresh
 window.addEventListener("storage", (e) => {
-  if (e.key && e.key.startsWith("zk_") && modal.classList.contains("hidden")) render();
+  if (!e.key || !e.key.startsWith("zk_") || !modal.classList.contains("hidden")) return;
+  if (e.key === DB.storeStats || e.key === DB.stats) return; // buyer visits / views — editor ko mat chhedo
+  if (currentSection() === "store" && e.key !== DB.sellers && e.key !== DB.products) return;
+  render();
 });
 
 render();

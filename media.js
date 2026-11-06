@@ -94,3 +94,69 @@ async function processProductImage(file) {
     URL.revokeObjectURL(url);
   }
 }
+
+// =====================================================================
+// Brand Store: logo (square) + banner (3:1) processing
+// =====================================================================
+const STORE_LOGO = { min: 200, out: 256 };
+const STORE_BANNER = { minW: 1000, minRatio: 2, maxRatio: 5, ratio: 3, outW: 1500, goodW: 1200 };
+
+// Logo: beech se square crop → 256×256. Transparent ho to PNG, warna JPEG.
+async function processStoreLogo(file) {
+  const { img, url } = await loadImageFromFile(file);
+  try {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (Math.min(w, h) < STORE_LOGO.min) throw new Error(`Logo kam se kam ${STORE_LOGO.min}×${STORE_LOGO.min} px ka ho (ye ${w}×${h} hai)`);
+    const side = Math.min(w, h);
+    const c = document.createElement("canvas");
+    c.width = c.height = STORE_LOGO.out;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, STORE_LOGO.out, STORE_LOGO.out);
+    const px = ctx.getImageData(0, 0, c.width, c.height).data;
+    let transparent = false;
+    for (let i = 3; i < px.length; i += 4) if (px[i] < 250) { transparent = true; break; }
+    let data;
+    if (transparent) data = c.toDataURL("image/png");
+    else {
+      const j = document.createElement("canvas");
+      j.width = j.height = STORE_LOGO.out;
+      const jc = j.getContext("2d");
+      jc.fillStyle = "#fff";
+      jc.fillRect(0, 0, j.width, j.height);
+      jc.drawImage(c, 0, 0);
+      data = j.toDataURL("image/jpeg", 0.9);
+    }
+    return { data, w, h, cropped: w !== h };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Banner: landscape (2:1 se 5:1) → beech se 3:1 crop → max 1500×500 JPEG
+async function processStoreBanner(file) {
+  const { img, url } = await loadImageFromFile(file);
+  try {
+    const w = img.naturalWidth, h = img.naturalHeight, r = w / h;
+    if (w < STORE_BANNER.minW) throw new Error(`Banner kam se kam ${STORE_BANNER.minW} px chauda ho (ye ${w}×${h} hai). Recommended 1500×500 px.`);
+    if (r < STORE_BANNER.minRatio || r > STORE_BANNER.maxRatio) throw new Error(`Banner landscape (lamba-chauda) hona chahiye, 3:1 jaisa — jaise 1500×500 px. Ye ${w}×${h} hai.`);
+    let sw = w, sh = h;
+    if (r > STORE_BANNER.ratio) sw = h * STORE_BANNER.ratio; else sh = w / STORE_BANNER.ratio;
+    const outW = Math.min(STORE_BANNER.outW, Math.round(sw));
+    const outH = Math.round(outW / STORE_BANNER.ratio);
+    const c = document.createElement("canvas");
+    c.width = outW; c.height = outH;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, outW, outH);
+    ctx.drawImage(img, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, outW, outH);
+    return {
+      id: uid("BNR"),
+      data: c.toDataURL("image/jpeg", 0.85),
+      w, h,
+      cropped: Math.abs(r - STORE_BANNER.ratio) > 0.03,
+      lowRes: sw < STORE_BANNER.goodW,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

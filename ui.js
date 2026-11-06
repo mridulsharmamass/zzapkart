@@ -34,12 +34,14 @@ function productCard(p, opts = {}) {
   const href = productUrl(p, opts.slot);
   return `
     <div class="card${opts.slot ? " sponsored" : ""}"${slotAttr}>
-      ${opts.slot ? `<span class="ad-tag">Sponsored</span>` : p.featured ? `<span class="ad-tag featured">★ Featured</span>` : ""}
+      ${opts.slot ? `<span class="ad-tag">Sponsored</span>` : p.featured && !opts.inStore ? `<span class="ad-tag featured">★ Featured</span>` : ""}
       <a class="card-img" href="${href}" style="background:${esc(p.color)}">${productThumb(p)}</a>
       <div class="card-body">
         ${p.brand ? `<span class="card-brand">${esc(p.brand)}</span>` : ""}
         <h3><a href="${href}" class="card-title">${esc(p.name)}</a></h3>
-        ${p.sellerName ? `<span class="sold-by">Sold by ${esc(p.sellerName)}</span>` : ""}
+        ${p.sellerName && !opts.inStore
+          ? `<span class="sold-by">Sold by ${p.storeSlug ? `<a href="${storeUrl(p.storeSlug)}" class="sold-by-link" title="${esc(p.storeName)} store dekho">${esc(p.sellerName)}</a>` : esc(p.sellerName)}</span>`
+          : ""}
         ${p.rating ? `<span class="rating">${p.rating} ★</span>` : `<span class="rating new">New</span>`}
         <div class="price-row">
           <span class="price">${formatPrice(p.price)}</span>

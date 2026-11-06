@@ -16,6 +16,7 @@ const DB = {
   sellerNotifs: "zk_seller_notifications",
   buyerNotifs: "zk_buyer_notifications",
   approvals: "zk_category_approvals",
+  storeStats: "zk_store_stats",
 };
 
 function dbGet(key, fallback) {
@@ -62,10 +63,10 @@ function fmtDateTime(ts) {
 // Subscription plans
 // ---------------------------------------------------------------------
 const PLANS = {
-  free:     { id: "free",     name: "Free",     price: 0,    productLimit: 3,        payoutDays: 14, adCredits: 0,    homepage: false, detailedReports: false },
-  basic:    { id: "basic",    name: "Basic",    price: 799,  productLimit: 10,       payoutDays: 7,  adCredits: 0,    homepage: false, detailedReports: false },
-  advanced: { id: "advanced", name: "Advanced", price: 3499, productLimit: 50,       payoutDays: 3,  adCredits: 500,  homepage: false, detailedReports: true  },
-  premium:  { id: "premium",  name: "Premium",  price: 7999, productLimit: Infinity, payoutDays: 1,  adCredits: 2000, homepage: true,  detailedReports: true  },
+  free:     { id: "free",     name: "Free",     price: 0,    productLimit: 3,        payoutDays: 14, adCredits: 0,    homepage: false, detailedReports: false, brandStore: false },
+  basic:    { id: "basic",    name: "Basic",    price: 799,  productLimit: 10,       payoutDays: 7,  adCredits: 0,    homepage: false, detailedReports: false, brandStore: false },
+  advanced: { id: "advanced", name: "Advanced", price: 3499, productLimit: 50,       payoutDays: 3,  adCredits: 500,  homepage: false, detailedReports: true,  brandStore: false },
+  premium:  { id: "premium",  name: "Premium",  price: 7999, productLimit: Infinity, payoutDays: 1,  adCredits: 2000, homepage: true,  detailedReports: true,  brandStore: true  },
 };
 const PLAN_ORDER = ["basic", "advanced", "premium"];
 const SUBSCRIPTION_DAYS = 30;
@@ -248,8 +249,68 @@ function storefrontSellerProducts() {
         sellerId: p.sellerId,
         sellerName: s.shopName,
         featured: activePlan(s).homepage,
+        storeSlug: storeIsActive(s) ? s.store.live.slug : "",
+        storeName: storeIsActive(s) ? s.store.live.name : "",
       };
     });
+}
+
+// ---------------------------------------------------------------------
+// Brand Store (Premium plan): seller ki apni mini website — store.html?s=<slug>
+// seller.store = { draft, live, published, publishedAt, liveUpdatedAt, updatedAt }
+// draft = editor me jo ban raha hai (auto-save), live = buyers ko jo dikhta hai
+// Banner images IndexedDB (media.js) me: key "store-banner:<id>"
+// ---------------------------------------------------------------------
+const STORE_THEMES = {
+  purple: { label: "Royal Purple", color: "#4a1a9e" },
+  pink: { label: "Hot Pink", color: "#c2185b" },
+  blue: { label: "Ocean Blue", color: "#1565c0" },
+  teal: { label: "Teal", color: "#00796b" },
+  orange: { label: "Sunset Orange", color: "#d84315" },
+  black: { label: "Classic Black", color: "#212121" },
+};
+const STORE_RETURNS = { 7: "7 din easy return", 10: "10 din return", 30: "30 din return", 0: "No returns" };
+const STORE_LIMITS = { banners: 5, collections: 8, featured: 8, perCollection: 24 };
+const STORE_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+const STORE_RESERVED = ["zzapkart", "admin", "seller", "sellers", "store", "stores", "help", "support", "cart", "checkout", "orders"];
+
+function storeIsActive(s) {
+  return !!(s && s.kyc && s.kyc.status === "approved" && activePlan(s).brandStore && s.store && s.store.published && s.store.live);
+}
+function storeTheme(cfg) { return (STORE_THEMES[cfg && cfg.theme] || STORE_THEMES.purple).color; }
+function storeUrl(slug) { return "store.html?s=" + encodeURIComponent(slug); }
+function storeBannerKey(id) { return "store-banner:" + id; }
+function activeStores() {
+  return getSellers().filter(storeIsActive).map((s) => ({ ...s.store.live, sellerId: s.id, publishedAt: s.store.publishedAt }));
+}
+function sellerByStoreSlug(slug) {
+  slug = String(slug || "").toLowerCase();
+  return slug ? getSellers().find((s) => s.store && s.store.live && s.store.live.slug === slug) || null : null;
+}
+function storeSlugTaken(slug, exceptSellerId) {
+  return STORE_RESERVED.includes(slug) ||
+    getSellers().some((s) => s.id !== exceptSellerId && s.store && [s.store.draft, s.store.live].some((c) => c && c.slug === slug));
+}
+function storeInitials(name) {
+  return String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+}
+
+// Store visits (owner ki apni visits aur preview nahi gine jaate)
+function trackStoreVisit(sellerId) {
+  const all = dbGet(DB.storeStats, {});
+  const st = all[sellerId] || { visits: 0, days: {} };
+  const day = new Date().toISOString().slice(0, 10);
+  st.visits++;
+  st.days[day] = (st.days[day] || 0) + 1;
+  Object.keys(st.days).sort().slice(0, -30).forEach((k) => delete st.days[k]);
+  all[sellerId] = st;
+  dbSet(DB.storeStats, all);
+}
+function storeStats(sellerId) {
+  const st = dbGet(DB.storeStats, {})[sellerId] || { visits: 0, days: {} };
+  const since = new Date(Date.now() - 6 * DAY).toISOString().slice(0, 10);
+  const last7 = Object.entries(st.days).filter(([d]) => d >= since).reduce((n, [, v]) => n + v, 0);
+  return { total: st.visits, last7 };
 }
 
 // Platform products (products.js) + seller products ko ek saath catalog mein jodo
