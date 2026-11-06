@@ -33,6 +33,7 @@ const SH_PRICES = { "": "Any price", "0-499": "₹499 se kam", "500-999": "₹50
 
 // Store data (renderStore me bharte hain)
 let shItems = [], shById = new Map(), shFeatured = [], shColls = [], shNewest = [], shNewIds = new Set();
+let shDesign = null, shPages = [];
 let shCar = null;
 let shFilter = { cats: new Set(), price: "", stock: false, sort: "featured" };
 
@@ -59,9 +60,20 @@ const shAvgSla = () => {
   return s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : 2;
 };
 
+const shPageLink = (pg, cls = "") => `<a href="#page/${esc(pg.slug)}" ${cls ? `class="${cls}"` : ""} data-nav="page-${esc(pg.slug)}">${esc(pg.title)}</a>`;
+
 function renderStore() {
   const cfg = shCfg;
-  document.body.style.setProperty("--st", storeTheme(cfg)); // .shop-body ka default override
+  // Seller ka design: rang, font, buttons, grid (CSS variables body par — .shop-body ka default override)
+  shDesign = storeDesign(cfg);
+  applyStoreVars(document.body, cfg);
+  document.body.classList.add("sh-head-" + shDesign.header);
+  const seen = new Set();
+  shPages = (cfg.pages || [])
+    .filter((pg) => String(pg.title || "").trim() && String(pg.body || "").trim())
+    .map((pg) => ({ ...pg, title: String(pg.title).trim(), slug: storePageSlug(pg) }))
+    .filter((pg) => !seen.has(pg.slug) && seen.add(pg.slug));
+  const menuPages = shPages.filter((pg) => pg.menu).slice(0, 3);
   if (!shPreview && !(shViewer && shViewer.id === shSeller.id)) trackStoreVisit(shSeller.id);
 
   shItems = PRODUCTS.filter((p) => p.sellerId === shSeller.id);
@@ -77,7 +89,9 @@ function renderStore() {
     <a class="sh-skip" href="#sh-view">Skip to content</a>
     ${shPreview ? `<div class="sh-preview">👁 <strong>Preview</strong> — ye aapka draft hai. Buyers ko ${shSeller.store.published ? "abhi published version" : "store publish hone ke baad"} dikhega. <a href="seller-dashboard.html#store">← Editor par wapas</a></div>` : ""}
     <div class="sh-powered"><div class="sh-wrap"><span>🛍️ <strong>${esc(cfg.name)}</strong> ka official store · Zzapkart par safe payments &amp; easy returns</span><a href="index.html">Zzapkart par aur shopping →</a></div></div>
-    <div class="sh-announce"><div class="sh-wrap">🚚 ₹${FREE_DELIVERY_MIN}+ par FREE delivery <i>·</i> ↩️ ${esc(shReturns())} <i>·</i> 💵 Cash on Delivery available</div></div>
+    ${shDesign.announceOn ? `<div class="sh-announce"><div class="sh-wrap">${shDesign.announce.trim()
+      ? esc(shDesign.announce.trim())
+      : `🚚 ₹${FREE_DELIVERY_MIN}+ par FREE delivery <i>·</i> ↩️ ${esc(shReturns())} <i>·</i> 💵 Cash on Delivery available`}</div></div>` : ""}
     <header class="sh-header" id="sh-header">
       <div class="sh-wrap sh-header-in">
         <button type="button" class="sh-icon sh-menu-btn" id="sh-menu-btn" aria-label="Menu kholo" aria-controls="sh-menu" aria-expanded="false">${SH_ICON.menu}</button>
@@ -90,6 +104,7 @@ function renderStore() {
             <div class="sh-dd-menu">${shColls.map((c) => `<a href="#c/${esc(c.id)}">${esc(c.name)} <small>${c.items.length}</small></a>`).join("")}</div>
           </div>` : ""}
           <a href="#about" data-nav="about">About</a>
+          ${menuPages.map((pg) => shPageLink(pg)).join("")}
         </nav>
         <div class="sh-actions">
           <button type="button" class="sh-icon" id="sh-search-btn" aria-label="Search" aria-controls="sh-searchbar" aria-expanded="false">${SH_ICON.search}</button>
@@ -114,7 +129,7 @@ function renderStore() {
         <div class="sh-foot-brand">${shLogo("small")}<strong>${esc(cfg.name)}</strong>
           <p>${esc(cfg.tagline || (cfg.about || "").slice(0, 120) || "Official brand store on Zzapkart")}</p></div>
         <div><h4>Shop</h4><a href="#shop">All products</a>${shColls.map((c) => `<a href="#c/${esc(c.id)}">${esc(c.name)}</a>`).join("")}</div>
-        <div><h4>Help</h4><a href="#about">Shipping &amp; delivery</a><a href="#about">Returns — ${esc(shReturns())}</a><a href="account.html#orders">Track your order</a><a href="account.html">My account</a></div>
+        <div><h4>Help &amp; policies</h4>${shPages.length ? shPages.map((pg) => shPageLink(pg)).join("") : `<a href="#about">Shipping &amp; delivery</a><a href="#about">Returns — ${esc(shReturns())}</a>`}<a href="account.html#orders">Track your order</a><a href="account.html">My account</a></div>
         <div><h4>Newsletter</h4><p>Naye products aur offers sabse pehle.</p>
           <form class="sh-news-form" data-news="1" novalidate><input type="email" name="email" placeholder="Email address" aria-label="Email address" autocomplete="email" /><button type="submit" class="btn sh-btn">Subscribe</button></form></div>
       </div>
@@ -131,7 +146,7 @@ function renderStore() {
       <nav class="sh-menu-links">
         <a href="#home">Home</a><a href="#shop">Shop all</a>
         ${shColls.map((c) => `<a href="#c/${esc(c.id)}" class="sub">${esc(c.name)}</a>`).join("")}
-        <a href="#about">About</a><a href="account.html#orders">Track order</a><a href="account.html">My account</a><a href="index.html">← Zzapkart home</a>
+        <a href="#about">About</a>${shPages.map((pg) => shPageLink(pg, "sub")).join("")}<a href="account.html#orders">Track order</a><a href="account.html">My account</a><a href="index.html">← Zzapkart home</a>
       </nav>
     </aside>
     <div class="sh-modal hidden" id="sh-modal" role="dialog" aria-modal="true"><div class="sh-modal-box" id="sh-modal-box"></div></div>`;
@@ -152,7 +167,7 @@ function shCard(p) {
   return `<div class="sh-card">
     <div class="sh-card-media">
       <a href="#p/${p.id}" class="sh-card-img" style="background:${esc(p.color)}" tabindex="-1" aria-hidden="true">${productThumb(p)}</a>
-      <div class="sh-badges">${out ? `<span class="sh-badge sold">Sold out</span>` : off ? `<span class="sh-badge sale">-${off}%</span>` : ""}${!out && shNewIds.has(p.id) ? `<span class="sh-badge new">New</span>` : ""}</div>
+      <div class="sh-badges">${out ? `<span class="sh-badge sold">Sold out</span>` : off ? `<span class="sh-badge sale">-${off}%</span>` : ""}${!out && shNewIds.has(p.id) ? `<span class="sh-badge new">New</span>` : ""}${p.video ? `<span class="sh-badge vid" title="Is product ka video hai">▶ Video</span>` : ""}</div>
       ${out ? "" : `<button type="button" class="sh-quick" data-quick="${p.id}">${p.hasSizes ? "Choose size" : "+ Quick add"}</button>`}
     </div>
     <div class="sh-card-body">
@@ -188,6 +203,7 @@ function shBannerHref(b) {
   if (!link || link === "none") return "";
   if (link.startsWith("c:")) return shColls.some((c) => c.id === link.slice(2)) ? "#c/" + link.slice(2) : "#shop";
   if (link.startsWith("p:")) return shById.has(Number(link.slice(2))) ? "#p/" + link.slice(2) : "#shop";
+  if (link.startsWith("pg:")) { const pg = shPages.find((x) => x.id === link.slice(3)); return pg ? "#page/" + pg.slug : "#shop"; }
   return "#shop";
 }
 function shHero() {
@@ -255,20 +271,43 @@ const shView = () => document.getElementById("sh-view");
 function shHome() {
   document.title = `${shCfg.name} – Official Store`;
   const fresh = shNewest.filter(inStock);
-  const html = [shHero(), shTrust()];
-  if (shColls.length) html.push(`<section class="sh-section sh-wrap"><div class="sh-sec-head"><h2>Shop by collection</h2></div><div class="sh-coll-grid">${shColls.map(shCollCard).join("")}</div></section>`);
-  if (shFeatured.length) html.push(shSection("Featured products", shFeatured, 8, "#shop"));
-  shColls.forEach((c) => html.push(shSection(esc(c.name), c.items, 4, "#c/" + c.id)));
-  if (shCfg.showNew && fresh.length) html.push(shSection("New arrivals", fresh, 4, "#shop"));
-  if (!shItems.length) html.push(`<section class="sh-wrap">${shEmpty("Is store me abhi koi product live nahi hai. Jaldi wapas aayein!", false)}</section>`);
-  else if (!shFeatured.length && !shColls.length && !(shCfg.showNew && fresh.length)) html.push(shSection("Products", shItems, 8, "#shop"));
-  if (shCfg.about || shCfg.tagline) {
-    const story = shCfg.about ? (shCfg.about.length > 260 ? shCfg.about.slice(0, 260).trimEnd() + "…" : shCfg.about) : shCfg.tagline;
-    html.push(`<section class="sh-story sh-wrap">${shLogo("story")}<div><span class="sh-eyebrow">Our story</span><h2>About ${esc(shCfg.name)}</h2><p>${esc(story)}</p><a class="sh-link" href="#about">Read more →</a></div></section>`);
+  const per = Math.max(4, shDesign.cols); // ek row bhar ke
+  const html = [shHero()];
+  const blocks = {
+    trust: () => html.push(shTrust()),
+    collections: () => { if (shColls.length) html.push(`<section class="sh-section sh-wrap"><div class="sh-sec-head"><h2>Shop by collection</h2></div><div class="sh-coll-grid">${shColls.map(shCollCard).join("")}</div></section>`); },
+    featured: () => { if (shFeatured.length) html.push(shSection("Featured products", shFeatured, per * 2, "#shop")); },
+    collrows: () => shColls.forEach((c) => html.push(shSection(esc(c.name), c.items, per, "#c/" + c.id))),
+    new: () => { if (fresh.length) html.push(shSection("New arrivals", fresh, per, "#shop")); },
+    story: () => {
+      if (!shCfg.about && !shCfg.tagline) return;
+      const story = shCfg.about ? (shCfg.about.length > 260 ? shCfg.about.slice(0, 260).trimEnd() + "…" : shCfg.about) : shCfg.tagline;
+      html.push(`<section class="sh-story sh-wrap">${shLogo("story")}<div><span class="sh-eyebrow">Our story</span><h2>About ${esc(shCfg.name)}</h2><p>${esc(story)}</p><a class="sh-link" href="#about">Read more →</a></div></section>`);
+    },
+    news: () => html.push(shNewsBand()),
+  };
+  const on = shDesign.sections.filter((s) => s.on);
+  on.forEach((s) => blocks[s.k]());
+  // Koi product section dikh hi nahi raha (chhupaya / khaali) — banner ke theek neeche products dikhao
+  const shows = { featured: shFeatured.length > 0, collrows: shColls.length > 0, new: fresh.length > 0 };
+  if (!on.some((s) => shows[s.k])) {
+    html.splice(1, 0, shItems.length ? shSection("Products", shItems, per * 2, "#shop")
+      : `<section class="sh-wrap">${shEmpty("Is store me abhi koi product live nahi hai. Jaldi wapas aayein!", false)}</section>`);
   }
-  html.push(shNewsBand());
   shView().innerHTML = html.join("");
   shStartHero();
+}
+
+function shPage(pg) {
+  document.title = `${pg.title} – ${shCfg.name}`;
+  const others = shPages.filter((x) => x.slug !== pg.slug);
+  shView().innerHTML = `
+  <div class="sh-wrap sh-page sh-doc">
+    ${shCrumbs(`<span>${esc(pg.title)}</span>`)}
+    <h1>${esc(pg.title)}</h1>
+    <article class="sh-rich">${storeRichText(pg.body)}</article>
+    ${others.length ? `<nav class="sh-doc-more" aria-label="Aur pages"><h2>More from ${esc(shCfg.name)}</h2>${others.map((x) => shPageLink(x, "sh-link")).join("")}<a href="#about" class="sh-link">About</a></nav>` : ""}
+  </div>`;
 }
 
 function shShop() {
@@ -337,6 +376,7 @@ function shAbout() {
       <div><span>💳</span><strong>Payments</strong><p>UPI, cards aur Cash on Delivery — saare payments Zzapkart checkout se, safe aur secure.</p></div>
       <div><span>✅</span><strong>Verified seller</strong><p>Sold by ${esc(shSeller.shopName)} · KYC Zzapkart se verified · Zzapkart par ${fmtDate(shSeller.createdAt || Date.now())} se.</p></div>
     </div>
+    ${shPages.length ? `<h2>Policies &amp; info</h2><div class="sh-doc-links">${shPages.map((pg) => shPageLink(pg, "sh-link")).join("")}</div>` : ""}
     <h2>Contact</h2>
     <p>Order se judi madad ke liye <a class="sh-link" href="account.html#orders">My Orders</a> me apna order kholein — Zzapkart support aapki madad karega.</p>
   </div>`;
@@ -443,20 +483,7 @@ function shProduct(p) {
     <div class="modal-head"><h2>Size chart</h2><button type="button" class="icon-btn" data-close="1" aria-label="Close">✕</button></div>
     <table class="table"><thead><tr><th>Size</th>${tpl.sizeChart.map((f) => `<th>${esc(f.l)}</th>`).join("")}</tr></thead>
     <tbody>${p.variants.map((v) => `<tr><td><strong>${esc(v.size)}</strong></td>${tpl.sizeChart.map((f) => `<td>${esc((p.sizeChart[v.size] || {})[f.k] ?? "—")}</td>`).join("")}</tr>`).join("")}</tbody></table>`));
-  if (p.imageCount > 0) {
-    MediaDB.get(p.id).then((imgs) => {
-      if (!imgs || !imgs.length || !document.getElementById("sh-thumbs")) return;
-      const main = document.getElementById("sh-main-img");
-      const thumbs = document.getElementById("sh-thumbs");
-      const show = (i) => {
-        main.innerHTML = `<img src="${safeImg(imgs[i].full)}" alt="${esc(p.name)}" />`;
-        thumbs.querySelectorAll("button").forEach((b, j) => b.classList.toggle("active", i === j));
-      };
-      thumbs.innerHTML = imgs.map((im, i) => `<button type="button" aria-label="Image ${i + 1}"><img src="${safeImg(im.thumb || im.full)}" alt="" /></button>`).join("");
-      thumbs.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) show([...thumbs.children].indexOf(b)); });
-      show(0);
-    });
-  }
+  if (p.imageCount > 0 || p.video) mountProductGallery(p, document.getElementById("sh-main-img"), document.getElementById("sh-thumbs"));
 }
 
 // ---------------------------------------------------------------------
@@ -654,6 +681,7 @@ function shRoute(first) {
   else if (h.startsWith("search/") && h.slice(7).trim()) { shSearch(h.slice(7).trim()); nav = ""; }
   else if (h === "shop" || h === "all") { shShop(); nav = "shop"; }
   else if (h === "about") { shAbout(); nav = "about"; }
+  else if (h.startsWith("page/") && shPages.some((pg) => pg.slug === h.slice(5))) { const pg = shPages.find((x) => x.slug === h.slice(5)); shPage(pg); nav = "page-" + pg.slug; }
   else shHome();
   document.querySelectorAll("[data-nav]").forEach((a) => a.classList.toggle("active", a.dataset.nav === nav));
   if (first !== true) {

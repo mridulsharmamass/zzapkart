@@ -141,19 +141,8 @@ if (!product) {
   });
 
   // ---------- Gallery (IndexedDB) ----------
-  if (product.imageCount > 0 && typeof MediaDB !== "undefined") {
-    MediaDB.get(product.id).then((imgs) => {
-      if (!imgs || !imgs.length) return;
-      const main = document.getElementById("pdp-main");
-      const thumbs = document.getElementById("pdp-thumbs");
-      const show = (i) => {
-        main.innerHTML = `<img src="${safeImg(imgs[i].full)}" alt="${esc(product.name)}" />`;
-        thumbs.querySelectorAll("button").forEach((b, j) => b.classList.toggle("active", i === j));
-      };
-      thumbs.innerHTML = imgs.map((im, i) => `<button data-i="${i}" aria-label="Image ${i + 1}"><img src="${safeImg(im.thumb || im.full)}" alt="" /></button>`).join("");
-      thumbs.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) show(Number(b.dataset.i)); });
-      show(0);
-    });
+  if ((product.imageCount > 0 || product.video) && typeof MediaDB !== "undefined") {
+    mountProductGallery(product, document.getElementById("pdp-main"), document.getElementById("pdp-thumbs"));
   }
 
   // ---------- Description, specifications, legal info ----------

@@ -17,13 +17,16 @@ const AD_SECTIONS = [
   { id: "listings", icon: "📦", label: "All Listings" },
   { id: "orders", icon: "🛒", label: "Orders" },
   { id: "customers", icon: "👥", label: "Customers" },
+  { id: "support", icon: "💬", label: "Support" },
   { id: "stores", icon: "🏬", label: "Brand Stores" },
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 const adContent = document.getElementById("content");
 const adModal = document.getElementById("modal");
 const adModalBox = document.getElementById("modal-box");
-const AD = { sellerQ: "", sellerF: "all", listQ: "", listF: "all", orderQ: "", orderF: "all", custQ: "" };
+const AD = { sellerQ: "", sellerF: "all", listQ: "", listF: "all", orderQ: "", orderF: "all", custQ: "", tickQ: "", tickF: "reply" };
+// Support ticket ko reply chahiye? (open + aakhri message customer ka)
+const adNeedsReply = (t) => t.status === "open" && t.messages.length && t.messages[t.messages.length - 1].from === "customer";
 
 const adTile = (label, value, sub = "") =>
   `<div class="stat-tile"><span class="stat-label">${label}</span><span class="stat-value">${value}</span>${sub ? `<span class="stat-sub">${sub}</span>` : ""}</div>`;
@@ -157,6 +160,7 @@ function adCounts() {
     qc: getListings().filter((l) => l.status === "qc_pending").length,
     approvals: getApprovals().filter((a) => a.status === "pending").length,
     orders: shipmentsOfSeller(PLATFORM_SELLER).filter((x) => x.shipment.status === "Placed").length,
+    support: getTickets().filter(adNeedsReply).length,
   };
 }
 function adNav() {
@@ -211,6 +215,7 @@ AD_VIEWS.dashboard = () => {
     [c.qc, "Listings QC ke liye pending", "#qc", "🧪"],
     [c.approvals, "Category approval requests", "#approvals", "🔒"],
     [c.orders, "Zzapkart ke apne orders ship karne hain", "#orders", "🚚"],
+    [c.support, "Support requests (chat) ka reply dena hai", "#support", "💬"],
     [sellers.filter((s) => s.suspended).length, "Sellers suspended hain", "#sellers", "⛔"],
     [sellers.filter((s) => s.store && s.store.adminBlocked).length, "Brand stores band (takedown)", "#stores", "🏬"],
   ].filter(([n]) => n > 0);
@@ -472,6 +477,85 @@ function adCustomerModal(id) {
 }
 
 // ---------------------------------------------------------------------
+// Support (chat assistant ke "Talk to support" se aayi requests)
+// ---------------------------------------------------------------------
+const AD_TICKET_F = {
+  reply: adNeedsReply,
+  open: (t) => t.status === "open",
+  closed: (t) => t.status !== "open",
+  all: () => true,
+};
+AD_VIEWS.support = () => {
+  const all = getTickets();
+  const q = AD.tickQ.trim().toLowerCase();
+  const list = all.filter(AD_TICKET_F[AD.tickF] || AD_TICKET_F.all)
+    .filter((t) => !q || `${t.id} ${t.name} ${t.email} ${t.orderId} ${t.messages.map((m) => m.text).join(" ")}`.toLowerCase().includes(q))
+    .sort((a, b) => (adNeedsReply(b) - adNeedsReply(a)) || (b.updatedAt - a.updatedAt));
+  adContent.innerHTML = `
+    <h1 class="dash-title">Support requests <span class="muted">(${all.length})</span></h1>
+    <p class="muted">Customers website ke 💬 Help chat me "Talk to support" se request bhejte hain. Aapka reply unhe usi chat me dikhta hai.</p>
+    ${adToolbar([["reply", "Reply chahiye", all.filter(adNeedsReply).length], ["open", "Open", all.filter(AD_TICKET_F.open).length], ["closed", "Resolved", all.filter(AD_TICKET_F.closed).length], ["all", "All", all.length]], AD.tickF, "tickF", "ad-tq", AD.tickQ, "Ticket ID, naam, email, order ya text")}
+    <section class="panel"><div class="table-wrap"><table class="table">
+      <thead><tr><th>Request</th><th>Customer</th><th>Problem</th><th>Last update</th><th>Status</th><th></th></tr></thead>
+      <tbody>${list.map((t) => {
+        const last = t.messages[t.messages.length - 1];
+        const st = t.status !== "open" ? ["Resolved", "s-delivered"] : adNeedsReply(t) ? ["Reply chahiye", "s-placed"] : ["Replied", "s-shipped"];
+        return `<tr class="${t.unreadAdmin ? "ad-unread" : ""}">
+          <td><strong>#${esc(t.id)}</strong>${t.orderId ? `<div class="muted small">Order #${esc(t.orderId)}</div>` : ""}</td>
+          <td>${esc(t.name || "—")}<div class="muted small">${esc(t.email || "")}${t.customerId ? " · account" : " · guest"}</div></td>
+          <td class="ad-tk-sub">${esc(t.subject)}<div class="muted small">${last.from === "admin" ? "Aap" : "Customer"}: ${esc(last.text.slice(0, 70))}${last.text.length > 70 ? "…" : ""}</div></td>
+          <td>${fmtDateTime(t.updatedAt)}<div class="muted small">${t.messages.length} message(s)</div></td>
+          <td>${adPill(st[0], st[1])}</td>
+          <td class="ad-actions"><button type="button" class="btn-sm ${adNeedsReply(t) ? "" : "btn-outline"}" data-tview="${esc(t.id)}">${adNeedsReply(t) ? "Reply" : "Open"}</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="6" class="muted">${all.length ? "Is filter me koi request nahi." : "Abhi koi support request nahi aayi."}</td></tr>`}</tbody>
+    </table></div></section>`;
+};
+
+function adTicketModal(id) {
+  let t = getTickets().find((x) => x.id === id);
+  if (!t) return;
+  if (t.unreadAdmin) t = updateTicket(id, (x) => { x.unreadAdmin = 0; }) || t;
+  const cust = t.customerId ? getCustomer(t.customerId) : null;
+  const orders = cust ? customerOrders(cust.id).slice(0, 3) : [];
+  adOpenModal(`
+    <div class="modal-head"><h2>Request #${esc(t.id)}</h2><button type="button" class="icon-btn" data-close="1" aria-label="Close">✕</button></div>
+    <p class="small"><strong>${esc(t.name || "—")}</strong> · ${esc(t.email || "")} · ${t.customerId ? "Registered customer" : "Guest (bina login)"} · ${fmtDateTime(t.createdAt)}
+      ${t.orderId ? ` · Order <strong>#${esc(t.orderId)}</strong>` : ""} · ${adPill(t.status === "open" ? "Open" : "Resolved", t.status === "open" ? "s-placed" : "s-delivered")}</p>
+    ${orders.length ? `<p class="small muted">Recent orders: ${orders.map((o) => `<button type="button" class="link-btn" data-oview="${esc(o.id)}">#${esc(o.id)}</button> (${adOrderStatus(o)})`).join(" · ")}</p>` : ""}
+    <div class="ad-thread" id="ad-thread">${t.messages.map((m) => `
+      <div class="ad-tmsg ${m.from === "admin" ? "admin" : "cust"}">
+        <span class="ad-tmsg-who">${m.from === "admin" ? "🧑‍💼 Zzapkart Support" : "👤 " + esc(t.name || "Customer")} · ${fmtDateTime(m.at)}</span>
+        <p>${esc(m.text).replace(/\n/g, "<br>")}</p>
+      </div>`).join("")}</div>
+    <form id="ad-treply" class="checkout-form" novalidate>
+      <label>Reply (customer ko chat me dikhega)
+        <textarea name="text" rows="3" maxlength="${TICKET_MAX}" placeholder="Namaste! Aapki problem ke baare me…"></textarea><small class="err"></small></label>
+      <div class="modal-actions">
+        ${t.status === "open"
+          ? `<button type="button" class="btn btn-outline" data-tclose="${esc(t.id)}">✓ Resolve (bina reply)</button><button type="submit" class="btn btn-outline" name="close" value="1">Reply &amp; resolve</button>`
+          : `<button type="button" class="btn btn-outline" data-topen="${esc(t.id)}">↺ Reopen</button>`}
+        <button type="submit" class="btn">Send reply</button>
+      </div>
+    </form>`);
+  const th = document.getElementById("ad-thread");
+  th.scrollTop = th.scrollHeight;
+  const f = document.getElementById("ad-treply");
+  f.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = f.elements.text.value.trim();
+    const errEl = f.querySelector(".err");
+    if (text.length < 2) { errEl.textContent = "Reply likhein"; f.elements.text.focus(); return; }
+    const close = e.submitter && e.submitter.name === "close";
+    ticketReply(t.id, "admin", text);
+    if (close) updateTicket(t.id, (x) => { x.status = "closed"; x.closedAt = Date.now(); });
+    showToast(close ? "Reply bheja aur request resolve ki ✓" : "Reply bhej diya ✓");
+    adTicketModal(t.id);
+    render();
+  });
+}
+
+// ---------------------------------------------------------------------
 // Brand stores
 // ---------------------------------------------------------------------
 AD_VIEWS.stores = () => {
@@ -636,6 +720,19 @@ document.addEventListener("click", (e) => {
     return render();
   }
   if (d.oview) return adOrderModal(d.oview);
+  if (d.tview) return adTicketModal(d.tview);
+  if (d.tclose) {
+    updateTicket(d.tclose, (x) => { x.status = "closed"; x.closedAt = Date.now(); });
+    showToast("Request resolve ho gayi ✓");
+    adTicketModal(d.tclose);
+    return render();
+  }
+  if (d.topen) {
+    updateTicket(d.topen, (x) => { x.status = "open"; });
+    showToast("Request dobara open ✓");
+    adTicketModal(d.topen);
+    return render();
+  }
   if (d.cview) return adCustomerModal(d.cview);
   if (d.cblock) {
     const c = getCustomer(d.cblock);
@@ -670,7 +767,7 @@ document.addEventListener("click", (e) => {
   }
 });
 document.addEventListener("input", (e) => {
-  const map = { "ad-sq": "sellerQ", "ad-lq": "listQ", "ad-oq": "orderQ", "ad-cq": "custQ" };
+  const map = { "ad-sq": "sellerQ", "ad-lq": "listQ", "ad-oq": "orderQ", "ad-cq": "custQ", "ad-tq": "tickQ" };
   const key = map[e.target.id];
   if (!key) return;
   AD[key] = e.target.value;

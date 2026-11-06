@@ -25,6 +25,9 @@ function renderQC() {
           <span class="status-pill s-placed">QC in progress</span>
         </div>
         <div class="qc-imgs" id="qc-imgs-${L.id}"><span class="muted small">${L.imageCount || 0} image(s)…</span></div>
+        ${L.video ? `<div class="qc-video" id="qc-vid-${L.id}">${L.video.kind === "yt"
+          ? `<a class="link" href="https://www.youtube.com/watch?v=${encodeURIComponent(L.video.ytId)}" target="_blank" rel="noopener">▶ YouTube video dekho</a> <small class="muted">— check: product wahi hai? contact info / watermark nahi?</small>`
+          : `<span class="muted small">🎬 Video load ho raha hai…</span>`}</div>` : `<p class="muted small">🎬 Video: nahi</p>`}
         <p class="small">${attrs}</p>
         <p class="small muted">SKUs: ${L.variants.map((x) => esc(`${x.sku}${x.size ? " (" + x.size + ")" : ""}: ${x.stock}`)).join(", ")}</p>
         <p class="small muted">Manufacturer: ${esc(L.manufacturer ? `${L.manufacturer.name}, ${L.manufacturer.pincode}` : "—")} · Origin: ${esc(L.countryOfOrigin || "—")} · Pack ${esc(L.pkg ? `${L.pkg.l}×${L.pkg.b}×${L.pkg.h} cm, ${L.pkg.w} g` : "—")}</p>
@@ -38,6 +41,15 @@ function renderQC() {
       </section>`;
     }).join("")}`;
   pending.forEach((L) => {
+    if (L.video && L.video.kind === "file") {
+      loadProductVideo(L.id).then((v) => {
+        const el = document.getElementById("qc-vid-" + L.id);
+        if (!el) { if (v) URL.revokeObjectURL(v.url); return; }
+        el.innerHTML = v
+          ? `<video controls playsinline preload="metadata" src="${v.url}" ${v.poster ? `poster="${v.poster}"` : ""}></video><small class="muted">🎬 ${fmtDuration(v.duration)} min · ${v.w}×${v.h} — check: product wahi hai? contact info / watermark nahi?</small>`
+          : `<span class="text-danger small">Video file is browser me nahi mili</span>`;
+      });
+    }
     if (!L.imageCount) return;
     MediaDB.get(L.id).then((imgs) => {
       const el = document.getElementById("qc-imgs-" + L.id);

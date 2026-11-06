@@ -35,7 +35,7 @@ function productCard(p, opts = {}) {
   return `
     <div class="card${opts.slot ? " sponsored" : ""}"${slotAttr}>
       ${opts.slot ? `<span class="ad-tag">Sponsored</span>` : p.featured && !opts.inStore ? `<span class="ad-tag featured">★ Featured</span>` : ""}
-      <a class="card-img" href="${href}" style="background:${esc(p.color)}">${productThumb(p)}</a>
+      <a class="card-img" href="${href}" style="background:${esc(p.color)}">${productThumb(p)}${p.video ? `<span class="vid-badge" title="Is product ka video hai">▶ Video</span>` : ""}</a>
       <div class="card-body">
         ${p.brand ? `<span class="card-brand">${esc(p.brand)}</span>` : ""}
         <h3><a href="${href}" class="card-title">${esc(p.name)}</a></h3>

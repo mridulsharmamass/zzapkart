@@ -22,6 +22,9 @@ const DB = {
   customerSession: "zk_customer_session",
   admin: "zk_admin",
   adminSession: "zk_admin_session",
+  tickets: "zk_support_tickets",
+  chat: "zk_chat_log",
+  chatGuest: "zk_chat_guest",
 };
 
 function dbGet(key, fallback) {
@@ -159,7 +162,49 @@ function normalizeListing(p) {
   }
   p.variants = p.variants || [];
   p.stock = p.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0);
+  // Purana "Video URL" (YouTube) text field → naya video object
+  if (p.video === undefined && p.videoUrl) {
+    const yt = ytIdFrom(p.videoUrl);
+    p.video = yt ? { kind: "yt", ytId: yt } : null;
+  }
   return p;
+}
+
+// ---------------------------------------------------------------------
+// Product video: upload ki hui file IndexedDB me (key "video:<listingId>"),
+// ya YouTube link. listing.video = { kind: "file", duration, w, h, size }
+// | { kind: "yt", ytId } | null
+// ---------------------------------------------------------------------
+const YT_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+function videoKey(listingId) { return "video:" + listingId; }
+function ytIdFrom(url) {
+  const s = String(url || "").trim();
+  if (!s || /\s/.test(s)) return "";
+  let u;
+  try { u = new URL(/^https?:\/\//i.test(s) ? s : "https://" + s); } catch { return ""; }
+  const host = u.hostname.toLowerCase().replace(/^(www|m|music)\./, "");
+  let id = "";
+  if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (u.pathname === "/watch") id = u.searchParams.get("v") || "";
+    else {
+      const m = u.pathname.match(/^\/(shorts|embed|live|v)\/([^/]+)/);
+      if (m) id = m[2];
+    }
+  }
+  return YT_ID_RE.test(id) ? id : "";
+}
+function cleanVideoMeta(v) {
+  if (!v || typeof v !== "object") return null;
+  if (v.kind === "yt") return YT_ID_RE.test(v.ytId || "") ? { kind: "yt", ytId: v.ytId } : null;
+  if (v.kind === "file") return { kind: "file", duration: Number(v.duration) || 0, w: Number(v.w) || 0, h: Number(v.h) || 0, size: Number(v.size) || 0 };
+  return null;
+}
+function ytEmbedUrl(id) { return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&modestbranding=1`; }
+function ytThumbUrl(id) { return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`; }
+function fmtDuration(sec) {
+  const s = Math.round(Number(sec) || 0);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function getListings() { return dbGet(DB.products, []).map(normalizeListing); }
@@ -176,7 +221,7 @@ function saveListing(L) {
 
 function deleteListing(sellerId, id) {
   dbSet(DB.products, getListings().filter((p) => !(p.id === id && p.sellerId === sellerId)));
-  if (typeof MediaDB !== "undefined") MediaDB.del(id);
+  if (typeof MediaDB !== "undefined") { MediaDB.del(id); MediaDB.del(videoKey(id)); }
   if (typeof adsRemoveProduct === "function") adsRemoveProduct(id);
 }
 
@@ -257,6 +302,7 @@ function storefrontSellerProducts() {
         featured: activePlan(s).homepage,
         storeSlug: storeIsActive(s) ? s.store.live.slug : "",
         storeName: storeIsActive(s) ? s.store.live.name : "",
+        video: cleanVideoMeta(p.video),
       };
     });
 }
@@ -284,7 +330,236 @@ function storeIsActive(s) {
   return !!(s && s.kyc && s.kyc.status === "approved" && !s.suspended && activePlan(s).brandStore &&
     s.store && s.store.published && s.store.live && !s.store.adminBlocked);
 }
-function storeTheme(cfg) { return (STORE_THEMES[cfg && cfg.theme] || STORE_THEMES.purple).color; }
+// ---- Store design (fully customisable): rang, font, buttons, header, grid, sections ----
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+const STORE_FONTS = {
+  system: { label: "Default — clean", head: "", body: "", gf: "" },
+  poppins: { label: "Poppins — modern", head: "'Poppins'", body: "'Poppins'", gf: "family=Poppins:wght@400;600;700;800" },
+  montserrat: { label: "Montserrat — bold", head: "'Montserrat'", body: "'Montserrat'", gf: "family=Montserrat:wght@400;600;700;800" },
+  elegant: { label: "Playfair + Lato — elegant", head: "'Playfair Display'", body: "'Lato'", gf: "family=Playfair+Display:wght@600;700;800&family=Lato:wght@400;700" },
+  classic: { label: "Lora — classic", head: "'Lora'", body: "'Lora'", gf: "family=Lora:wght@400;600;700" },
+  friendly: { label: "Nunito — friendly", head: "'Nunito'", body: "'Nunito'", gf: "family=Nunito:wght@400;600;700;800" },
+};
+const STORE_BUTTONS = { rounded: { label: "Rounded", r: "8px" }, pill: { label: "Pill", r: "999px" }, square: { label: "Square", r: "0px" } };
+const STORE_HEADERS = { light: "Light (safed)", dark: "Dark (kaala)", brand: "Theme colour" };
+const STORE_COLS = [3, 4, 5];
+const STORE_SECTIONS = {
+  trust: "Trust badges (delivery, returns, payments)",
+  collections: "Shop by collection (cards)",
+  featured: "Featured products",
+  collrows: "Har collection ki product row",
+  new: "New arrivals",
+  story: "Our story (About)",
+  news: "Newsletter signup",
+};
+
+function storeDesign(cfg) {
+  const d = (cfg && cfg.design) || {};
+  const sections = (Array.isArray(d.sections) ? d.sections : []).filter((s, i, a) => s && STORE_SECTIONS[s.k] && a.findIndex((x) => x && x.k === s.k) === i)
+    .map((s) => ({ k: s.k, on: s.on !== false }));
+  Object.keys(STORE_SECTIONS).forEach((k) => {
+    if (!sections.some((s) => s.k === k)) sections.push({ k, on: k === "new" ? !(cfg && cfg.showNew === false) : true });
+  });
+  return {
+    color: HEX_RE.test(d.color || "") ? d.color.toLowerCase() : "",
+    font: STORE_FONTS[d.font] ? d.font : "system",
+    buttons: STORE_BUTTONS[d.buttons] ? d.buttons : "rounded",
+    header: STORE_HEADERS[d.header] ? d.header : "light",
+    cols: STORE_COLS.includes(Number(d.cols)) ? Number(d.cols) : 4,
+    announceOn: d.announceOn !== false,
+    announce: String(d.announce || "").slice(0, 90),
+    sections,
+  };
+}
+// Theme colour: preset ya seller ka custom (#rrggbb — sirf valid hex, kyunki ye inline style me jata hai)
+function storeTheme(cfg) {
+  const c = cfg && cfg.design && cfg.design.color;
+  if (cfg && cfg.theme === "custom" && HEX_RE.test(c || "")) return c.toLowerCase();
+  return (STORE_THEMES[cfg && cfg.theme] || STORE_THEMES.purple).color;
+}
+function hexRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function relLum(hex) {
+  return hexRgb(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+}
+function contrastRatio(a, b) { const [x, y] = [relLum(a), relLum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); }
+function mixHex(hex, target, t) {
+  const a = hexRgb(hex), b = hexRgb(target);
+  return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+// fill = buttons ka rang, ink = fill par text (safed ya kaala — jo padhne me saaf ho),
+// text = safed background par accent text (halka rang ho to apne-aap gehra kiya jata hai)
+function storePalette(cfg) {
+  const fill = storeTheme(cfg);
+  const ink = contrastRatio(fill, "#ffffff") >= contrastRatio(fill, "#14101c") ? "#ffffff" : "#14101c";
+  let text = fill;
+  for (let i = 0; i < 12 && contrastRatio(text, "#ffffff") < 4.5; i++) text = mixHex(text, "#000000", 0.12);
+  return { fill, ink, text, light: contrastRatio(fill, "#ffffff") < 3 };
+}
+
+// Store ke CSS variables (store page + builder preview dono me)
+function storeCssVars(cfg) {
+  const p = storePalette(cfg), ds = storeDesign(cfg), f = STORE_FONTS[ds.font];
+  const stack = (fam) => `${fam}, ${/Playfair|Lora/.test(fam) ? "Georgia, 'Times New Roman', serif" : "'Segoe UI', Roboto, Arial, sans-serif"}`;
+  return {
+    "--st": p.fill, "--st-ink": p.ink, "--st-text": p.text,
+    "--sh-radius": STORE_BUTTONS[ds.buttons].r, "--sh-cols": String(ds.cols), "--sh-cols-side": String(ds.cols - 1),
+    "--sh-font-head": f.head ? stack(f.head) : null, "--sh-font-body": f.body ? stack(f.body) : null,
+  };
+}
+function applyStoreVars(el, cfg) {
+  Object.entries(storeCssVars(cfg)).forEach(([k, v]) => (v === null ? el.style.removeProperty(k) : el.style.setProperty(k, v)));
+  loadStoreFont(storeDesign(cfg).font);
+}
+function loadStoreFont(key) {
+  const f = STORE_FONTS[key];
+  if (!f || !f.gf || typeof document === "undefined" || document.querySelector(`link[data-store-font="${key}"]`)) return;
+  const l = document.createElement("link");
+  l.rel = "stylesheet";
+  l.href = `https://fonts.googleapis.com/css2?${f.gf}&display=swap`;
+  l.dataset.storeFont = key;
+  document.head.appendChild(l);
+}
+
+// ---- Store pages (Privacy Policy, Terms, FAQ…) — seller khud banata hai ----
+const STORE_PAGE_LIMIT = 10;
+const STORE_PAGE_MAX = 8000;
+function storePageSlug(pg) { return slugify(pg.title || "").slice(0, 40).replace(/-+$/, "") || "page-" + String(pg.id || "").toLowerCase(); }
+// Simple formatting: "## Heading", "### Sub-heading", "- list", "1. list", **bold**, khaali line = naya paragraph
+function storeRichText(src) {
+  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const out = [];
+  let list = null, para = [];
+  const flushPara = () => { if (para.length) { out.push(`<p>${para.map(inline).join("<br>")}</p>`); para = []; } };
+  const flushList = () => { if (list) { out.push(`<${list.tag}>${list.items.map((x) => `<li>${inline(x)}</li>`).join("")}</${list.tag}>`); list = null; } };
+  String(src || "").replace(/\r/g, "").split("\n").forEach((raw) => {
+    const line = raw.trim();
+    let m;
+    if (!line) { flushPara(); flushList(); return; }
+    if ((m = line.match(/^(#{1,3})\s+(.+)$/))) { flushPara(); flushList(); out.push(m[1].length === 3 ? `<h3>${inline(m[2])}</h3>` : `<h2>${inline(m[2])}</h2>`); return; }
+    if ((m = line.match(/^[-*•]\s+(.+)$/)) || (m = line.match(/^\d{1,2}[.)]\s+(.+)$/))) {
+      const tag = /^\d/.test(line) ? "ol" : "ul";
+      flushPara();
+      if (list && list.tag !== tag) flushList();
+      if (!list) list = { tag, items: [] };
+      list.items.push(m[1]);
+      return;
+    }
+    flushList();
+    para.push(line);
+  });
+  flushPara();
+  flushList();
+  return out.join("");
+}
+// Ready-made templates (seller edit kar sakta hai). Phone / email / website nahi — contact Zzapkart ke through.
+const STORE_PAGE_TEMPLATES = {
+  privacy: { label: "Privacy Policy", body: (v) => `Last updated: ${v.date}
+
+${v.name} ("we", "us") sells on Zzapkart. This policy explains how your information is used when you shop at our store.
+
+## Information we receive
+- Your name, delivery address and phone number — shared with us by Zzapkart only to deliver your order.
+- Order details such as products, quantity and order status.
+- We never see or store your card, UPI or bank details. All payments are processed securely by Zzapkart.
+
+## How we use it
+- To pack, ship and deliver your order.
+- To handle returns, replacements and refunds.
+- To answer questions you send us through Zzapkart support.
+
+## What we never do
+- We do **not** sell or rent your personal information.
+- We do not contact you outside Zzapkart for marketing.
+
+## Newsletter
+If you subscribe to our newsletter, we use your email only to send store updates and offers.
+
+## Questions
+For any privacy question, contact us through the Zzapkart help chat or from your order in My Orders.` },
+  terms: { label: "Terms & Conditions", body: (v) => `By placing an order at ${v.name} on Zzapkart, you agree to these terms.
+
+## Products & pricing
+- Prices are in Indian Rupees and include all taxes.
+- Product photos are for illustration; colour may vary slightly on different screens.
+- We may cancel an order if a product goes out of stock or is priced incorrectly. Any payment made is refunded in full.
+
+## Orders & delivery
+- Your order is confirmed when you see the order confirmation on Zzapkart.
+- Delivery dates are estimates and may vary by pincode.
+
+## Returns
+Returns follow our Return & Refund Policy (${v.returns}).
+
+## Platform
+Payments, delivery tracking and customer support are provided by Zzapkart. Zzapkart's terms of use also apply.` },
+  shipping: { label: "Shipping Policy", body: (v) => `## Dispatch
+- Orders are packed and dispatched within 1–3 business days.
+- You get tracking details in My Orders as soon as your order ships.
+
+## Delivery
+- Delivery usually takes 2–7 days after dispatch, depending on your pincode.
+- **FREE delivery** on orders of ₹${v.free} or more; otherwise ₹40.
+- Express delivery is available at checkout for ₹99 where serviceable.
+- Cash on Delivery is available on most pincodes.
+
+## Damaged or wrong item?
+Report it within 48 hours of delivery from My Orders (with photos) and we will arrange a replacement or refund.` },
+  returns: { label: "Return & Refund Policy", body: (v) => v.days ? `We offer **${v.days}-day returns** on most products.
+
+## Eligibility
+- Request a return within ${v.days} days of delivery from My Orders.
+- The product must be unused, with original tags and packaging.
+- Innerwear, personal care and customised items cannot be returned for hygiene reasons.
+
+## Refunds
+1. We pick up the product from your address.
+2. It passes a quick quality check.
+3. Your refund is issued within 5–7 business days — prepaid orders to the original payment method, COD orders to your bank account or UPI.
+
+## Damaged or wrong item?
+Report it within 48 hours of delivery and we will replace it at no extra cost.` : `Products from ${v.name} are **not returnable**.
+
+## Damaged or wrong item?
+- Report it within 48 hours of delivery from My Orders (with photos).
+- We will send a replacement or issue a full refund.
+
+## Refunds
+Approved refunds are issued within 5–7 business days — prepaid orders to the original payment method, COD orders to your bank account or UPI.` },
+  faq: { label: "FAQ", body: (v) => `## How long will delivery take?
+Most orders are dispatched within 1–3 days and delivered in 2–7 days.
+
+## Is Cash on Delivery available?
+Yes, COD is available on most pincodes.
+
+## Do you charge for delivery?
+Delivery is FREE on orders of ₹${v.free} or more. Below that, it is ₹40.
+
+## How do I return a product?
+Open My Orders on Zzapkart, choose the item and request a return. ${v.returns}.
+
+## How can I contact the store?
+Use the Zzapkart help chat or the support option on your order page. We usually reply within 24 hours.` },
+  contact: { label: "Contact Us", body: (v) => `We're happy to help!
+
+- **Order questions:** open your order in My Orders on Zzapkart.
+- **Anything else:** use the Zzapkart help chat — our team replies within 24 hours.
+- **Business hours:** Monday to Saturday, 10 AM – 7 PM.
+
+${v.name} is a KYC-verified seller on Zzapkart (${v.shop}).` },
+};
+function storePageTemplate(key, cfg, seller) {
+  const t = STORE_PAGE_TEMPLATES[key];
+  if (!t) return null;
+  const days = Number(cfg && cfg.returnDays) || 0;
+  const v = {
+    name: String((cfg && cfg.name) || "Our store").trim() || "Our store",
+    shop: (seller && seller.shopName) || "Zzapkart seller",
+    days, returns: STORE_RETURNS[days] || STORE_RETURNS[7], free: FREE_DELIVERY_MIN,
+    date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+  };
+  return { title: t.label, body: t.body(v) };
+}
 function storeUrl(slug) { return "store.html?s=" + encodeURIComponent(slug); }
 function storeBannerKey(id) { return "store-banner:" + id; }
 function activeStores() {
@@ -414,6 +689,57 @@ function subscribeToStore(sellerId, email) {
   all[sellerId] = list;
   dbSet(DB.storeSubs, all);
   return true;
+}
+
+// ---------------------------------------------------------------------
+// Support tickets: chat assistant ka "Talk to support" → Super Admin reply karta hai,
+// reply customer ko wapas chat me dikhta hai.
+// ticket = { id, customerId, guestId, name, email, orderId, subject, status: "open" | "closed",
+//   messages: [{ from: "customer" | "admin", text, at }], unreadCustomer, unreadAdmin, createdAt, updatedAt }
+// ---------------------------------------------------------------------
+const TICKET_MAX = 1000; // ek message ki max length
+function getTickets() { return dbGet(DB.tickets, []); }
+function saveTickets(list) { return dbSet(DB.tickets, list.slice(0, 500)); }
+function chatGuestId() {
+  let g = dbGet(DB.chatGuest, null);
+  if (!g) { g = uid("G"); dbSet(DB.chatGuest, g); }
+  return g;
+}
+// Is browser ke user ki requests: login ho to uske account ki + is browser se bina login wali
+function myTickets() {
+  const c = currentCustomer();
+  const g = dbGet(DB.chatGuest, null);
+  return getTickets().filter((t) => (c && t.customerId === c.id) || (!t.customerId && g && t.guestId === g));
+}
+function createTicket({ name, email, text, orderId = "" }) {
+  const c = currentCustomer();
+  const now = Date.now();
+  const t = {
+    id: "TK" + now.toString().slice(-6) + Math.floor(Math.random() * 90 + 10),
+    customerId: c ? c.id : null, guestId: c ? null : chatGuestId(),
+    name: c ? c.name : String(name || "").trim(), email: c ? c.email : String(email || "").trim().toLowerCase(),
+    orderId: String(orderId || "").toUpperCase(), subject: String(text).slice(0, 80), status: "open",
+    messages: [{ from: "customer", text: String(text).slice(0, TICKET_MAX), at: now }],
+    unreadCustomer: 0, unreadAdmin: 1, createdAt: now, updatedAt: now,
+  };
+  const list = getTickets();
+  list.unshift(t);
+  return saveTickets(list) ? t : null;
+}
+function updateTicket(id, fn) {
+  const list = getTickets();
+  const t = list.find((x) => x.id === id);
+  if (!t) return null;
+  fn(t);
+  t.updatedAt = Date.now();
+  return saveTickets(list) ? t : null;
+}
+function ticketReply(id, from, text) {
+  return updateTicket(id, (t) => {
+    t.messages.push({ from, text: String(text).slice(0, TICKET_MAX), at: Date.now() });
+    if (from === "admin") t.unreadCustomer = (t.unreadCustomer || 0) + 1;
+    else { t.unreadAdmin = (t.unreadAdmin || 0) + 1; t.status = "open"; }
+  });
 }
 
 // ---------------------------------------------------------------------

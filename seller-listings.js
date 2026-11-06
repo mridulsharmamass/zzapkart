@@ -260,7 +260,7 @@ function newListingDraft(verticalId) {
     packerSame: !d.has || !d.packer.name || JSON.stringify(d.packer) === JSON.stringify(d.manufacturer),
     importerSame: !d.has || !d.importer.name || JSON.stringify(d.importer) === JSON.stringify(d.manufacturer),
     pkg: { l: "", b: "", h: "", w: "" }, sla: "2", fulfilment: "seller", listingStatus: "active",
-    ean: "", videoUrl: "", images: [], createdAt: Date.now(),
+    ean: "", video: null, images: [], createdAt: Date.now(),
   };
 }
 
@@ -283,13 +283,23 @@ function viewAddListing() {
       data.pkg = data.pkg || { l: "", b: "", h: "", w: "" };
       ["manufacturer", "packer", "importer"].forEach((k) => (data[k] = data[k] || { name: "", address: "", pincode: "" }));
       data.images = null;
-      LF = { mode: "edit", data, saveDefaults: false, errors: [], warnings: [] };
+      data.video = cleanVideoMeta(L.video);
+      delete data.videoUrl;
+      LF = { mode: "edit", data, saveDefaults: false, errors: [], warnings: [], videoLoading: !!(data.video && data.video.kind === "file") };
       MediaDB.get(id).then((imgs) => {
         if (!LF || LF.data.id !== id) return;
         LF.data.images = imgs && imgs.length ? imgs
           : safeImg(L.image) ? [{ id: uid("IMG"), full: L.image, thumb: L.image, w: 0, h: 0, whiteBg: null }] : [];
         if (document.getElementById("lf-root")) { renderSection("images"); updateSide(); }
       });
+      if (LF.videoLoading) {
+        MediaDB.get(videoKey(id)).then((rec) => {
+          if (!LF || LF.data.id !== id || !LF.videoLoading) return;
+          LF.videoLoading = false;
+          LF.data.video = rec && rec.blob instanceof Blob ? { ...rec, kind: "file" } : null;
+          if (document.getElementById("lf-root")) renderSection("images");
+        });
+      }
     }
     if (!LF.data.vertical) return renderPicker(true);
     return renderListingForm();
@@ -601,7 +611,8 @@ function renderSection(id) {
           </div>
           <small class="err" data-err="images.${i}"></small>
         </div>`;
-      }).join("")}</div>`;
+      }).join("")}</div>
+      ${videoBlockHtml()}`;
   } else if (id === "shipping") {
     const pkg = d.pkg || {};
     const volKg = pkg.l && pkg.b && pkg.h ? (pkg.l * pkg.b * pkg.h) / 5000 : 0;
@@ -646,11 +657,118 @@ function renderSection(id) {
       </div>
       <div class="form-grid">
         ${fInput("ean", "EAN / UPC (barcode)", { max: 14, hint: "Good-to-have" })}
-        ${fInput("videoUrl", "Video URL", { hint: "Good-to-have (YouTube / product video)" })}
-      </div>`;
+      </div>
+      <p class="muted small">🎬 Product video ab <a href="#" data-goto-sec="images" class="link">Images</a> section me add hota hai.</p>`;
   }
   el.innerHTML = html;
+  if (id === "images") attachVideoSrc();
   applyErrors();
+}
+
+// ---------------------------------------------------------------------
+// Product video (Images section ke andar): file upload ya YouTube link
+// ---------------------------------------------------------------------
+function videoBlockHtml() {
+  const v = LF.data.video;
+  const P = PRODUCT_VIDEO;
+  const pick = (label) => `<input type="file" accept="video/mp4,video/webm,video/quicktime" data-act="vid-upload" aria-label="${label}" />`;
+  let body;
+  if (LF.videoLoading) body = `<p class="muted">Video load ho raha hai…</p>`;
+  else if (LF.videoBusy) body = `<p class="vid-busy">⏳ Video check ho raha hai (length, quality, preview)…</p>`;
+  else if (v && v.kind === "file") {
+    const good = Math.min(v.w, v.h) >= P.goodSide;
+    body = `
+    <div class="vid-card">
+      <video controls playsinline preload="metadata" ${safeImg(v.poster) ? `poster="${safeImg(v.poster)}"` : ""} data-vid-src="1" aria-label="Product video preview"></video>
+      <div class="vid-meta">
+        <strong>${esc(v.name || "Product video")}</strong>
+        <span class="muted small">${fmtDuration(v.duration)} min · ${v.w}×${v.h} · ${(v.size / 1048576).toFixed(1)} MB</span>
+        <span class="small ${good ? "green" : "text-warn"}">${good ? "✓ Quality achhi hai" : "Quality thodi kam hai — 720p / 1080p behtar"}</span>
+        <div class="row-actions">
+          <label class="btn btn-sm btn-outline vid-replace">Replace${pick("Video badlo")}</label>
+          <button type="button" class="btn btn-sm btn-danger" data-act="vid-del">Remove</button>
+        </div>
+      </div>
+    </div>`;
+  } else if (v && v.kind === "yt") {
+    body = `
+    <div class="vid-card">
+      <div class="vid-yt"><iframe src="${ytEmbedUrl(v.ytId)}" title="YouTube video preview" loading="lazy" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="vid-meta">
+        <strong>YouTube video</strong>
+        <span class="muted small">youtu.be/${esc(v.ytId)}</span>
+        <div class="row-actions"><button type="button" class="btn btn-sm btn-danger" data-act="vid-del">Remove</button></div>
+      </div>
+    </div>`;
+  } else {
+    body = `
+    <label class="dropzone vid-drop">
+      ${pick("Product video chunein")}
+      <span>🎬 Video chunein ya yahan drop karein</span><small class="muted">MP4 / WebM / MOV · ${P.maxMB} MB tak · ${P.minSec} sec – ${P.maxSec / 60} min</small>
+    </label>
+    <div class="vid-or"><span>ya YouTube link lagao</span></div>
+    <div class="vid-yt-row">
+      <input type="url" id="vid-yt-input" placeholder="https://youtu.be/…  ya  youtube.com/watch?v=…" aria-label="YouTube video link" autocomplete="off" />
+      <button type="button" class="btn btn-sm" data-act="vid-yt">Add link</button>
+    </div>`;
+  }
+  return `
+    <div class="vid-box" id="vid-box">
+      <h3 class="sub-h">🎬 Product video <span class="muted small">(optional — video wale products par buyers ka bharosa zyada hota hai)</span></h3>
+      <ul class="rules">
+        <li>${P.minSec} second se ${P.maxSec / 60} minute tak · kam se kam ${P.minSide}p (720p / 1080p best) · ${P.maxMB} MB tak</li>
+        <li>Sirf yahi product dikhao — 360° view, fabric / fit close-up, use karte hue</li>
+        <li>Phone number, website, doosre platform ka logo / watermark nahi (QC reject hoga)</li>
+      </ul>
+      ${body}
+      <small class="err" id="vid-err" role="alert"></small>
+    </div>`;
+}
+function attachVideoSrc() {
+  const el = document.querySelector("#lf-root [data-vid-src]");
+  const v = LF && LF.data.video;
+  if (!el || !v || !(v.blob instanceof Blob)) return;
+  if (LF.vidBlob !== v.blob) {
+    if (LF.vidUrl) URL.revokeObjectURL(LF.vidUrl);
+    LF.vidUrl = URL.createObjectURL(v.blob);
+    LF.vidBlob = v.blob;
+  }
+  el.src = LF.vidUrl;
+}
+function videoError(msg) {
+  const el = document.getElementById("vid-err");
+  if (el) el.textContent = msg || "";
+}
+async function videoUpload(file) {
+  if (!file) return;
+  LF.videoBusy = true;
+  renderSection("images");
+  let err = "";
+  try {
+    const r = await processProductVideo(file);
+    LF.data.video = r;
+    LF.videoDirty = true;
+    LF.videoLoading = false;
+    showToast(r.lowRes ? "Video add ho gaya ✓ · 720p+ ho to aur achha" : "Video add ho gaya ✓");
+  } catch (e) {
+    err = e.message;
+    showToast(e.message);
+  }
+  LF.videoBusy = false;
+  renderSection("images");
+  videoError(err);
+  updateSide();
+}
+function videoAddYoutube() {
+  const inp = document.getElementById("vid-yt-input");
+  const id = ytIdFrom(inp ? inp.value : "");
+  if (!id) { videoError("Sahi YouTube link daalein — jaise https://youtu.be/abc123XYZ_0 ya youtube.com/watch?v=…"); inp && inp.focus(); return; }
+  LF.data.video = { kind: "yt", ytId: id };
+  LF.videoDirty = true;
+  LF.videoLoading = false;
+  renderSection("images");
+  updateSide();
+  showToast("YouTube video add ho gaya ✓");
 }
 
 function discLabel() {
@@ -797,6 +915,11 @@ function wireForm() {
       renderSection("images");
       updateSide();
     }
+    if (act === "vid-upload") {
+      const f = t.files && t.files[0];
+      t.value = "";
+      videoUpload(f);
+    }
     if (act === "packer-same" || act === "importer-same") {
       const k = act === "packer-same" ? "packerSame" : "importerSame";
       d[k] = t.checked;
@@ -814,11 +937,51 @@ function wireForm() {
     if (act === "lstatus") { d.listingStatus = t.value; renderSection("status"); }
   });
 
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.id === "vid-yt-input") { e.preventDefault(); videoAddYoutube(); }
+  });
+  // Images / video drag & drop
+  root.addEventListener("dragover", (e) => {
+    const z = e.target.closest(".dropzone");
+    if (z && !z.classList.contains("disabled")) { e.preventDefault(); z.classList.add("drag"); }
+  });
+  root.addEventListener("dragleave", (e) => { const z = e.target.closest(".dropzone"); if (z) z.classList.remove("drag"); });
+  root.addEventListener("drop", async (e) => {
+    const z = e.target.closest(".dropzone");
+    if (!z) return;
+    e.preventDefault();
+    z.classList.remove("drag");
+    const inp = z.querySelector("input[type=file]");
+    const files = [...(e.dataTransfer ? e.dataTransfer.files : [])];
+    if (!inp || inp.disabled || !files.length) return;
+    if (inp.dataset.act === "vid-upload") return videoUpload(files[0]);
+    if (inp.dataset.act === "img-upload") {
+      const d = LF.data;
+      for (const f of files) {
+        if (d.images.length >= 8) { showToast("Max 8 images"); break; }
+        try { d.images.push(await processProductImage(f)); } catch (err) { showToast(err.message); }
+      }
+      renderSection("images");
+      updateSide();
+    }
+  });
+
   root.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-goto-sec]");
+    if (go) { e.preventDefault(); document.getElementById("sec-" + go.dataset.gotoSec)?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
     const b = e.target.closest("[data-act]");
     if (!b || b.tagName === "INPUT") return;
     const d = LF.data;
     const act = b.dataset.act;
+    if (act === "vid-del") {
+      d.video = null;
+      LF.videoDirty = true;
+      LF.videoLoading = false;
+      renderSection("images");
+      updateSide();
+      showToast("Video hata diya");
+    }
+    if (act === "vid-yt") videoAddYoutube();
     if (act === "hsn-use") { setHsn(b.dataset.code); showToast(`HSN ${b.dataset.code} chuna ✓`); }
     if (act === "size") {
       const size = b.dataset.size;
@@ -889,6 +1052,17 @@ async function persistListing(status) {
   });
   if (status === "qc_pending") { rec.submittedAt = Date.now(); rec.qcReasons = []; }
   rec.legacy = false;
+  // Video: listing me sirf chhota sa info, asli file IndexedDB me
+  delete rec.videoUrl;
+  rec.video = cleanVideoMeta(d.video);
+  if (LF.videoDirty) {
+    const v = d.video;
+    if (v && v.kind === "file" && v.blob instanceof Blob) {
+      const ok = await MediaDB.put(videoKey(rec.id), { blob: v.blob, type: v.type, name: v.name, size: v.size, duration: v.duration, w: v.w, h: v.h, poster: v.poster });
+      if (!ok) { showToast("Video save nahi ho paya (browser storage bhar gaya) — chhota video try karein"); rec.video = null; }
+    } else await MediaDB.del(videoKey(rec.id));
+    LF.videoDirty = false;
+  }
   await MediaDB.put(rec.id, d.images.map((im) => ({ id: im.id, full: im.full, thumb: im.thumb, w: im.w, h: im.h, whiteBg: im.whiteBg })));
   const saved = saveListing(rec);
   if (!saved) return null;

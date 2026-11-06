@@ -96,6 +96,113 @@ async function processProductImage(file) {
 }
 
 // =====================================================================
+// Product video: MP4 / WebM / MOV · 50 MB tak · 5 sec – 2 min · kam se kam 360p
+// File waisi hi IndexedDB me (key "video:<listingId>") + ek poster frame (JPEG)
+// =====================================================================
+const PRODUCT_VIDEO = { maxMB: 50, minSec: 5, maxSec: 120, minSide: 360, goodSide: 720 };
+
+function videoEvent(v, ok, ms, bad) {
+  return new Promise((resolve, reject) => {
+    const done = (fn, x) => { clearTimeout(timer); v.removeEventListener(ok, onOk); v.removeEventListener("error", onErr); fn(x); };
+    const onOk = () => done(resolve);
+    const onErr = () => done(reject, new Error(bad));
+    const timer = setTimeout(() => done(reject, new Error(bad)), ms);
+    v.addEventListener(ok, onOk);
+    v.addEventListener("error", onErr);
+  });
+}
+
+async function processProductVideo(file) {
+  const P = PRODUCT_VIDEO;
+  if (!file || !/^video\/(mp4|webm|quicktime)$/.test(file.type)) throw new Error("Sirf MP4, WebM ya MOV video upload karein");
+  if (file.size > P.maxMB * 1024 * 1024) throw new Error(`Video ${P.maxMB} MB se chhota hona chahiye (ye ${(file.size / 1048576).toFixed(1)} MB hai)`);
+  if (file.size < 1024) throw new Error("Ye video file khaali ya kharab hai — doosri file chunein");
+  const url = URL.createObjectURL(file);
+  const v = document.createElement("video");
+  v.muted = true;
+  v.playsInline = true;
+  v.preload = "auto";
+  try {
+    const unplayable = "Ye video browser me chal nahi pa raha — MP4 (H.264) format me save karke upload karein";
+    const meta = videoEvent(v, "loadedmetadata", 20000, unplayable);
+    v.src = url;
+    await meta;
+    let duration = v.duration;
+    if (!Number.isFinite(duration)) {
+      // Kuch WebM files (screen / phone recorder) me length header me nahi hoti — end tak seek karke pata karo
+      const known = new Promise((resolve) => {
+        const t = setTimeout(() => resolve(NaN), 8000);
+        v.addEventListener("durationchange", function onDc() {
+          if (Number.isFinite(v.duration)) { clearTimeout(t); v.removeEventListener("durationchange", onDc); resolve(v.duration); }
+        });
+      });
+      v.currentTime = 1e7;
+      duration = await known;
+    }
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error("Video ki length pata nahi chal payi — doosri file try karein");
+    if (duration < P.minSec) throw new Error(`Video kam se kam ${P.minSec} second ka ho (ye ${duration.toFixed(1)} sec hai)`);
+    if (duration > P.maxSec + 0.5) throw new Error(`Video ${P.maxSec / 60} minute tak ka ho (ye ${fmtDuration(duration)} hai) — chhota karke upload karein`);
+    const w = v.videoWidth, h = v.videoHeight;
+    if (!w || !h) throw new Error("Is file me video nahi mila (sirf audio?)");
+    if (Math.min(w, h) < P.minSide) throw new Error(`Video ki quality kam hai (${w}×${h}). Kam se kam ${P.minSide}p, best 720p / 1080p.`);
+    // Poster: ~1 second wala frame (shuru ka black frame nahi)
+    const seek = videoEvent(v, "seeked", 8000, "Video ka preview frame nahi ban paya");
+    v.currentTime = Math.min(1, duration / 3);
+    await seek;
+    const scale = Math.min(1, 640 / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * scale);
+    c.height = Math.round(h * scale);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    return {
+      kind: "file", id: uid("VID"), blob: file, type: file.type, name: String(file.name || "video").slice(0, 80), size: file.size,
+      duration: Math.round(duration * 10) / 10, w, h, poster: c.toDataURL("image/jpeg", 0.8), lowRes: Math.min(w, h) < P.goodSide,
+    };
+  } finally {
+    v.removeAttribute("src");
+    v.load();
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Product page / store: video IndexedDB se nikaal ke play karne layak URL
+async function loadProductVideo(listingId) {
+  const rec = await MediaDB.get(videoKey(listingId));
+  if (!rec || !(rec.blob instanceof Blob)) return null;
+  return { url: URL.createObjectURL(rec.blob), poster: safeImg(rec.poster), duration: rec.duration, w: rec.w, h: rec.h };
+}
+
+// Product gallery (product page + Brand Store): images + video thumbnail (▶).
+// Video doosre number par — jaise bade marketplaces me.
+async function mountProductGallery(p, main, thumbs) {
+  const [imgs, vid] = await Promise.all([
+    p.imageCount > 0 ? MediaDB.get(p.id) : null,
+    p.video && p.video.kind === "file" ? loadProductVideo(p.id) : null,
+  ]);
+  if (!main.isConnected) { if (vid) URL.revokeObjectURL(vid.url); return; }
+  const items = (imgs || []).map((im) => ({ t: "img", full: safeImg(im.full), thumb: safeImg(im.thumb || im.full) })).filter((x) => x.full);
+  const at = Math.min(1, items.length);
+  if (p.video && p.video.kind === "yt") items.splice(at, 0, { t: "yt", id: p.video.ytId, thumb: ytThumbUrl(p.video.ytId) });
+  else if (vid) items.splice(at, 0, { t: "file", url: vid.url, thumb: vid.poster });
+  if (!items.length) return;
+  const name = esc(p.name);
+  const show = (i) => {
+    const it = items[i];
+    main.classList.toggle("is-video", it.t !== "img");
+    main.innerHTML = it.t === "img" ? `<img src="${it.full}" alt="${name}" />`
+      : it.t === "yt" ? `<iframe src="${ytEmbedUrl(it.id)}&autoplay=1&mute=1" title="${name} — video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
+      : `<video src="${it.url}" ${it.thumb ? `poster="${it.thumb}"` : ""} controls playsinline autoplay muted loop aria-label="${name} — video"></video>`;
+    thumbs.querySelectorAll("button[data-gi]").forEach((b, j) => { b.classList.toggle("active", i === j); b.setAttribute("aria-pressed", String(i === j)); });
+  };
+  thumbs.innerHTML = items.map((it, i) => `<button type="button" data-gi="${i}" class="${it.t === "img" ? "" : "g-vid"}" aria-label="${it.t === "img" ? `Image ${i + 1}` : "Product video chalao"}">${it.thumb ? `<img src="${esc(it.thumb)}" alt="" />` : ""}${it.t === "img" ? "" : `<span class="g-play" aria-hidden="true">▶</span>`}</button>`).join("");
+  thumbs.addEventListener("click", (e) => { const b = e.target.closest("button[data-gi]"); if (b) show(Number(b.dataset.gi)); });
+  show(0);
+}
+
+// =====================================================================
 // Brand Store: logo (square) + banner (3:1) processing
 // =====================================================================
 const STORE_LOGO = { min: 200, out: 256 };
